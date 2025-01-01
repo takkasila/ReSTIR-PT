@@ -375,7 +375,7 @@ ReSTIRPTPass::ReSTIRPTPass(const Dictionary& dict)
 
     mpPixelStats = PixelStats::create();
     mpPixelDebug = PixelDebug::create(1000);
-
+    mpPixelDebug->setEnabled(true);
     mpReadbackFence = GpuFence::create();
 }
 
@@ -1803,7 +1803,7 @@ Program::DefineList ReSTIRPTPass::StaticParams::getDefines(const ReSTIRPTPass& o
 
     // Path tracer configuration.
     defines.add("SAMPLES_PER_PIXEL", std::to_string(samplesPerPixel)); // 0 indicates a variable sample count
-    defines.add("CANDIDATE_SAMPLES", std::to_string(candidateSamples)); // 0 indicates a variable sample count    
+    defines.add("CANDIDATE_SAMPLES", std::to_string(candidateSamples)); // 0 indicates a variable sample count
     defines.add("MAX_SURFACE_BOUNCES", std::to_string(maxSurfaceBounces));
     defines.add("MAX_DIFFUSE_BOUNCES", std::to_string(maxDiffuseBounces));
     defines.add("MAX_SPECULAR_BOUNCES", std::to_string(maxSpecularBounces));

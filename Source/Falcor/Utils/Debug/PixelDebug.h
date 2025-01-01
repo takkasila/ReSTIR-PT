@@ -71,6 +71,8 @@ namespace Falcor
         void renderUI(Gui::Widgets& widget);
         bool onMouseEvent(const MouseEvent& mouseEvent);
 
+        void setEnabled(bool enabled) { mEnabled = enabled; }
+
     protected:
         PixelDebug(uint32_t logSize) : mLogSize(logSize) {}
         bool copyDataToCPU();

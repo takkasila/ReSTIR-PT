@@ -24,16 +24,27 @@ void tracePath(uint pathID, inout PathReservoir giReservoir, uint sampleIdx)
     printSetPixel(path.getPixel());
     logSetPixel(path.getPixel());
 
+    print("pathID: ", pathID);
+
     while (path.isActive())
     {
+        print("vertex:", path.origin);
+
         if (path.isHit())
         {
             gPathTracer.handleHit(path);
-            if (path.isTerminated()) break;
+            if (path.isTerminated())
+            {
+                // Check if the vertex is a reconnection vertex
+                print("terminated", 0);
+
+                break;
+            }
             gPathTracer.nextVertex(path);
         }
         else
         {
+            print("miss", 0);
             gPathTracer.handleMiss(path);
         }
     }

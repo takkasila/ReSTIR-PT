@@ -114,7 +114,7 @@ namespace Falcor
     {
         assert(mRunning);
 
-        mHashToString.clear();
+        // mHashToString.clear();
 
         if (mEnabled)
         {
@@ -153,7 +153,7 @@ namespace Falcor
             "Use assert(condition) or assert(condition, msg) in the shader to test a condition.", true);
         if (mEnabled)
         {
-            widget.var("Selected pixel", mSelectedPixel);
+            //widget.var("Selected pixel", mSelectedPixel);
         }
 
         // Fetch stats and show log if available.
