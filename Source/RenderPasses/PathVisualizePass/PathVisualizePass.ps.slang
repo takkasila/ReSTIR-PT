@@ -25,44 +25,19 @@
  # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  **************************************************************************/
-#pragma once
-#include "Falcor.h"
+// import RenderPasses.ToneMapper.ToneMapperParams;
 
-using namespace Falcor;
+SamplerState gColorSampler : register(s0);
 
-class PathVisualizePass : public RenderPass
+Texture2D gColorTex;
+Texture2D gDepthTex;
+
+float4 main(float2 texC : TEXCOORD) : SV_TARGET0
 {
-public:
-    using SharedPtr = std::shared_ptr<PathVisualizePass>;
+    float4 color = gColorTex.Sample(gColorSampler, texC);
+    float3 finalColor = color.rgb;
+    finalColor.g = 0;
+    finalColor.b = 0;
 
-    /** Create a new render pass object.
-        \param[in] pRenderContext The render context.
-        \param[in] dict Dictionary of serialized parameters.
-        \return A new object, or an exception is thrown if creation failed.
-    */
-    static SharedPtr create(RenderContext* pRenderContext = nullptr, const Dictionary& dict = {});
-
-    virtual std::string getDesc() override;
-    virtual Dictionary getScriptingDictionary() override;
-    virtual RenderPassReflection reflect(const CompileData& compileData) override;
-    virtual void compile(RenderContext* pRenderContext, const CompileData& compileData) override {}
-    virtual void execute(RenderContext* pRenderContext, const RenderData& renderData) override;
-    virtual void renderUI(Gui::Widgets& widget) override;
-    virtual void setScene(RenderContext* pRenderContext, const Scene::SharedPtr& pScene) override {}
-    virtual bool onMouseEvent(const MouseEvent& mouseEvent) override { return false; }
-    virtual bool onKeyEvent(const KeyboardEvent& keyEvent) override { return false; }
-
-private:
-    PathVisualizePass(const Dictionary& dict);
-
-    void createPathVisualizeShaderPass();
-
-    uint2 mFixedOutputSize = { 512, 512 };                                                  ///< Output size in pixels when 'Fixed' size is selected.
-
-    FullScreenPass::SharedPtr mpPathVisualizeShaderPass;
-    Sampler::SharedPtr mpPointSampler;
-
-    bool mRecreatePathVisualizeShaderPass = true;
-    bool mUpdatePathVisualizeShaderPass = true;
-
-};
+    return float4(finalColor, color.a);
+}

@@ -33,6 +33,8 @@ namespace
     const char kDesc[] = "Visualize a path (vertices) on top of an input image with a depth buffer.";
     const char kInputImg[] = "inputImg";
     const char kOutputImg[] = "outputImg";
+
+    const char kPathVisualizeShaderPassFile[] = "RenderPasses/PathVisualizePass/PathVisualizePass.ps.slang";
 }
 
 // Don't remove this. it's required for hot-reload to function properly
@@ -54,9 +56,21 @@ PathVisualizePass::SharedPtr PathVisualizePass::create(RenderContext* pRenderCon
 
 PathVisualizePass::PathVisualizePass(const Dictionary& dict)
 {
-    // Future handle of params from dict.
-    // For now, do nothing.
+    // Future handle of dict
+    createPathVisualizeShaderPass();
+    
+
+    // Create sampler(s)
+    Sampler::Desc samplerDesc;
+    samplerDesc.setFilterMode(Sampler::Filter::Point, Sampler::Filter::Point, Sampler::Filter::Point);
+    mpPointSampler = Sampler::create(samplerDesc);
+
     return;
+}
+
+void PathVisualizePass::createPathVisualizeShaderPass()
+{
+    mpPathVisualizeShaderPass = FullScreenPass::create(kPathVisualizeShaderPassFile);
 }
 
 
@@ -99,11 +113,33 @@ void PathVisualizePass::execute(RenderContext* pRenderContext, const RenderData&
     auto pOutputImg = renderData[kOutputImg]->asTexture();
     assert(pInputImg && pOutputImg);
 
-    // Todo:
+    Fbo::SharedPtr pFbo = Fbo::create();
+    pFbo->attachColorTarget(pOutputImg, 0);
+
+    if (mRecreatePathVisualizeShaderPass)
+    {
+        createPathVisualizeShaderPass();
+        mUpdatePathVisualizeShaderPass = true;
+        mUpdatePathVisualizeShaderPass = false;
+    }
+
+    if (mUpdatePathVisualizeShaderPass)
+    {
+        // Update params here in future
+
+        mUpdatePathVisualizeShaderPass = false;
+    }
+
+    mpPathVisualizeShaderPass["gColorTex"] = pInputImg;
+    //mpPathVisualizeShaderPass["gDepthTex"] = ...;
+    mpPathVisualizeShaderPass["gColorSampler"] = mpPointSampler;
+
+    // Run the shader pass
+    mpPathVisualizeShaderPass->execute(pRenderContext, pFbo);
 
 }
 
 void PathVisualizePass::renderUI(Gui::Widgets& widget)
 {
-    widget.text("It's a me!");
+    widget.text("It's a me, Mario!");
 }

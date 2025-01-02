@@ -6,4 +6,7 @@
   <ItemGroup>
     <ClInclude Include="PathVisualizePass.h" />
   </ItemGroup>
+  <ItemGroup>
+    <ShaderSource Include="PathVisualizePass.ps.slang" />
+  </ItemGroup>
 </Project>
