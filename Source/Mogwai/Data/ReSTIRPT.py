@@ -11,6 +11,7 @@ def render_graph_ReSTIRPT():
     loadRenderPassLibrary("ScreenSpaceReSTIRPass.dll")
     loadRenderPassLibrary("ErrorMeasurePass.dll")
     loadRenderPassLibrary("ImageLoader.dll")
+    loadRenderPassLibrary('PathVisualizePass.dll')
 
     ReSTIRGIPlusPass = createPass("ReSTIRPTPass", {'samplesPerPixel': 1})
     g.addPass(ReSTIRGIPlusPass, "ReSTIRPTPass")
@@ -20,21 +21,26 @@ def render_graph_ReSTIRPT():
     g.addPass(AccumulatePass, "AccumulatePass")
     ToneMapper = createPass("ToneMapper", {'autoExposure': False, 'exposureCompensation': 0.0, 'operator': ToneMapOp.Linear})
     g.addPass(ToneMapper, "ToneMapper")
-    ScreenSpaceReSTIRPass = createPass("ScreenSpaceReSTIRPass")    
+    ScreenSpaceReSTIRPass = createPass("ScreenSpaceReSTIRPass")
     g.addPass(ScreenSpaceReSTIRPass, "ScreenSpaceReSTIRPass")
-    
-    g.addEdge("VBufferRT.vbuffer", "ReSTIRPTPass.vbuffer")   
-    g.addEdge("VBufferRT.mvec", "ReSTIRPTPass.motionVectors")    
-    
-    g.addEdge("VBufferRT.vbuffer", "ScreenSpaceReSTIRPass.vbuffer")   
-    g.addEdge("VBufferRT.mvec", "ScreenSpaceReSTIRPass.motionVectors")    
-    g.addEdge("ScreenSpaceReSTIRPass.color", "ReSTIRPTPass.directLighting")    
-    
+    PathVisualizePass = createPass("PathVisualizePass")
+    g.addPass(PathVisualizePass, "PathVisualizePass")
+
+    g.addEdge("VBufferRT.vbuffer", "ReSTIRPTPass.vbuffer")
+    g.addEdge("VBufferRT.mvec", "ReSTIRPTPass.motionVectors")
+
+    g.addEdge("VBufferRT.vbuffer", "ScreenSpaceReSTIRPass.vbuffer")
+    g.addEdge("VBufferRT.mvec", "ScreenSpaceReSTIRPass.motionVectors")
+    g.addEdge("ScreenSpaceReSTIRPass.color", "ReSTIRPTPass.directLighting")
+
     g.addEdge("ReSTIRPTPass.color", "AccumulatePass.input")
     g.addEdge("AccumulatePass.output", "ToneMapper.src")
-    
+
+    g.addEdge("ToneMapper.dst", "PathVisualizePass.inputImg")
+
     g.markOutput("ToneMapper.dst")
-    g.markOutput("AccumulatePass.output")  
+    g.markOutput("AccumulatePass.output")
+    g.markOutput("PathVisualizePass.outputImg")
 
     return g
 
