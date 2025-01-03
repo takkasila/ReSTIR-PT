@@ -25,19 +25,38 @@
  # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  **************************************************************************/
-// import RenderPasses.ToneMapper.ToneMapperParams;
+
+import Utils.Debug.PixelDebug;
+import Scene.Camera.Camera;
 
 SamplerState gColorSampler : register(s0);
+
+cbuffer PerFrameCB : register(b0)
+{
+    uint2 gResolution;
+    Camera gCamera;
+    uint2 gSelectedPixel;
+}
 
 Texture2D gColorTex;
 Texture2D gDepthTex;
 
+// Todo: send in
+//  - depth buffer
+//  - path verticies
+
 float4 main(float2 texC : TEXCOORD) : SV_TARGET0
 {
+    // Todo: figure out why printSetPixel didn't work
+    // printSetPixel(gSelectedPixel);
+    // print("hello path viz", gSelectedPixel);
+    // print("gResolution", gResolution);
+    // print("Camera position", gCamera.getPosition());
+
     float4 color = gColorTex.Sample(gColorSampler, texC);
     float3 finalColor = color.rgb;
     finalColor.g = 0;
-    finalColor.b = 0;
+    finalColor.b = 1;
 
     return float4(finalColor, color.a);
 }

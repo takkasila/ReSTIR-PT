@@ -375,7 +375,7 @@ ReSTIRPTPass::ReSTIRPTPass(const Dictionary& dict)
 
     mpPixelStats = PixelStats::create();
     mpPixelDebug = PixelDebug::create(1000);
-    mpPixelDebug->setEnabled(true);
+    // mpPixelDebug->setEnabled(true);
     mpReadbackFence = GpuFence::create();
 }
 

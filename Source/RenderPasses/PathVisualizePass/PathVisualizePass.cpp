@@ -57,13 +57,18 @@ PathVisualizePass::SharedPtr PathVisualizePass::create(RenderContext* pRenderCon
 PathVisualizePass::PathVisualizePass(const Dictionary& dict)
 {
     // Future handle of dict
+
+    // Create shader passes
     createPathVisualizeShaderPass();
-    
 
     // Create sampler(s)
     Sampler::Desc samplerDesc;
     samplerDesc.setFilterMode(Sampler::Filter::Point, Sampler::Filter::Point, Sampler::Filter::Point);
     mpPointSampler = Sampler::create(samplerDesc);
+
+    // Debug
+    mpPixelDebug = PixelDebug::create(1000);
+    mpPixelDebug->setEnabled(true);
 
     return;
 }
@@ -106,8 +111,10 @@ RenderPassReflection PathVisualizePass::reflect(const CompileData& compileData)
 
 void PathVisualizePass::execute(RenderContext* pRenderContext, const RenderData& renderData)
 {
-    // renderData holds the requested resources
-    // auto& pTexture = renderData["src"]->asTexture();
+	if (!mpScene)
+	{
+		return;
+	}
 
     auto pInputImg = renderData[kInputImg]->asTexture();
     auto pOutputImg = renderData[kOutputImg]->asTexture();
@@ -119,27 +126,60 @@ void PathVisualizePass::execute(RenderContext* pRenderContext, const RenderData&
     if (mRecreatePathVisualizeShaderPass)
     {
         createPathVisualizeShaderPass();
-        mUpdatePathVisualizeShaderPass = true;
-        mUpdatePathVisualizeShaderPass = false;
+		mRecreatePathVisualizeShaderPass = false;
     }
 
-    if (mUpdatePathVisualizeShaderPass)
-    {
-        // Update params here in future
 
-        mUpdatePathVisualizeShaderPass = false;
-    }
+    // Camera param
+	const Camera::SharedPtr& pCamera = mpScene->getCamera();
+	pCamera->setShaderData(mpPathVisualizeShaderPass["PerFrameCB"]["gCamera"]);
+
+	// Image size
+	const uint2 resolution = renderData.getDefaultTextureDims();
+	mpPathVisualizeShaderPass["PerFrameCB"]["gResolution"] = resolution;
+
+	// Selected pixel
+	mpPathVisualizeShaderPass["PerFrameCB"]["gSelectedPixel"] = mSelectedCursorPosition;
+
+
+	//	Global params
 
     mpPathVisualizeShaderPass["gColorTex"] = pInputImg;
     //mpPathVisualizeShaderPass["gDepthTex"] = ...;
     mpPathVisualizeShaderPass["gColorSampler"] = mpPointSampler;
 
+
+    // Enable pixel debug
+    mpPixelDebug->beginFrame(pRenderContext, resolution);
+
+    mpPixelDebug->prepareProgram(mpPathVisualizeShaderPass->getProgram(), mpPathVisualizeShaderPass->getRootVar());
+
     // Run the shader pass
     mpPathVisualizeShaderPass->execute(pRenderContext, pFbo);
+
+
+    mpPixelDebug->endFrame(pRenderContext);
 
 }
 
 void PathVisualizePass::renderUI(Gui::Widgets& widget)
 {
-    widget.text("It's a me, Mario!");
+    widget.text("Path-visualization pass' parameters goes here.");
+
+    if (auto group = widget.group("Debugging", true))
+    {
+        mpPixelDebug->renderUI(group);
+    }
+}
+
+void PathVisualizePass::setScene(RenderContext* pRenderContext, const Scene::SharedPtr& pScene)
+{
+	mpScene = pScene;
+}
+
+bool PathVisualizePass::onMouseEvent(const MouseEvent& mouseEvent)
+{
+    mSelectedCursorPosition = uint2(mouseEvent.screenPos);
+
+	return mpPixelDebug->onMouseEvent(mouseEvent);
 }
