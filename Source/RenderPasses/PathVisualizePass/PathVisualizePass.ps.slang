@@ -45,6 +45,39 @@ Texture2D gDepthTex;
 //  - depth buffer
 //  - path verticies
 
+// https://iquilezles.org/articles/
+float sdCylinder(float3 p, float3 a, float3 b, float r)
+{
+    float3 ba = b - a;
+    float3 pa = p - a;
+    float baba = dot(ba, ba);
+    float paba = dot(pa, ba);
+    float x = length(pa * baba - ba * paba) - r * baba;
+    float y = abs(paba - baba * 0.5) - baba * 0.5;
+    float x2 = x * x;
+    float y2 = y * y * baba;
+
+    float d = (max(x, y) < 0.0) ? -min(x2, y2) : (((x > 0.0) ? x2 : 0.0) + ((y > 0.0) ? y2 : 0.0));
+
+    return sign(d) * sqrt(abs(d)) / baba;
+}
+
+float map(in float3 pos)
+{
+    // return sdCylinder(pos, float3(-0.2, -0.3, -0.1), float3(0.3, 0.3, 0.4), 0.2);
+    return sdCylinder(pos, float3(0, 0, 0), float3(0.2, 0.2, 0.2), 0.2);
+}
+
+float3 calcNormal(in float3 pos)
+{
+    float2 e = float2(1.0, -1.0) * 0.5773;
+    const float eps = 0.0005;
+    return normalize(e.xyy * map(pos + e.xyy * eps) +
+                     e.yyx * map(pos + e.yyx * eps) +
+                     e.yxy * map(pos + e.yxy * eps) +
+                     e.xxx * map(pos + e.xxx * eps));
+}
+
 float4 main(float2 texC : TEXCOORD) : SV_TARGET0
 {
     // Todo: figure out why printSetPixel didn't work
@@ -57,6 +90,35 @@ float4 main(float2 texC : TEXCOORD) : SV_TARGET0
     float3 finalColor = color.rgb;
     finalColor.g = 0;
     finalColor.b = 1;
+
+    // Compute view ray
+    uint2 pixelCoord = uint2(texC * gResolution);
+    const Ray viewRay = gCamera.computeRayPinhole(pixelCoord, gResolution);
+
+    // Raymarch
+    float t = 0.0f;
+    // float tMax = 10.0f;
+    for (int i = 0; i < 256; i++)
+    {
+        float3 pos = viewRay.origin + viewRay.tMin + viewRay.dir * t;
+        float h = map(pos);
+
+        if (h < 0.0001 || t > viewRay.tMax)
+            break;
+
+        t += h;
+    }
+
+    // Shading
+    if (t < viewRay.tMax)
+    {
+        float3 pos = viewRay.origin + viewRay.tMin + viewRay.dir * t;
+        float3 nor = calcNormal(pos);
+        float diffuse = clamp(dot(nor, float3(0.57703)), 0.0, 1.0);
+        float ambient = 0.5 + 0.5 * dot(nor, float3(0.0, 1.0, 0.0));
+        finalColor = float3(0.1, 0.1, 0.1) * ambient + float3(0.3, 0.3, 0.5) * diffuse;
+    }
+
 
     return float4(finalColor, color.a);
 }
