@@ -26,10 +26,12 @@
  # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  **************************************************************************/
 
+import Scene.Scene;
+import Scene.HitInfo;
 import Utils.Debug.PixelDebug;
 import Scene.Camera.Camera;
 
-SamplerState gColorSampler : register(s0);
+SamplerState gPointSampler : register(s0);
 
 cbuffer PerFrameCB : register(b0)
 {
@@ -38,14 +40,16 @@ cbuffer PerFrameCB : register(b0)
     uint2 gSelectedPixel;
 }
 
-Texture2D gColorTex;
+Texture2D gInputImgTex;
 Texture2D gDepthTex;
+Texture2D<PackedHitInfo> gVBuffer;
 
 // Todo: send in
 //  - depth buffer
 //  - path verticies
 
 // https://iquilezles.org/articles/
+// https://www.shadertoy.com/view/wdXGDr
 float sdCylinder(float3 p, float3 a, float3 b, float r)
 {
     float3 ba = b - a;
@@ -82,14 +86,15 @@ float4 main(float2 texC : TEXCOORD) : SV_TARGET0
 {
     // Todo: figure out why printSetPixel didn't work
     // printSetPixel(gSelectedPixel);
+    printSetPixel(uint2(959, 782));
     // print("hello path viz", gSelectedPixel);
     // print("gResolution", gResolution);
     // print("Camera position", gCamera.getPosition());
 
-    float4 color = gColorTex.Sample(gColorSampler, texC);
+    float4 color = gInputImgTex.Sample(gPointSampler, texC);
     float3 finalColor = color.rgb;
-    finalColor.g = 0;
-    finalColor.b = 1;
+    // finalColor.g = 0;
+    // finalColor.b = 1;
 
     // Compute view ray
     uint2 pixelCoord = uint2(texC * gResolution);
@@ -110,13 +115,30 @@ float4 main(float2 texC : TEXCOORD) : SV_TARGET0
     }
 
     // Shading
+    float depth = gDepthTex.Sample(gPointSampler, texC).r;
+    print("t", t);
+    print("depth", depth);
+
     if (t < viewRay.tMax)
     {
+        // Compare distance with scene
+        //  Assume triangle mesh
+        const HitInfo hit = HitInfo(gVBuffer[pixelCoord]);
+        const TriangleHit triangleHit = hit.getTriangleHit();
+        VertexData sceneVertex = gScene.getVertexData(triangleHit);
+
+        float distToSceneVert = distance(sceneVertex.posW, gCamera.getPosition());
+
         float3 pos = viewRay.origin + viewRay.tMin + viewRay.dir * t;
-        float3 nor = calcNormal(pos);
-        float diffuse = clamp(dot(nor, float3(0.57703)), 0.0, 1.0);
-        float ambient = 0.5 + 0.5 * dot(nor, float3(0.0, 1.0, 0.0));
-        finalColor = float3(0.1, 0.1, 0.1) * ambient + float3(0.3, 0.3, 0.5) * diffuse;
+        float distToT = distance(pos, gCamera.getPosition());
+
+        if (distToT < distToSceneVert)
+        {
+            float3 nor = calcNormal(pos);
+            float diffuse = clamp(dot(nor, float3(0.57703)), 0.0, 1.0);
+            float ambient = 0.5 + 0.5 * dot(nor, float3(0.0, 1.0, 0.0));
+            finalColor = float3(0.1, 0.1, 0.1) * ambient + float3(0.3, 0.3, 0.5) * diffuse;
+        }
     }
 
 

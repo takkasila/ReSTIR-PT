@@ -24,6 +24,7 @@ void tracePath(uint pathID, inout PathReservoir giReservoir, uint sampleIdx)
     printSetPixel(path.getPixel());
     logSetPixel(path.getPixel());
 
+    print("pixel", path.getPixel());
     print("pathID: ", pathID);
 
     while (path.isActive())

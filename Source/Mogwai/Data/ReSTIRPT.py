@@ -37,10 +37,14 @@ def render_graph_ReSTIRPT():
     g.addEdge("AccumulatePass.output", "ToneMapper.src")
 
     g.addEdge("ToneMapper.dst", "PathVisualizePass.inputImg")
+    g.addEdge("VBufferRT.depth", "PathVisualizePass.depth")
+    g.addEdge("VBufferRT.vbuffer", "PathVisualizePass.vbuffer")
+
 
     g.markOutput("PathVisualizePass.outputImg")
     g.markOutput("ToneMapper.dst")
     g.markOutput("AccumulatePass.output")
+
 
     return g
 

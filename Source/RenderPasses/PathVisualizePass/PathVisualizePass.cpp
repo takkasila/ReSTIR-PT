@@ -33,6 +33,9 @@ namespace
     const char kDesc[] = "Visualize a path (vertices) on top of an input image with a depth buffer.";
     const char kInputImg[] = "inputImg";
     const char kOutputImg[] = "outputImg";
+    const char kDepth[] = "depth";
+    const char kInputVBuffer[] = "vbuffer";
+
 
     const char kPathVisualizeShaderPassFile[] = "RenderPasses/PathVisualizePass/PathVisualizePass.ps.slang";
 }
@@ -59,7 +62,7 @@ PathVisualizePass::PathVisualizePass(const Dictionary& dict)
     // Future handle of dict
 
     // Create shader passes
-    createPathVisualizeShaderPass();
+    //createPathVisualizeShaderPass();
 
     // Create sampler(s)
     Sampler::Desc samplerDesc;
@@ -75,7 +78,10 @@ PathVisualizePass::PathVisualizePass(const Dictionary& dict)
 
 void PathVisualizePass::createPathVisualizeShaderPass()
 {
-    mpPathVisualizeShaderPass = FullScreenPass::create(kPathVisualizeShaderPassFile);
+    Program::DefineList defines;
+    defines.add(mpScene->getSceneDefines());
+
+    mpPathVisualizeShaderPass = FullScreenPass::create(kPathVisualizeShaderPassFile, defines);
 }
 
 
@@ -92,6 +98,10 @@ RenderPassReflection PathVisualizePass::reflect(const CompileData& compileData)
     RenderPassReflection reflector;
 
     reflector.addInput(kInputImg, "Input image");
+
+    reflector.addInput(kDepth, "Depth buffer");
+
+    reflector.addInput(kInputVBuffer, "Vertex buffer");
 
     reflector.addOutput(kOutputImg, "Output image");
 
@@ -117,8 +127,11 @@ void PathVisualizePass::execute(RenderContext* pRenderContext, const RenderData&
 	}
 
     auto pInputImg = renderData[kInputImg]->asTexture();
+    auto pDepth = renderData[kDepth]->asTexture();
     auto pOutputImg = renderData[kOutputImg]->asTexture();
-    assert(pInputImg && pOutputImg);
+    auto pVBuffer = renderData[kInputVBuffer]->asTexture();
+
+    assert(pInputImg && pDepth && pOutputImg && pVBuffer);
 
     Fbo::SharedPtr pFbo = Fbo::create();
     pFbo->attachColorTarget(pOutputImg, 0);
@@ -144,9 +157,10 @@ void PathVisualizePass::execute(RenderContext* pRenderContext, const RenderData&
 
 	//	Global params
 
-    mpPathVisualizeShaderPass["gColorTex"] = pInputImg;
-    //mpPathVisualizeShaderPass["gDepthTex"] = ...;
-    mpPathVisualizeShaderPass["gColorSampler"] = mpPointSampler;
+    mpPathVisualizeShaderPass["gInputImgTex"] = pInputImg;
+    mpPathVisualizeShaderPass["gDepthTex"] = pDepth;
+    mpPathVisualizeShaderPass["gPointSampler"] = mpPointSampler;
+    mpPathVisualizeShaderPass["gVBuffer"] = pVBuffer;
 
 
     // Enable pixel debug
