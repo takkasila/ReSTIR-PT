@@ -86,10 +86,11 @@ float4 main(float2 texC : TEXCOORD) : SV_TARGET0
 {
     // Todo: figure out why printSetPixel didn't work
     // printSetPixel(gSelectedPixel);
-    printSetPixel(uint2(959, 782));
+    // printSetPixel(uint2(959, 782));
     // print("hello path viz", gSelectedPixel);
     // print("gResolution", gResolution);
     // print("Camera position", gCamera.getPosition());
+    // print("scene light count", gScene.getLightCount());
 
     float4 color = gInputImgTex.Sample(gPointSampler, texC);
     float3 finalColor = color.rgb;
@@ -114,31 +115,45 @@ float4 main(float2 texC : TEXCOORD) : SV_TARGET0
         t += h;
     }
 
-    // Shading
-    float depth = gDepthTex.Sample(gPointSampler, texC).r;
-    print("t", t);
-    print("depth", depth);
-
     if (t < viewRay.tMax)
     {
-        // Compare distance with scene
-        //  Assume triangle mesh
-        const HitInfo hit = HitInfo(gVBuffer[pixelCoord]);
-        const TriangleHit triangleHit = hit.getTriangleHit();
-        VertexData sceneVertex = gScene.getVertexData(triangleHit);
-
-        float distToSceneVert = distance(sceneVertex.posW, gCamera.getPosition());
-
+        // Compute shading color
         float3 pos = viewRay.origin + viewRay.tMin + viewRay.dir * t;
-        float distToT = distance(pos, gCamera.getPosition());
+        float3 nor = calcNormal(pos);
+        float diffuse = clamp(dot(nor, float3(0.57703)), 0.0, 1.0);
+        float ambient = 0.5 + 0.5 * dot(nor, float3(0.0, 1.0, 0.0));
+        float3 shadeColor = float3(0.1, 0.1, 0.1) * ambient + float3(0.3, 0.3, 0.5) * diffuse;
 
-        if (distToT < distToSceneVert)
+        const HitInfo hit = HitInfo(gVBuffer[pixelCoord]);
+
+        if (hit.isValid())
         {
-            float3 nor = calcNormal(pos);
-            float diffuse = clamp(dot(nor, float3(0.57703)), 0.0, 1.0);
-            float ambient = 0.5 + 0.5 * dot(nor, float3(0.0, 1.0, 0.0));
-            finalColor = float3(0.1, 0.1, 0.1) * ambient + float3(0.3, 0.3, 0.5) * diffuse;
+            // Compare distace with scene depth
+            float distToT = distance(pos, gCamera.getPosition());
+            float distToSceneVert = viewRay.tMax + 1.0;
+
+            HitType hitType = hit.getType();
+
+            if (hitType == HitType::Triangle)
+            {
+                // Bug: using sceneVertex causes access violation error. Check if gVBuffer is handled correctly.
+
+                const TriangleHit triangleHit = hit.getTriangleHit();
+                VertexData sceneVertex = gScene.getVertexData(triangleHit);
+                // distToSceneVert = distance(sceneVertex.posW, gCamera.getPosition());
+            }
+
+            if (distToT < distToSceneVert)
+            {
+                finalColor = shadeColor;
+            }
         }
+        else
+        {
+            // Scene miss, no occlusion
+            finalColor = shadeColor;
+        }
+
     }
 
 
