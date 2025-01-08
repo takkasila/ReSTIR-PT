@@ -30,6 +30,7 @@ import Scene.Scene;
 import Scene.HitInfo;
 import Utils.Debug.PixelDebug;
 import Scene.Camera.Camera;
+#include "Utils/Math/MathConstants.slangh"
 
 SamplerState gPointSampler : register(s0);
 
@@ -38,14 +39,17 @@ cbuffer PerFrameCB : register(b0)
     uint2 gResolution;
     Camera gCamera;
     uint2 gSelectedPixel;
+    uint gPathLenght;
 }
 
 Texture2D gInputImgTex;
 Texture2D gDepthTex;
 Texture2D<PackedHitInfo> gVBuffer;
+Texture1D<float3> gPathVerticesTex;
+
+static const uint MAX_PATH_VERTICES = 100;
 
 // Todo: send in
-//  - depth buffer
 //  - path verticies
 
 // https://iquilezles.org/articles/
@@ -68,8 +72,30 @@ float sdCylinder(float3 p, float3 a, float3 b, float r)
 
 float map(in float3 pos)
 {
-    // return sdCylinder(pos, float3(-0.2, -0.3, -0.1), float3(0.3, 0.3, 0.4), 0.2);
-    return sdCylinder(pos, float3(0, 0, 0), float3(0.2, 0.2, 0.2), 0.2);
+    float tMin = FLT_MAX;
+    float t = FLT_MAX;
+    float radius = 0.005;
+    float3 currVert;
+    float3 nextVert;
+
+    for (int i = 0; i < MAX_PATH_VERTICES; i++)
+    {
+        if (i > gPathLenght - 1)
+        {
+            break;
+        }
+
+        // Retrieve current path's vertex and the next one
+        currVert = gPathVerticesTex[i];
+        nextVert = gPathVerticesTex[i+1];
+
+        t = sdCylinder(pos, currVert, nextVert, radius);
+
+        if (tMin >= t)
+            tMin = t;
+
+    }
+    return tMin;
 }
 
 float3 calcNormal(in float3 pos)
@@ -140,7 +166,7 @@ float4 main(float2 texC : TEXCOORD) : SV_TARGET0
 
                 const TriangleHit triangleHit = hit.getTriangleHit();
                 VertexData sceneVertex = gScene.getVertexData(triangleHit);
-                // distToSceneVert = distance(sceneVertex.posW, gCamera.getPosition());
+                distToSceneVert = distance(sceneVertex.posW, gCamera.getPosition());
             }
 
             if (distToT < distToSceneVert)

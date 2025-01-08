@@ -84,6 +84,22 @@ void PathVisualizePass::createPathVisualizeShaderPass()
     mpPathVisualizeShaderPass = FullScreenPass::create(kPathVisualizeShaderPassFile, defines);
 }
 
+void PathVisualizePass::passPathData()
+{
+    // Temp path length
+    std::vector<float3> pathVertices;
+     pathVertices.emplace_back(0.0f, 0.0f, 0.0f);
+     pathVertices.emplace_back(0.5f, 0.5f, 0.0f);
+     pathVertices.emplace_back(0.0f, 1.0f, 1.0f);
+
+    // Convert path vertices into a 1D-rgb texture.
+    Texture::SharedPtr pathVerticesTex = Texture::create1D((uint32_t)pathVertices.size(), ResourceFormat::RGB32Float, 1, 1, pathVertices.data());
+
+    // Bind pointer to texture
+    mpPathVisualizeShaderPass["gPathVerticesTex"] = pathVerticesTex;
+
+    mpPathVisualizeShaderPass["PerFrameCB"]["gPathLenght"] = pathVertices.size();
+}
 
 std::string PathVisualizePass::getDesc() { return kDesc; }
 
@@ -104,17 +120,6 @@ RenderPassReflection PathVisualizePass::reflect(const CompileData& compileData)
     reflector.addInput(kInputVBuffer, "Vertex buffer");
 
     reflector.addOutput(kOutputImg, "Output image");
-
-    // Get default texture size
-    //const uint2 size = RenderPassHelpers::calculateIOSize()
-
-    // const uint2 size = RenderPassHelpers::calculateIOSize(RenderPassHelpers::IOSize::Default, mFixedOutputSize, compileData.defaultTexDims);
-
-    // auto& output = reflector.addOutput(kOutputImg, "Output image").texture2D(size.x, size.y);
-    // if (mOutputFormat != ResourceFormat::Unknown)
-    // {
-    //     output.format(mOutputFormat);
-    // }
 
     return reflector;
 }
@@ -142,6 +147,8 @@ void PathVisualizePass::execute(RenderContext* pRenderContext, const RenderData&
 		mRecreatePathVisualizeShaderPass = false;
     }
 
+    //  Scene
+    mpPathVisualizeShaderPass["gScene"] = mpScene->getParameterBlock();
 
     // Camera param
 	const Camera::SharedPtr& pCamera = mpScene->getCamera();
@@ -154,14 +161,14 @@ void PathVisualizePass::execute(RenderContext* pRenderContext, const RenderData&
 	// Selected pixel
 	mpPathVisualizeShaderPass["PerFrameCB"]["gSelectedPixel"] = mSelectedCursorPosition;
 
-
 	//	Global params
-
     mpPathVisualizeShaderPass["gInputImgTex"] = pInputImg;
     mpPathVisualizeShaderPass["gDepthTex"] = pDepth;
     mpPathVisualizeShaderPass["gPointSampler"] = mpPointSampler;
     mpPathVisualizeShaderPass["gVBuffer"] = pVBuffer;
 
+    //  Path data
+    passPathData();
 
     // Enable pixel debug
     mpPixelDebug->beginFrame(pRenderContext, resolution);

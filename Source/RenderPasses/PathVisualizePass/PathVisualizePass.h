@@ -57,6 +57,7 @@ private:
     PathVisualizePass(const Dictionary& dict);
 
     void createPathVisualizeShaderPass();
+    void passPathData();
 
     uint2 mFixedOutputSize = { 512, 512 };                                                  ///< Output size in pixels when 'Fixed' size is selected.
 
