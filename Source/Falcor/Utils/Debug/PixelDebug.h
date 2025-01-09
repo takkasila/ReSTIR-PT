@@ -51,6 +51,12 @@ namespace Falcor
         The shader code is disabled (using macros) when debugging is off.
         When enabled, async readback is used but expect a minor perf loss.
     */
+    struct PixelLogUnHashed
+    {
+        std::string msg;
+        float4 value;
+    };
+
     class dlldecl PixelDebug
     {
     public:
@@ -72,6 +78,8 @@ namespace Falcor
         bool onMouseEvent(const MouseEvent& mouseEvent);
 
         void setEnabled(bool enabled) { mEnabled = enabled; }
+
+        std::vector<PixelLogUnHashed> getUnhashedLog();
 
     protected:
         PixelDebug(uint32_t logSize) : mLogSize(logSize) {}

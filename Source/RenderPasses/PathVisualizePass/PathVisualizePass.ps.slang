@@ -49,8 +49,7 @@ Texture1D<float3> gPathVerticesTex;
 
 static const uint MAX_PATH_VERTICES = 100;
 
-// Todo: send in
-//  - path verticies
+// Todo: figure out why the render seems to have an offset
 
 // https://iquilezles.org/articles/
 // https://www.shadertoy.com/view/wdXGDr

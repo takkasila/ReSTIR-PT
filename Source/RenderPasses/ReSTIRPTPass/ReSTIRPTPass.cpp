@@ -375,7 +375,7 @@ ReSTIRPTPass::ReSTIRPTPass(const Dictionary& dict)
 
     mpPixelStats = PixelStats::create();
     mpPixelDebug = PixelDebug::create(1000);
-    // mpPixelDebug->setEnabled(true);
+    mpPixelDebug->setEnabled(true);
     mpReadbackFence = GpuFence::create();
 }
 
@@ -1571,6 +1571,9 @@ void ReSTIRPTPass::endFrame(RenderContext* pRenderContext, const RenderData& ren
     copyTexture(renderData[kOutputPathLength]->asTexture().get(), mpPixelStats->getPathLengthTexture().get());
 
     mVarsChanged = false;
+
+    // Get and store path data
+    renderData.getDictionary()["restirptPixelLog"] = mpPixelDebug->getUnhashedLog();
 }
 
 void ReSTIRPTPass::generatePaths(RenderContext* pRenderContext, const RenderData& renderData, int sampleId)

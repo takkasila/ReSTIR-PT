@@ -269,4 +269,70 @@ namespace Falcor
         return false;
     }
 
+    std::vector<PixelLogUnHashed> PixelDebug::getUnhashedLog()
+    {
+        std::vector<PixelLogUnHashed> pixelLogUnhashedVec;
+
+        if (mRunning)
+        {
+            logError("PixelDebug::getUnhashedLog() - Logging is running, call end() before renderUI(). Ignoring call.");
+            return pixelLogUnhashedVec;
+        }
+
+        // Fetch stats and show log if available.
+        copyDataToCPU();
+
+        if (mDataValid && !mPixelLogData.empty())
+        {
+
+            std::ostringstream oss;
+
+            for (auto v : mPixelLogData)
+            {
+                PixelLogUnHashed pixelLogUnHashed;
+                // Message
+                auto it = mHashToString.find(v.msgHash);
+                if (it != mHashToString.end() && !it->second.empty())
+                {
+                    pixelLogUnHashed.msg = it->second;
+                }
+
+                // Parse value
+                for (uint32_t i = 0; i < v.count; i++)
+                {
+                    uint32_t bits = v.data[i];
+
+                    switch ((PixelLogValueType)v.type)
+                    {
+                        case PixelLogValueType::Bool:
+                            pixelLogUnHashed.value[i] = bits;
+                            break;
+
+                        case PixelLogValueType::Int:
+                            pixelLogUnHashed.value[i] = (int32_t)bits;
+                            break;
+
+                        case PixelLogValueType::Uint:
+                            pixelLogUnHashed.value[i] = bits;
+                            break;
+
+                        case PixelLogValueType::Float:
+                            // TODO: Replace by std::bit_cast in C++20 when that is available.
+                            pixelLogUnHashed.value[i] = *reinterpret_cast<float*>(&bits);
+                            break;
+
+                        default:
+                            // Invalid value
+                            break;
+                    }
+                }
+
+                pixelLogUnhashedVec.emplace_back(pixelLogUnHashed);
+            }
+
+        }
+        
+        return pixelLogUnhashedVec;
+    }
+
 }

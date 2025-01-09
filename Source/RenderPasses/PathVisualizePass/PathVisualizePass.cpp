@@ -26,6 +26,7 @@
  # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  **************************************************************************/
 #include "PathVisualizePass.h"
+#include <iostream>
 
 
 namespace
@@ -84,21 +85,32 @@ void PathVisualizePass::createPathVisualizeShaderPass()
     mpPathVisualizeShaderPass = FullScreenPass::create(kPathVisualizeShaderPassFile, defines);
 }
 
-void PathVisualizePass::passPathData()
+void PathVisualizePass::updatePathData()
 {
-    // Temp path length
-    std::vector<float3> pathVertices;
-     pathVertices.emplace_back(0.0f, 0.0f, 0.0f);
-     pathVertices.emplace_back(0.5f, 0.5f, 0.0f);
-     pathVertices.emplace_back(0.0f, 1.0f, 1.0f);
+    // Extract path data from 
+    //  from mRestirptPixelLog to mPathVertices
+    if (mRestirptPixelLog.empty())
+        return;
+
+    // Check if a "hit" path
+    if (mRestirptPixelLog.back().msg != "terminated")
+        return;
+
+    mPathVertices.clear();
+
+    // Iterate from 3rd to n-1
+    for (auto it = mRestirptPixelLog.begin() + 2; it != mRestirptPixelLog.end() - 1; it++)
+    {
+        mPathVertices.emplace_back(it->value);
+    }
 
     // Convert path vertices into a 1D-rgb texture.
-    Texture::SharedPtr pathVerticesTex = Texture::create1D((uint32_t)pathVertices.size(), ResourceFormat::RGB32Float, 1, 1, pathVertices.data());
+    Texture::SharedPtr pathVerticesTex = Texture::create1D((uint32_t)mPathVertices.size(), ResourceFormat::RGB32Float, 1, 1, mPathVertices.data());
 
     // Bind pointer to texture
     mpPathVisualizeShaderPass["gPathVerticesTex"] = pathVerticesTex;
 
-    mpPathVisualizeShaderPass["PerFrameCB"]["gPathLenght"] = pathVertices.size();
+    mpPathVisualizeShaderPass["PerFrameCB"]["gPathLenght"] = mPathVertices.size();
 }
 
 std::string PathVisualizePass::getDesc() { return kDesc; }
@@ -167,8 +179,9 @@ void PathVisualizePass::execute(RenderContext* pRenderContext, const RenderData&
     mpPathVisualizeShaderPass["gPointSampler"] = mpPointSampler;
     mpPathVisualizeShaderPass["gVBuffer"] = pVBuffer;
 
-    //  Path data
-    passPathData();
+    //  Store path data log from ReSTIRPTPass
+    auto& renderDataDict = renderData.getDictionary();
+    mRestirptPixelLog = renderDataDict.getValue<std::vector<PixelLogUnHashed>>("restirptPixelLog", std::vector<PixelLogUnHashed>());
 
     // Enable pixel debug
     mpPixelDebug->beginFrame(pRenderContext, resolution);
@@ -189,6 +202,13 @@ void PathVisualizePass::renderUI(Gui::Widgets& widget)
 
     if (auto group = widget.group("Debugging", true))
     {
+        if (group.button("Update Path value", false))
+        {
+            std::cout << "update path value" << std::endl;
+
+            updatePathData();
+        }
+
         mpPixelDebug->renderUI(group);
     }
 }

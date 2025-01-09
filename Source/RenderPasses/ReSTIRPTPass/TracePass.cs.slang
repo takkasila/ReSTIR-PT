@@ -29,7 +29,7 @@ void tracePath(uint pathID, inout PathReservoir giReservoir, uint sampleIdx)
 
     while (path.isActive())
     {
-        print("vertex:", path.origin);
+        print("vertex", path.origin);
 
         if (path.isHit())
         {

@@ -57,7 +57,7 @@ private:
     PathVisualizePass(const Dictionary& dict);
 
     void createPathVisualizeShaderPass();
-    void passPathData();
+    void updatePathData();
 
     uint2 mFixedOutputSize = { 512, 512 };                                                  ///< Output size in pixels when 'Fixed' size is selected.
 
@@ -71,4 +71,7 @@ private:
     Scene::SharedPtr mpScene;
 
     uint2 mSelectedCursorPosition = uint2(0);
+
+    std::vector<float3> mPathVertices;
+    std::vector<PixelLogUnHashed> mRestirptPixelLog;
 };
