@@ -65,6 +65,8 @@ struct PathTracer
     int  gSppId;
     int  gNumSpatialRounds;
 
+    bool gIsDebug;
+
     /*******************************************************************
                                 Static members
     *******************************************************************/
@@ -247,7 +249,7 @@ struct PathTracer
         path.origin = ray.origin;
         path.dir = ray.dir;
 
-        path.sg = SampleGenerator(randomSeed); 
+        path.sg = SampleGenerator(randomSeed);
 
         path.randomReplayIsNEE = isLastVertexNEE && !isRcVertexEscapedVertex;
         path.randomReplayIsEscaped = !isLastVertexNEE && !isRcVertexEscapedVertex;
@@ -971,6 +973,9 @@ struct PathTracer
         // - Sample light(s) using shadow rays
         // - Sample scatter ray or terminate
 
+        // setupPathLogging(path);
+        if(gIsDebug) print("handleHit -- begin", 0);
+
         TriangleHit th = path.hit.getTriangleHit();
 
         bool isCurveHit = path.hit.getType() == HitType::Curve;
@@ -1024,8 +1029,8 @@ struct PathTracer
 
         if (path.length == 1 && !path.isTransmission() && !path.isDelta()) computeEmissive = false;
 
-        // daqi: when doing random number replay, we will terminate the path when the length reaches the base path length and 
-        // when the path types match. In this case, if the base path is a escaped path (as opposed to an NEE path), we should terminate when we 
+        // daqi: when doing random number replay, we will terminate the path when the length reaches the base path length and
+        // when the path types match. In this case, if the base path is a escaped path (as opposed to an NEE path), we should terminate when we
         // find that offset path can also be an escaped path
         bool terminateRandomReplayForEscape = path.enableRandomReplay && path.length - 1 == path.randomReplayLength && path.randomReplayIsEscaped && path.randomReplayLength >= 1;
 
@@ -1037,6 +1042,9 @@ struct PathTracer
 
             float misWeight = 1.f;
             float3 Lr = 0.f;
+
+            if(gIsDebug) print("- Compute emissive: Begin", 0);
+
 
             if (kUseEmissiveLights && kUseNEE && kUseMIS && !isPrimaryHit && path.isLightSampled() && isLightSamplable)
             {
@@ -1058,17 +1066,25 @@ struct PathTracer
                 // Compute MIS weight by combining this with BRDF sampling.
                 // Note we can assume path.pdf > 0.f since we shouldn't have got here otherwise.
                 misWeight = evalMIS(1, path.pdf, 1, lightPdf);
+
+                if(gIsDebug) print("-- Compute emissive", 0);
+
             }
 
             // Accumulate emitted radiance weighted by path throughput and MIS weight.
             if (!kDisableDirectIllumination || !isPrimaryHit || !isLightSamplable)
+            {
+                if(gIsDebug) print("-- Compute emissive", 1);
                 Lr = path.getCurrentThp() * sd.emissive * misWeight;
+            }
 
             attenuatedEmission = path.getCurrentThp() * sd.emissive; //only used for primary hit
 
-            // daqi: Since ScreenSpaceReSTIR cannot handle transmission and delta reflection, we must include the contribution in the color buffer 
+            // daqi: Since ScreenSpaceReSTIR cannot handle transmission and delta reflection, we must include the contribution in the color buffer
             if (!path.enableRandomReplay || terminateRandomReplayForEscape)
             {
+                if(gIsDebug) print("-- Compute emissive", 2);
+
                 if (!kDisableDirectIllumination || path.length > 1) path.L += Lr;
                 // will change this to path.IsDelta() if ScreenSpaceReSTIR can handle transmission
                 if (!isLightSamplable && path.length == 1) path.LDeltaDirect += Lr;
@@ -1082,31 +1098,49 @@ struct PathTracer
                 {
                     path.rcVertexPathTreeIrradiance += path.thp * sd.emissive * misWeight;
                 }
-                bool selectedCurrentPath = path.pathBuilder.addEscapeVertex(params, max(0, path.length - 1), path.dir, Lr, 
+                bool selectedCurrentPath = path.pathBuilder.addEscapeVertex(params, max(0, path.length - 1), path.dir, Lr,
                     path.length - 1 == path.pathBuilder.rcVertexLength ? path.thp * sd.emissive * misWeight : path.rcVertexPathTreeIrradiance,
                     path.useHybridShift, path.russianRoulettePdf, misWeight, lightPdf, (uint)LightSampleType::Emissive, path.pathReservoir, path.enableRandomReplay);
 #else
-                bool selectedCurrentPath = path.pathBuilder.addEscapeVertex(params, max(0, path.length - 1), path.dir, Lr, path.thp * sd.emissive * misWeight, 
+                bool selectedCurrentPath = path.pathBuilder.addEscapeVertex(params, max(0, path.length - 1), path.dir, Lr, path.thp * sd.emissive * misWeight,
                     path.useHybridShift, path.russianRoulettePdf, misWeight, lightPdf, (uint)LightSampleType::Emissive, path.pathReservoir, path.enableRandomReplay);
 #endif
+
+                if(gIsDebug)
+                {
+                    if(selectedCurrentPath)
+                    {
+                        print("-- selectedCurrentPath", 0);
+                    }
+                    print("-- Compute emissive", 3);
+                }
 
                 // daqi: if current escaped vertex has path.length >= 2, then it can be used as a rcVertex
                 if (selectedCurrentPath&& path.useHybridShift&& path.length >= 2 && path.length < path.pathBuilder.rcVertexLength)
                 {
+                    // TracePass doesn't come here
+
+                    if(gIsDebug) print("-- Compute emissive", 4);
+
                     // insert path flags
 
                     // daqi: ideally, this should use a smaller nearFieldDistance than the default threshold
                     bool isFarField = length(sd.posW - path.origin) >= params.nearFieldDistance;
                     bool isLastVertexAcceptableForRcPrev = path.isLastVertexClassifiedAsRough;
 
+                    // not localStrategy::DistanceCondition
+                    //     or	(isfarFiled and not LocalStrategy::RoughnessCondition)
+                    //     or	path.isLastVertexClassifiedAsRough
                     if (!(params.localStrategyType & (uint)LocalStrategy::DistanceCondition && !isFarField || params.localStrategyType & (uint)LocalStrategy::RoughnessCondition && !isLastVertexAcceptableForRcPrev))
                     {
-                        if (path.isReplayForHybridShift) // non-invertible case 
+                        if (path.isReplayForHybridShift) // non-invertible case
                         {
                             path.L = 0.f;
                         }
                         else
                         {
+                            print("-- Compute emissive, found RC vertex", 5);
+
                             // we found an RC vertex!
                             // set rcVertexLength to current length (this will make rcVertexLength = reseroivr.pathLength + 1)
                             float3 disp = path.origin - sd.posW;
@@ -1117,14 +1151,31 @@ struct PathTracer
                     }
                 }
             }
+
+            if(gIsDebug) print("- Compute emissive: end", 0);
         }
+
 
         // Terminate after scatter ray on last vertex has been processed.
         if (hasFinishedSurfaceBounces(path) || terminateRandomReplayForEscape)
         {
+            if(gIsDebug)
+            {
+                if(hasFinishedSurfaceBounces(path))
+                {
+                    print("Terminate because hasFinishedSurfaceBounces", 0);
+                }
+                else
+                {
+                    print("Terminate because terminateRandomReplayForEscape", 0);
+                }
+            }
+
             path.terminate();
             return;
         }
+
+        if(gIsDebug) print("prepare to scatter ray", 0);
 
         // daqi: save as previous path origin to compute distance between vertices
         float3 prevPathOrigin = path.origin;
@@ -1149,8 +1200,8 @@ struct PathTracer
         // Check if lights should be sampled.
         bool sampleLights = applyNEE;
 
-        // daqi: when doing random number replay, we will terminate the path when the length reaches the base path length and 
-        // when the path types match. In this case, if the base path is a NEE path (as opposed to an escaped path), we should terminate when we 
+        // daqi: when doing random number replay, we will terminate the path when the length reaches the base path length and
+        // when the path types match. In this case, if the base path is a NEE path (as opposed to an escaped path), we should terminate when we
         // find that offset path can also be an NEE path
         bool terminateRandomReplayForNEE = path.enableRandomReplay && path.length == path.randomReplayLength && path.randomReplayIsNEE;
 
@@ -1164,12 +1215,24 @@ struct PathTracer
         // daqi: if we are not doing a hybrid shift replay, we should check if current vertex satisfy the condition to be used as a rcVertex
         if (!path.isReplayForHybridShift && PathSamplingMode(kPathSamplingMode) != PathSamplingMode::PathTracing)
         {
-            bool canConnect = (path.length >= 1 && path.length < path.pathBuilder.rcVertexLength &&
-                (!(params.localStrategyType & (uint)LocalStrategy::DistanceCondition && !isFarField ||
-                        params.localStrategyType & (uint)LocalStrategy::RoughnessCondition && !(isCurrentVertexClassifiedAsRough && isLastVertexAcceptableForRcPrev))));
+            if(gIsDebug) print("- Not doing replay for hybrid shift", 0);
 
-            if (!path.useHybridShift && path.length == 1 || path.useHybridShift && canConnect)
+            bool isNearField = !isFarField;
+            bool atLeastOneSpecularVertex = !(isCurrentVertexClassifiedAsRough && isLastVertexAcceptableForRcPrev);
+            bool canConnect = (path.length >= 1 && path.length < path.pathBuilder.rcVertexLength &&
+                (!(
+                    params.localStrategyType & (uint)LocalStrategy::DistanceCondition &&
+                        isNearField
+                ||
+                    params.localStrategyType & (uint)LocalStrategy::RoughnessCondition &&
+                        atLeastOneSpecularVertex)));
+
+            bool condition = (path.useHybridShift ? canConnect : path.length == 1);
+
+            if ((!path.useHybridShift && path.length == 1) || (path.useHybridShift && canConnect))
             {
+                if(gIsDebug) print("-- setting is_rcVertex = true", 0);
+
                 is_rcVertex = true;
                 path.pathBuilder.rcVertexHit.initFromHitInfo(path.hit);
                 // daqi: save the scatter PDF as cachedJacobian
@@ -1187,12 +1250,17 @@ struct PathTracer
                 // daqi: save the current path length as the rcVertex length
                 if (canConnect || !path.useHybridShift)
                 {
+                    if(gIsDebug) print("-- save the current path length as the rcVertex length", 0);
+
                     path.pathBuilder.rcVertexLength = path.length;
                 }
             }
         }
         else if (PathSamplingMode(kPathSamplingMode) != PathSamplingMode::PathTracing)
         {
+            //  TracePass doesn't enter here
+            if(gIsDebug) print("- Doing replay for hybrid shift", 0);
+
             bool invertible = true;
             bool shouldTerminate = false;
 
@@ -1244,6 +1312,8 @@ struct PathTracer
 
             if (invertible)
             {
+                if(gIsDebug) print("-- Path is invertable", 0);
+
                 // daqi: if it is invertible and we should terminate, save the hit information to set up a reconnection
                 if (shouldTerminate)
                 {
@@ -1254,23 +1324,37 @@ struct PathTracer
             }
             else //daqi: if the shift is not invertible, we should mark the case, which causes the shift to terminate when it goes back to shift.slang
             {
+                if(gIsDebug) print("-- Path is NOT invertable", 0);
+
                 invalidateAndTerminateReplayPath(path);
             }
 
-            if (!path.isActive()) return;
+            if (!path.isActive())
+            {
+                if(gIsDebug) print("-- Terminate after doing replay for hybrid shift", 0);
+
+                return;
+            }
         }
 
         path.setLightSampled(false, false);
 
         // daqi: if we are doing random number replay, we should only sample the light if we are about to terminate
+        // Enabled direct illumination
+        //  or not a PrimaryHit (v2, v3, ...)
         if (!(kDisableDirectIllumination && isPrimaryHit))
         {
+            if(gIsDebug) print("- Sample light: Begin", 0);
             // generate kNEESamples light samples
             if (sampleLights && (!path.enableRandomReplay || terminateRandomReplayForNEE))
             {
+                if(gIsDebug) print("-- Sample light: kNEESamples light samples", 0);
+
                 // cache (NEE sampling) seed for temporal validation (only possible for non early direction reuse since it uses the cachedRandomSeed slot)
                 if (path.length == path.pathBuilder.rcVertexLength)
                 {
+                    if(gIsDebug) print("--- Sample light: cache seed for RC", 0);
+
                     path.pathBuilder.cachedRandomSeed = path.sg.getCurrentSeed();
                 }
 
@@ -1294,6 +1378,8 @@ struct PathTracer
 
                 if (validSample)
                 {
+                    if(gIsDebug) print("--- Sample light: valid sample", 0);
+
                     // Apply MIS weight.
                     float misWeight = 1.f;
                     float scatterPdf = 0.f;
@@ -1339,7 +1425,7 @@ struct PathTracer
                                     path.rcVertexPathTreeIrradiance += weight * ls.Li * path.thp;
                                 }
 
-                                bool selected = path.pathBuilder.addNeeVertex(params, path.length, ls.dir, Lr, 
+                                bool selected = path.pathBuilder.addNeeVertex(params, path.length, ls.dir, Lr,
                                     is_rcVertex ? weight * ls.Li * path.thp : path.rcVertexPathTreeIrradiance, path.useHybridShift,
                                     path.russianRoulettePdf, misWeight, ls.pdf, ls.lightType, path.pathReservoir, path.enableRandomReplay);
 #else
@@ -1354,6 +1440,8 @@ struct PathTracer
             else
                 // daqi: for random number replay, we should skip the random numbers for NEE if we should not terminate on current bounce
             {
+                if(gIsDebug) print("-- Sample light: skip light sample", 0);
+
                 if (path.enableRandomReplay && sampleLights)
                 {
                     bool sampleUpperHemisphere = ((lobes & (uint)LobeType::NonDeltaReflection) != 0);
@@ -1364,11 +1452,15 @@ struct PathTracer
 
                 skipLightSampleRandomNumbers(path.sg);
             }
+
+            if(gIsDebug) print("- Sample light: End", 0);
+
         }
 
         // daqi: terminate the path if the bounce of random replay reaches the desired bounce and the base path is an NEE path
         if (terminateRandomReplayForNEE)
         {
+            if(gIsDebug) print("terminateRandomReplayForNEE", 0);
             path.terminate();
             return;
         }
@@ -1383,7 +1475,11 @@ struct PathTracer
             }
             else
             {
-                if (terminatePathByRussianRoulette(path)) return;
+                if (terminatePathByRussianRoulette(path))
+                {
+                    if(gIsDebug) print("terminate by Russian Roulette", 0);
+                    return;
+                }
             }
         }
 
@@ -1397,6 +1493,8 @@ struct PathTracer
         }
 
         // Generate the next path segment or terminate.
+        if(gIsDebug) print("Generate scatter ray", 0);
+
         bool valid = generateScatterRay(sd, path);
 
         // forbid current vertex being rcVertex
@@ -1417,7 +1515,7 @@ struct PathTracer
             {
                 if (is_rcVertex)
                 {
-                    is_rcVertex = false; 
+                    is_rcVertex = false;
                     path.pathBuilder.rcVertexLength = kMaximumPathLength; // reset
                 }
             }
@@ -1433,6 +1531,8 @@ struct PathTracer
         // daqi: save the incoming direction on rcVertex
         if (is_rcVertex && valid && (int(path.length > 1) == 0 || !BPR))
         {
+            if(gIsDebug) print("- update rcVertexWi ", 0);
+
             path.pathBuilder.rcVertexWi[0] = path.dir;
         }
 
@@ -1459,15 +1559,26 @@ struct PathTracer
         const bool isLastVertex = hasFinishedSurfaceBounces(path);
 
         // Terminate if this is the last path vertex and light sampling already completely sampled incident radiance.
-        if (kUseNEE && !kUseMIS && isLastVertex && path.isLightSamplable()) valid = false;
+        if (kUseNEE && !kUseMIS && isLastVertex && path.isLightSamplable())
+        {
+            if(gIsDebug) print("terminate at last vertex with NEE ", 0);
+            valid = false;
+        }
 
         // Terminate caustics paths.
-        if (kDisableCaustics && path.getBounces(BounceType::Diffuse) > 0 && path.isSpecular()) valid = false;
+        if (kDisableCaustics && path.getBounces(BounceType::Diffuse) > 0 && path.isSpecular())
+        {
+            if(gIsDebug) print("terminate because disabled caustic path", 0);
+            valid = false;
+        }
 
         if (!valid)
         {
             path.terminate();
         }
+
+        if(gIsDebug) print("handleHit -- end", 0);
+
     }
 
     /** Handle the case when a scatter ray misses the scene.
@@ -1480,6 +1591,8 @@ struct PathTracer
         // - Evaluate environment map
         // - Write guiding data
         // - Terminate the path
+        if(gIsDebug) print("handleMiss -- begin", 0);
+
 
         // Check if the scatter event is samplable by the light sampling technique.
         const bool isLightSamplable = path.isLightSamplable();
@@ -1493,6 +1606,9 @@ struct PathTracer
         if (computeEnv)
         {
             logPathVertex();
+
+            if(gIsDebug) print("Compute environment lighting", 0);
+
 
             float misWeight = 1.f;
             float lightPdf = 0.f;
@@ -1512,16 +1628,21 @@ struct PathTracer
             float3 Le = envMapSampler.eval(path.dir);
             float3 Lr = path.getCurrentThp() * Le * misWeight;
 
-            // daqi: when doing random number replay, we will terminate the path when the length reaches the base path length and 
-            // when the path types match. In this case, if the base path is a escaped path (as opposed to an NEE path), we should terminate when we 
+            // daqi: when doing random number replay, we will terminate the path when the length reaches the base path length and
+            // when the path types match. In this case, if the base path is a escaped path (as opposed to an NEE path), we should terminate when we
             // find that offset path can also be an escaped path
             bool terminateRandomReplayForEscape = path.enableRandomReplay && path.length == path.randomReplayLength && path.randomReplayIsEscaped
                 && path.length >= 1;
 
-            // daqi: Since ScreenSpaceReSTIR cannot handle transmission and delta reflection, we must include the contribution in the color buffer 
+            // daqi: Since ScreenSpaceReSTIR cannot handle transmission and delta reflection, we must include the contribution in the color buffer
             if (!path.enableRandomReplay || terminateRandomReplayForEscape)
             {
-                if (!kDisableDirectIllumination || path.length > 0) path.L += Lr;
+
+                if (!kDisableDirectIllumination || path.length > 0)
+                {
+                    path.L += Lr;
+                    if(gIsDebug) print("- Add env map light contribution", 0);
+                }
 
                 // will change this to path.IsDelta() if ScreenSpaceReSTIR can handle transmission
                 if (!isLightSamplable && path.length == 0) path.LDeltaDirect += Lr;
@@ -1535,27 +1656,38 @@ struct PathTracer
                 {
                     path.rcVertexPathTreeIrradiance += path.thp * Le * misWeight;
                 }
-                bool selectedCurrentPath = path.pathBuilder.addEscapeVertex(params, path.length, path.dir, Lr, 
+                bool selectedCurrentPath = path.pathBuilder.addEscapeVertex(params, path.length, path.dir, Lr,
                     path.length == path.pathBuilder.rcVertexLength ? path.thp * Le * misWeight : path.rcVertexPathTreeIrradiance,
                     path.useHybridShift, path.russianRoulettePdf, misWeight, lightPdf, (uint)LightSampleType::EnvMap, path.pathReservoir, path.enableRandomReplay);
 #else
-                bool selectedCurrentPath = path.pathBuilder.addEscapeVertex(params, path.length, path.dir, Lr, path.thp * Le * misWeight, 
+
+                if(gIsDebug) print("- Add escape vertex", 0);
+
+
+                bool selectedCurrentPath = path.pathBuilder.addEscapeVertex(params, path.length, path.dir, Lr, path.thp * Le * misWeight,
                     path.useHybridShift, path.russianRoulettePdf, misWeight, lightPdf, (uint)LightSampleType::EnvMap, path.pathReservoir, path.enableRandomReplay);
 #endif
                 // daqi: if current escaped vertex has path.length >= 2, then it can be used as a rcVertex
                 if (selectedCurrentPath && path.useHybridShift && path.length >= 1 && path.length + 1 < path.pathBuilder.rcVertexLength)
                 {
+                    // Trace pass doesn't come here
                     bool isLastVertexAcceptableForRcPrev = path.isLastVertexClassifiedAsRough;
+
+                    print("-- isLastVertexAcceptableForRcPrev", isLastVertexAcceptableForRcPrev);
 
                     // daqi: in the case of escaped to infinitely far, we always satisfy the far field requirement
                     if (!(params.localStrategyType & (uint)LocalStrategy::RoughnessCondition && !isLastVertexAcceptableForRcPrev))
                     {
-                        if (path.isReplayForHybridShift) // non-invertible case 
+                        if (path.isReplayForHybridShift) // non-invertible case
                         {
+                            print("-- non-invertiable case", 0);
+
                             path.L = 0.f;
                         }
                         else
                         {
+
+                            print("-- found an RC vertex!", 0);
                             // we found an RC vertex!
                             // set rcVertexLength to current length (this will make rcVertexLength = reseroivr.pathLength + 1)
                             HitInfo dummyHit = HitInfo();
@@ -1572,6 +1704,8 @@ struct PathTracer
         }
 
         path.terminate();
+
+        if(gIsDebug) print("handleMiss -- end", 0);
     }
 
     // function to trace a path using random number replay
@@ -1593,7 +1727,7 @@ struct PathTracer
 
         while (path.isActive() && path.isHit())
         {
-            // Handle surface hit 
+            // Handle surface hit
             if (path.isActive())
             {
                 if (path.isHit())
@@ -1648,7 +1782,7 @@ struct PathTracer
         while (path.isActive() && path.isHit())
         {
             // Volume scattering is ignored
-            // Handle surface hit 
+            // Handle surface hit
             if (path.isActive())
             {
                 if (path.isHit())
@@ -1712,7 +1846,7 @@ struct PathTracer
             if (path.isActive()) nextVertex(path);
             else
             {
-                // this shouldn't happen! 
+                // this shouldn't happen!
                 return;
             }
 
@@ -1810,7 +1944,7 @@ struct PathTracer
             while (path.isActive() && path.isHit())
             {
                 // Volume scattering is ignored
-                // Handle surface hit 
+                // Handle surface hit
                 if (path.isActive())
                 {
                     if (path.isHit())
@@ -1920,7 +2054,7 @@ struct PathTracer
                 {
                     L = path.L / kSamplesPerPixel;
                 }
-                else 
+                else
                 {
                     L = giReservoir.F;
                     L += path.L / kSamplesPerPixel;
@@ -1965,7 +2099,7 @@ struct PathTracer
                     if (isLastRound)
                     {
                         float3 color = giReservoir.F * giReservoir.weight;
-                        
+
                         if (any(isinf(color) || isnan(color))) color = 0.f;
                         L += color;
                     }
@@ -1988,7 +2122,7 @@ struct PathTracer
             }
         }
 
-        if (kOutputNRDData && PathSamplingMode(kPathSamplingMode) == PathSamplingMode::PathTracing) 
+        if (kOutputNRDData && PathSamplingMode(kPathSamplingMode) == PathSamplingMode::PathTracing)
         {
             float3 diffuseRadiance = 0.f;
             float3 specularRadiance = 0.f;

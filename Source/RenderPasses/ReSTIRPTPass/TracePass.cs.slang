@@ -25,7 +25,8 @@ void tracePath(uint pathID, inout PathReservoir giReservoir, uint sampleIdx)
     logSetPixel(path.getPixel());
 
     print("pixel", path.getPixel());
-    print("pathID: ", pathID);
+    print("pathID", pathID);
+    print("", 0);
 
     while (path.isActive())
     {
@@ -34,11 +35,10 @@ void tracePath(uint pathID, inout PathReservoir giReservoir, uint sampleIdx)
         if (path.isHit())
         {
             gPathTracer.handleHit(path);
+
             if (path.isTerminated())
             {
-                // Check if the vertex is a reconnection vertex
-                print("terminated", 0);
-
+                print("Terminated", 0);
                 break;
             }
             gPathTracer.nextVertex(path);
@@ -48,6 +48,19 @@ void tracePath(uint pathID, inout PathReservoir giReservoir, uint sampleIdx)
             print("miss", 0);
             gPathTracer.handleMiss(path);
         }
+
+        print("", 0);
+    }
+
+    print("Path Radiance", path.L);
+
+    if (path.pathBuilder.rcVertexHit.instanceID == 0xffffffff)
+    {
+        print("Doesn't have RC vertex", 0);
+    }
+    else
+    {
+        print("Have RC vertex", 0);
     }
 
     gPathTracer.finalize(path);

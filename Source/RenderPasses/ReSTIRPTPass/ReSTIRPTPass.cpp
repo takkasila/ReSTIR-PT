@@ -1627,9 +1627,14 @@ void ReSTIRPTPass::tracePass(RenderContext* pRenderContext, const RenderData& re
     var["gPathTracer"] = mpPathTracerBlock;
     var["CB"]["gSampleId"] = sampleID;
 
+    // Set debug flag
+    mpPathTracerBlock->getRootVar()["gIsDebug"] = true;
+
     // Launch the threads.
     auto frameDim = renderData.getDefaultTextureDims();
     pass->execute(pRenderContext, uint3(frameDim, 1u));
+
+    mpPathTracerBlock->getRootVar()["gIsDebug"] = false;
 }
 
 void ReSTIRPTPass::PathReusePass(RenderContext* pRenderContext, uint32_t restir_i, const RenderData& renderData, bool isTemporalReuse, int spatialRoundId, bool isLastRound)

@@ -18,4 +18,5 @@ Media
 Tools/.packman
 Tests/data
 *.tlog
+*.log
 packages/*
