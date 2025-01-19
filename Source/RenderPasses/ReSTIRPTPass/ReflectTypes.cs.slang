@@ -9,12 +9,12 @@
      Therefore we create this dummy program to make it easier.
  */
 import RenderPasses.ReSTIRPTPass.PathReservoir;
-import PathStateTypes;
+import DebugPathDataType;
 
 StructuredBuffer<PathReservoir> outputReservoirs;
 StructuredBuffer<PixelReconnectionData> reconnectionDataBuffer;
 StructuredBuffer<PathReuseMISWeight> misWeightBuffer;
-StructuredBuffer<MyDummyStruct> pixelDebugPathBuffer;
+StructuredBuffer<DebugPathData> pixelDebugPathDataBuffer;
 
 void main() {}
 

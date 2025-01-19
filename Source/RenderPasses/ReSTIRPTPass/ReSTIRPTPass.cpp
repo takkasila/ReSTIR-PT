@@ -6,7 +6,7 @@
 #include <fstream>
 #include <iostream>
 
-#include "PathStateTypes.slang";
+#include "DebugPathDataType.slang";
 
 namespace
 {
@@ -1272,7 +1272,7 @@ void ReSTIRPTPass::prepareResources(RenderContext* pRenderContext, const RenderD
 
         // RWStructuredBuffer<PathState>
         //mpPixelDebugPathBuffer = Buffer::createStructured(
-        //    var["pixelDebugPathBuffer"],
+        //    var["pixelDebugPathDataBuffer"],
         //    1,
         //    // Falcor::ResourceBindFlags::UnorderedAccess,
         //    Falcor::ResourceBindFlags::None,
@@ -1281,7 +1281,7 @@ void ReSTIRPTPass::prepareResources(RenderContext* pRenderContext, const RenderD
         //    false
         //);
 
-        mpPixelDebugPathBuffer = Buffer::createStructured(var["pixelDebugPathBuffer"], 1);
+        mpPixelDebugPathBuffer = Buffer::createStructured(var["pixelDebugPathDataBuffer"], 1);
     }
 
 }
@@ -1596,9 +1596,15 @@ void ReSTIRPTPass::endFrame(RenderContext* pRenderContext, const RenderData& ren
     // Get and store path data
     renderData.getDictionary()["restirptPixelLog"] = mpPixelDebug->getUnhashedLog();
 
-    auto myStruct = static_cast<MyDummyStruct*>( mpPixelDebugPathBuffer->map(Buffer::MapType::Read) );
-
-    std::cout << myStruct[0].x << std::endl;
+    auto debugPathData = static_cast<DebugPathData*>( mpPixelDebugPathBuffer->map(Buffer::MapType::Read) );
+    if (debugPathData->hasRCVertex)
+    {
+        float3* vertices = debugPathData->vertices;
+        for (int i = 0; i < debugPathData->length; i++)
+        {
+            std::cout << vertices[i].x << std::endl;
+        }
+    }
 
     int x = 2;
 }
@@ -1653,7 +1659,7 @@ void ReSTIRPTPass::tracePass(RenderContext* pRenderContext, const RenderData& re
     // Bind the path tracer.
     var["gPathTracer"] = mpPathTracerBlock;
     var["CB"]["gSampleId"] = sampleID;
-    var["pixelDebugPathBuffer"] = mpPixelDebugPathBuffer;
+    var["pixelDebugPathDataBuffer"] = mpPixelDebugPathBuffer;
 
     // Set debug flag
     mpPathTracerBlock->getRootVar()["gIsDebug"] = true;

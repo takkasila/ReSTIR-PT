@@ -8,11 +8,11 @@ import PathTracer;
 import PathState;
 import Params;
 import PathReservoir;
-import PathStateTypes;
+import DebugPathDataType;
 
 ParameterBlock<PathTracer> gPathTracer;
 
-RWStructuredBuffer<MyDummyStruct> pixelDebugPathBuffer;
+RWStructuredBuffer<DebugPathData> pixelDebugPathDataBuffer;
 
 cbuffer CB
 {
@@ -27,6 +27,8 @@ void tracePath(uint pathID, inout PathReservoir giReservoir, uint sampleIdx)
     printSetPixel(path.getPixel());
     logSetPixel(path.getPixel());
 
+    uint2 selectedPixel = getSelctedPixelLog();
+
     print("pixel", path.getPixel());
     print("pathID", pathID);
     print("", 0);
@@ -34,6 +36,11 @@ void tracePath(uint pathID, inout PathReservoir giReservoir, uint sampleIdx)
     while (path.isActive())
     {
         print("vertex", path.origin);
+
+        if (all(selectedPixel == path.getPixel()))
+        {
+            pixelDebugPathDataBuffer[0].vertices[(int)path.length] = path.origin;
+        }
 
         if (path.isHit())
         {
@@ -57,24 +64,22 @@ void tracePath(uint pathID, inout PathReservoir giReservoir, uint sampleIdx)
 
     print("Path Radiance", path.L);
 
-    if (path.pathBuilder.rcVertexHit.instanceID == 0xffffffff)
+
+    if(all(selectedPixel == path.getPixel()))
     {
-        print("Doesn't have RC vertex", 0);
-    }
-    else
-    {
-        print("Have RC vertex", 0);
-    }
+        if (path.pathBuilder.rcVertexHit.instanceID == 0xffffffff)
+        {
+            print("Doesn't have RC vertex", 0);
+            pixelDebugPathDataBuffer[0].hasRCVertex = false;
+        }
+        else
+        {
+            print("Have RC vertex", 0);
+            pixelDebugPathDataBuffer[0].hasRCVertex = true;
+            pixelDebugPathDataBuffer[0].rcVertexIndex = path.pathBuilder.rcVertexLength + 1;
+        }
 
-    uint2 selectedPixel = getSelctedPixelLog();
-
-    print("Selected log pixel", selectedPixel);
-
-    if (all(selectedPixel == path.getPixel()))
-    {
-        print("Saving debug path", 0);
-
-        pixelDebugPathBuffer[0].x = 55;
+        pixelDebugPathDataBuffer[0].length = path.length + 1;
     }
 
     gPathTracer.finalize(path);

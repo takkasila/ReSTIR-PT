@@ -43,7 +43,7 @@
     <ShaderSource Include="Params.slang" />
     <ShaderSource Include="PathReservoir.slang" />
     <ShaderSource Include="PathBuilder.slang" />
-    <ShaderSource Include="PathStateTypes.slang" />
+    <ShaderSource Include="DebugPathDataType.slang" />
     <ShaderSource Include="SpatialPathRetrace.cs.slang" />
     <ShaderSource Include="TemporalPathRetrace.cs.slang" />
     <ShaderSource Include="SpatialReuse.cs.slang" />
