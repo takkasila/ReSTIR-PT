@@ -43,6 +43,7 @@
     <ShaderSource Include="Params.slang" />
     <ShaderSource Include="PathReservoir.slang" />
     <ShaderSource Include="PathBuilder.slang" />
+    <ShaderSource Include="PathStateTypes.slang" />
     <ShaderSource Include="SpatialPathRetrace.cs.slang" />
     <ShaderSource Include="TemporalPathRetrace.cs.slang" />
     <ShaderSource Include="SpatialReuse.cs.slang" />
@@ -107,6 +108,7 @@
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
+      <TreatWarningAsError>false</TreatWarningAsError>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>

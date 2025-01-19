@@ -8,8 +8,11 @@ import PathTracer;
 import PathState;
 import Params;
 import PathReservoir;
+import PathStateTypes;
 
 ParameterBlock<PathTracer> gPathTracer;
+
+RWStructuredBuffer<MyDummyStruct> pixelDebugPathBuffer;
 
 cbuffer CB
 {
@@ -61,6 +64,17 @@ void tracePath(uint pathID, inout PathReservoir giReservoir, uint sampleIdx)
     else
     {
         print("Have RC vertex", 0);
+    }
+
+    uint2 selectedPixel = getSelctedPixelLog();
+
+    print("Selected log pixel", selectedPixel);
+
+    if (all(selectedPixel == path.getPixel()))
+    {
+        print("Saving debug path", 0);
+
+        pixelDebugPathBuffer[0].x = 55;
     }
 
     gPathTracer.finalize(path);

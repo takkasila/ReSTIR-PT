@@ -4,6 +4,9 @@
 #include "ReSTIRPTPass.h"
 #include "RenderGraph/RenderPassHelpers.h"
 #include <fstream>
+#include <iostream>
+
+#include "PathStateTypes.slang";
 
 namespace
 {
@@ -1263,6 +1266,24 @@ void ReSTIRPTPass::prepareResources(RenderContext* pRenderContext, const RenderD
     {
         mpTemporalVBuffer = Texture::create2D(mParams.frameDim.x, mParams.frameDim.y, mpScene->getHitInfo().getFormat(), 1, 1);
     }
+
+
+    if (!mpPixelDebugPathBuffer) {
+
+        // RWStructuredBuffer<PathState>
+        //mpPixelDebugPathBuffer = Buffer::createStructured(
+        //    var["pixelDebugPathBuffer"],
+        //    1,
+        //    // Falcor::ResourceBindFlags::UnorderedAccess,
+        //    Falcor::ResourceBindFlags::None,
+        //    Falcor::Buffer::CpuAccess::Read,
+        //    nullptr,
+        //    false
+        //);
+
+        mpPixelDebugPathBuffer = Buffer::createStructured(var["pixelDebugPathBuffer"], 1);
+    }
+
 }
 
 
@@ -1574,6 +1595,12 @@ void ReSTIRPTPass::endFrame(RenderContext* pRenderContext, const RenderData& ren
 
     // Get and store path data
     renderData.getDictionary()["restirptPixelLog"] = mpPixelDebug->getUnhashedLog();
+
+    auto myStruct = static_cast<MyDummyStruct*>( mpPixelDebugPathBuffer->map(Buffer::MapType::Read) );
+
+    std::cout << myStruct[0].x << std::endl;
+
+    int x = 2;
 }
 
 void ReSTIRPTPass::generatePaths(RenderContext* pRenderContext, const RenderData& renderData, int sampleId)
@@ -1626,6 +1653,7 @@ void ReSTIRPTPass::tracePass(RenderContext* pRenderContext, const RenderData& re
     // Bind the path tracer.
     var["gPathTracer"] = mpPathTracerBlock;
     var["CB"]["gSampleId"] = sampleID;
+    var["pixelDebugPathBuffer"] = mpPixelDebugPathBuffer;
 
     // Set debug flag
     mpPathTracerBlock->getRootVar()["gIsDebug"] = true;

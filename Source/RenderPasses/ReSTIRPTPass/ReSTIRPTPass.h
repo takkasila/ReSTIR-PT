@@ -222,4 +222,6 @@ private:
     Texture::SharedPtr              mpNeighborOffsets;
 
     Buffer::SharedPtr               mNRooksPatternBuffer;
+
+    Buffer::SharedPtr               mpPixelDebugPathBuffer;
 };

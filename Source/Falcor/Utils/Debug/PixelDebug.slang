@@ -64,6 +64,11 @@ void printSetPixel(uint2 pixel)
 #endif
 }
 
+uint2 getSelctedPixelLog()
+{
+    return gPixelLogSelected;
+}
+
 /** Interface for values that can be printed.
 */
 interface IPrintable
