@@ -1594,19 +1594,11 @@ void ReSTIRPTPass::endFrame(RenderContext* pRenderContext, const RenderData& ren
     mVarsChanged = false;
 
     // Get and store path data
-    renderData.getDictionary()["restirptPixelLog"] = mpPixelDebug->getUnhashedLog();
 
-    auto debugPathData = static_cast<DebugPathData*>( mpPixelDebugPathBuffer->map(Buffer::MapType::Read) );
-    if (debugPathData->hasRCVertex)
-    {
-        float3* vertices = debugPathData->vertices;
-        for (int i = 0; i < debugPathData->length; i++)
-        {
-            std::cout << vertices[i].x << std::endl;
-        }
-    }
+    Falcor::DebugPathData* debugPathData = static_cast<DebugPathData*>( mpPixelDebugPathBuffer->map(Buffer::MapType::Read) );
 
-    int x = 2;
+    renderData.getDictionary()["debugPathData"] = debugPathData;
+
 }
 
 void ReSTIRPTPass::generatePaths(RenderContext* pRenderContext, const RenderData& renderData, int sampleId)

@@ -28,6 +28,8 @@
 #pragma once
 #include "Falcor.h"
 #include "Utils/Debug/PixelDebug.h"
+#include "DebugPathDataType.slang";
+
 
 using namespace Falcor;
 
@@ -73,5 +75,7 @@ private:
     uint2 mSelectedCursorPosition = uint2(0);
 
     std::vector<float3> mPathVertices;
-    std::vector<PixelLogUnHashed> mRestirptPixelLog;
+
+    DebugPathData mDebugPathData;
+
 };

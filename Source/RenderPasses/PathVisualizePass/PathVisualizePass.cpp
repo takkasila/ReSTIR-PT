@@ -87,21 +87,17 @@ void PathVisualizePass::createPathVisualizeShaderPass()
 
 void PathVisualizePass::updatePathData()
 {
-    // Extract path data from 
-    //  from mRestirptPixelLog to mPathVertices
-    if (mRestirptPixelLog.empty())
+    if (mDebugPathData.length == 0)
         return;
 
-    // Check if a "hit" path
-    if (mRestirptPixelLog.back().msg != "terminated")
+    if (mDebugPathData.hasRCVertex)
         return;
 
     mPathVertices.clear();
 
-    // Iterate from 3rd to n-1
-    for (auto it = mRestirptPixelLog.begin() + 2; it != mRestirptPixelLog.end() - 1; it++)
+    for (int i = 0; i < mDebugPathData.length; i++)
     {
-        mPathVertices.emplace_back(it->value);
+        mPathVertices.emplace_back(mDebugPathData.vertices[i]);
     }
 
     // Convert path vertices into a 1D-rgb texture.
@@ -181,7 +177,10 @@ void PathVisualizePass::execute(RenderContext* pRenderContext, const RenderData&
 
     //  Store path data log from ReSTIRPTPass
     auto& renderDataDict = renderData.getDictionary();
-    mRestirptPixelLog = renderDataDict.getValue<std::vector<PixelLogUnHashed>>("restirptPixelLog", std::vector<PixelLogUnHashed>());
+    auto incomingDebugPathData = renderDataDict.getValue<DebugPathData*>("debugPathData");
+    // Filter to only path that has an RC vertex.
+    if (incomingDebugPathData->hasRCVertex)
+        mDebugPathData = *incomingDebugPathData;
 
     // Enable pixel debug
     mpPixelDebug->beginFrame(pRenderContext, resolution);
