@@ -39,6 +39,34 @@ namespace
 
 
     const char kPathVisualizeShaderPassFile[] = "RenderPasses/PathVisualizePass/PathVisualizePass.ps.slang";
+    const char kRasterPassShaderFile[] = "RenderPasses/PathVisualizePass/PathVisualizeRasterPassShader.slang";
+
+	const float space = 2;
+	float3 kVertices[8] = {
+		{space, space, space},
+		{space, 0, 0},
+		{space, space, 0},
+		{0, space, 0},
+		{0, 0, space},
+		{space, 0, space},
+		{space, space, space},
+		{0, space, space},
+	};
+
+	uint kIndices[36] = {
+		0, 1, 2,
+		2, 3, 0,
+		4, 5, 6,
+		6, 7, 4,
+		0, 1, 5,
+		5, 4, 0,
+		1, 2, 6,
+		6, 5, 1,
+		2, 3, 7,
+		7, 6, 2,
+		3, 0, 4,
+		4, 7, 3
+	};
 }
 
 // Don't remove this. it's required for hot-reload to function properly
@@ -85,12 +113,82 @@ void PathVisualizePass::createPathVisualizeShaderPass()
     mpPathVisualizeShaderPass = FullScreenPass::create(kPathVisualizeShaderPassFile, defines);
 }
 
+void PathVisualizePass::createRasterPass()
+{
+    Program::DefineList defines;
+    defines.add(mpScene->getSceneDefines());
+    
+    mpRasterPass = RasterPass::create(kRasterPassShaderFile, "vs", "ps", defines);
+
+    mpVertexBuffer = Buffer::create(
+        sizeof(kVertices),
+        ResourceBindFlags::Vertex,
+        Buffer::CpuAccess::Write,
+        kVertices
+    );
+
+    //  Create sample index buffer
+    Buffer::SharedPtr pIndexBuffer = Buffer::create(
+        sizeof(kIndices),
+        Resource::BindFlags::Index,
+        Buffer::CpuAccess::Write,
+        kIndices
+    );
+
+    // Create vertex array object
+    //      Define buffer layout
+    auto pVLayout = VertexLayout::create();
+    auto pVBLayout = VertexBufferLayout::create();
+    pVBLayout->addElement("POSITION", 0, ResourceFormat::RGB32Float, 8, 0);
+
+    pVLayout->addBufferLayout(0, pVBLayout);
+    Vao::BufferVec vaoBuffers{ mpVertexBuffer };
+
+    //      Create VAO
+    auto vao = Vao::create(
+        Vao::Topology::TriangleList,
+        pVLayout,
+        vaoBuffers,
+        pIndexBuffer,
+        ResourceFormat::R16Uint
+    );
+
+
+    // Set VAO to raster pass
+    auto pRasterState = mpRasterPass->getState();
+    pRasterState->setVao(vao);
+
+
+    // create the depth-state
+    DepthStencilState::Desc dsDesc;
+    dsDesc.setDepthEnabled(false);
+    pRasterState->setDepthStencilState(DepthStencilState::create(dsDesc));
+
+
+    // Rasterizer state
+    RasterizerState::Desc rsState;
+    rsState.setCullMode(RasterizerState::CullMode::None);
+    rsState.setFillMode(RasterizerState::FillMode::Solid);
+    pRasterState->setRasterizerState(RasterizerState::create(rsState));
+
+
+    // Blend state
+    BlendState::Desc blendDesc;
+    blendDesc.setRtBlend(0, true).setRtParams(0, BlendState::BlendOp::Add,
+        BlendState::BlendOp::Add,
+        BlendState::BlendFunc::SrcAlpha,
+        BlendState::BlendFunc::OneMinusSrcAlpha,
+        BlendState::BlendFunc::One,
+        BlendState::BlendFunc::One);
+    pRasterState->setBlendState(BlendState::create(blendDesc));
+}
+
 void PathVisualizePass::updatePathData()
 {
     if (mDebugPathData.length == 0)
         return;
 
-    if (mDebugPathData.hasRCVertex)
+    if (!mDebugPathData.hasRCVertex)
         return;
 
     mPathVertices.clear();
@@ -149,50 +247,101 @@ void PathVisualizePass::execute(RenderContext* pRenderContext, const RenderData&
     Fbo::SharedPtr pFbo = Fbo::create();
     pFbo->attachColorTarget(pOutputImg, 0);
 
-    if (mRecreatePathVisualizeShaderPass)
+
+    if (mUseRasterPass)
     {
-        createPathVisualizeShaderPass();
-		mRecreatePathVisualizeShaderPass = false;
+		if (mRecreateRasterPass)
+		{
+			createRasterPass();
+			mRecreateRasterPass = false;
+		}
+
+		// Vertex buffer
+		float3* verts = (float3*)mpVertexBuffer->map(Buffer::MapType::WriteDiscard);
+		verts[0] = float3(3, 4, 5);
+		verts[1] = float3(2, 7, 9);
+
+		mpVertexBuffer->unmap();
+
+
+		//	Bind data
+		auto pRasterState = mpRasterPass->getState();
+
+		//		FBO
+		pRasterState->setFbo(pFbo);
+
+		//		Scene
+		mpRasterPass["gScene"] = mpScene->getParameterBlock();
+
+		//		Camera
+		const Camera::SharedPtr& pCamera = mpScene->getCamera();
+		pCamera->setShaderData(mpRasterPass["PerFrameCB"]["gCamera"]);
+
+		//		PixelDebug
+		mpRasterPass["PerFrameCB"]["gSelectedPixel"] = mSelectedCursorPosition;
+
+
+		// Enable pixel debug
+		const uint2 resolution = renderData.getDefaultTextureDims();
+		mpPixelDebug->beginFrame(pRenderContext, resolution);
+		mpPixelDebug->prepareProgram(mpRasterPass->getProgram(), mpRasterPass->getRootVar());
+
+		// Run the shader pass
+		//mpRasterPass->draw(pRenderContext, 8, 0);
+		mpRasterPass->drawIndexed(pRenderContext, 36, 0, 0);
+
+		mpPixelDebug->endFrame(pRenderContext);
+
     }
+    else
+    {
+        // Fallback to ray-marching pass
 
-    //  Scene
-    mpPathVisualizeShaderPass["gScene"] = mpScene->getParameterBlock();
+        if (mRecreatePathVisualizeShaderPass)
+        {
+            createPathVisualizeShaderPass();
+		    mRecreatePathVisualizeShaderPass = false;
+        }
 
-    // Camera param
-	const Camera::SharedPtr& pCamera = mpScene->getCamera();
-	pCamera->setShaderData(mpPathVisualizeShaderPass["PerFrameCB"]["gCamera"]);
+        //  Scene
+        mpPathVisualizeShaderPass["gScene"] = mpScene->getParameterBlock();
 
-	// Image size
-	const uint2 resolution = renderData.getDefaultTextureDims();
-	mpPathVisualizeShaderPass["PerFrameCB"]["gResolution"] = resolution;
+        // Camera param
+	    const Camera::SharedPtr& pCamera = mpScene->getCamera();
+	    pCamera->setShaderData(mpPathVisualizeShaderPass["PerFrameCB"]["gCamera"]);
 
-	// Selected pixel
-	mpPathVisualizeShaderPass["PerFrameCB"]["gSelectedPixel"] = mSelectedCursorPosition;
+	    // Image size
+	    const uint2 resolution = renderData.getDefaultTextureDims();
+	    mpPathVisualizeShaderPass["PerFrameCB"]["gResolution"] = resolution;
 
-	//	Global params
-    mpPathVisualizeShaderPass["gInputImgTex"] = pInputImg;
-    mpPathVisualizeShaderPass["gDepthTex"] = pDepth;
-    mpPathVisualizeShaderPass["gPointSampler"] = mpPointSampler;
-    mpPathVisualizeShaderPass["gVBuffer"] = pVBuffer;
+	    // Selected pixel
+	    mpPathVisualizeShaderPass["PerFrameCB"]["gSelectedPixel"] = mSelectedCursorPosition;
 
-    //  Store path data log from ReSTIRPTPass
-    auto& renderDataDict = renderData.getDictionary();
-    auto incomingDebugPathData = renderDataDict.getValue<DebugPathData*>("debugPathData");
-    // Filter to only path that has an RC vertex.
-    if (incomingDebugPathData->hasRCVertex)
-        mDebugPathData = *incomingDebugPathData;
+	    //	Global params
+        mpPathVisualizeShaderPass["gInputImgTex"] = pInputImg;
+        mpPathVisualizeShaderPass["gDepthTex"] = pDepth;
+        mpPathVisualizeShaderPass["gPointSampler"] = mpPointSampler;
+        mpPathVisualizeShaderPass["gVBuffer"] = pVBuffer;
 
-    // Enable pixel debug
-    mpPixelDebug->beginFrame(pRenderContext, resolution);
+        //  Store path data log from ReSTIRPTPass
+        auto& renderDataDict = renderData.getDictionary();
+        auto incomingDebugPathData = renderDataDict.getValue<DebugPathData*>("debugPathData");
+        // Filter to only path that has an RC vertex.
+        if (incomingDebugPathData->hasRCVertex)
+            mDebugPathData = *incomingDebugPathData;
 
-    mpPixelDebug->prepareProgram(mpPathVisualizeShaderPass->getProgram(), mpPathVisualizeShaderPass->getRootVar());
+        // Enable pixel debug
+        mpPixelDebug->beginFrame(pRenderContext, resolution);
 
-    // Run the shader pass
-    mpPathVisualizeShaderPass->execute(pRenderContext, pFbo);
+        mpPixelDebug->prepareProgram(mpPathVisualizeShaderPass->getProgram(), mpPathVisualizeShaderPass->getRootVar());
+
+        // Run the shader pass
+        mpPathVisualizeShaderPass->execute(pRenderContext, pFbo);
 
 
-    mpPixelDebug->endFrame(pRenderContext);
+        mpPixelDebug->endFrame(pRenderContext);
 
+    }
 }
 
 void PathVisualizePass::renderUI(Gui::Widgets& widget)

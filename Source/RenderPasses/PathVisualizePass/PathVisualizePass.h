@@ -59,6 +59,7 @@ private:
     PathVisualizePass(const Dictionary& dict);
 
     void createPathVisualizeShaderPass();
+    void createRasterPass();
     void updatePathData();
 
     uint2 mFixedOutputSize = { 512, 512 };                                                  ///< Output size in pixels when 'Fixed' size is selected.
@@ -78,4 +79,11 @@ private:
 
     DebugPathData mDebugPathData;
 
+    RasterPass::SharedPtr mpRasterPass;
+
+    bool mRecreateRasterPass = true;
+
+    bool mUseRasterPass = true;
+
+    Buffer::SharedPtr mpVertexBuffer;
 };
