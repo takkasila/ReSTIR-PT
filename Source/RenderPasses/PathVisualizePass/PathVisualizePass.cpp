@@ -37,36 +37,30 @@ namespace
     const char kDepth[] = "depth";
     const char kInputVBuffer[] = "vbuffer";
 
-
     const char kPathVisualizeShaderPassFile[] = "RenderPasses/PathVisualizePass/PathVisualizePass.ps.slang";
     const char kRasterPassShaderFile[] = "RenderPasses/PathVisualizePass/PathVisualizeRasterPassShader.slang";
 
-	const float space = 0.1;
-	float3 kVertices[8] = {
-		{0, 0, 0},
-		{space, 0, 0},
-		{space, space, 0},
-		{0, space, 0},
-		{0, 0, space},
-		{space, 0, space},
-		{space, space, space},
-		{0, space, space},
+    const float kPyramidHeight = 1;
+    const float kPyramidHalfWidth = 0.01;
+
+	float3 kVertices[5] = {
+        {-kPyramidHalfWidth, 0, kPyramidHalfWidth},
+        {kPyramidHalfWidth, 0, kPyramidHalfWidth},
+        {kPyramidHalfWidth, 0, -kPyramidHalfWidth},
+        {-kPyramidHalfWidth, 0, -kPyramidHalfWidth},
+        {0, kPyramidHeight, 0},
 	};
 
-	uint kIndices[36] = {
+    const uint kIndicesCount = 18;
+	uint kIndices[kIndicesCount] = {
 		0, 1, 2,
-		2, 3, 0,
-		4, 5, 6,
-		6, 7, 4,
-		0, 1, 5,
-		5, 4, 0,
-		1, 2, 6,
-		6, 5, 1,
-		2, 3, 7,
-		7, 6, 2,
-		3, 0, 4,
-		4, 7, 3
+        0, 2, 3,
+        0, 1, 4,
+        1, 2, 4,
+        2, 3, 4,
+        3, 0, 4,
 	};
+    
 }
 
 // Don't remove this. it's required for hot-reload to function properly
@@ -151,7 +145,7 @@ void PathVisualizePass::createRasterPass()
         pVLayout,
         vaoBuffers,
         pIndexBuffer,
-        ResourceFormat::R16Uint
+        ResourceFormat::R32Uint
     );
 
 
@@ -168,7 +162,7 @@ void PathVisualizePass::createRasterPass()
 
     // Rasterizer state
     RasterizerState::Desc rsState;
-    rsState.setCullMode(RasterizerState::CullMode::None);
+    rsState.setCullMode(RasterizerState::CullMode::Back);
     rsState.setFillMode(RasterizerState::FillMode::Solid);
     pRasterState->setRasterizerState(RasterizerState::create(rsState));
 
@@ -186,6 +180,26 @@ void PathVisualizePass::createRasterPass()
 
 void PathVisualizePass::updatePathData()
 {
+
+    // Construct change of basis mat
+    float3 A(0, 0.3, 0), B(0.1, 0.1, 0.1);
+
+
+    // Apply over vertices
+    //      Get pointer to current vertex buffer in device
+    float3* verts = (float3*)mpVertexBuffer->map(Buffer::MapType::Write);
+
+    glm::mat4 M = computeTransformMatToLineSegment(A, B);
+
+    for (uint i = 0; i < 5; i++)
+    {
+        verts[i] = (M * float4(kVertices[i], 1)).xyz;
+    }
+
+    mpVertexBuffer->unmap();
+
+    return;
+
     if (mDebugPathData.length == 0)
         return;
 
@@ -206,6 +220,31 @@ void PathVisualizePass::updatePathData()
     mpPathVisualizeShaderPass["gPathVerticesTex"] = pathVerticesTex;
 
     mpPathVisualizeShaderPass["PerFrameCB"]["gPathLenght"] = mPathVertices.size();
+}
+
+glm::mat4 PathVisualizePass::computeTransformMatToLineSegment(float3 lineBegin, float3 lineEnd)
+{
+    float3 v_prime = lineEnd - lineBegin;
+    float3 up(0, 1, 0);
+
+    float3 crossProd = glm::cross(v_prime, up);
+    float area = glm::length(crossProd);
+    if (glm::epsilonEqual(area, 0.f, glm::epsilon<float>()))
+    {
+        // Change from up vec to down vec;
+        crossProd = glm::cross(v_prime, -up);
+    }
+
+    float3 u_prime = glm::normalize(crossProd);
+    float3 w_prime = glm::normalize(glm::cross(u_prime, v_prime));
+
+    float3 t = lineBegin;
+
+    glm::mat4 M(
+        float4(u_prime, 0), float4(v_prime, 0), float4(w_prime, 0), float4(t, 1)
+    );
+
+    return M;
 }
 
 std::string PathVisualizePass::getDesc() { return kDesc; }
@@ -290,8 +329,7 @@ void PathVisualizePass::execute(RenderContext* pRenderContext, const RenderData&
 		mpPixelDebug->prepareProgram(mpRasterPass->getProgram(), mpRasterPass->getRootVar());
 
 		// Run the shader pass
-		//mpRasterPass->draw(pRenderContext, 8, 0);
-		mpRasterPass->drawIndexed(pRenderContext, 36, 0, 0);
+		mpRasterPass->drawIndexed(pRenderContext, kIndicesCount, 0, 0);
 
 		mpPixelDebug->endFrame(pRenderContext);
 

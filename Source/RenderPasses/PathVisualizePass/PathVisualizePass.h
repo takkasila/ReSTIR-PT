@@ -62,6 +62,8 @@ private:
     void createRasterPass();
     void updatePathData();
 
+    static glm::mat4 computeTransformMatToLineSegment(float3 lineBegin, float3 lineEnd);
+
     uint2 mFixedOutputSize = { 512, 512 };                                                  ///< Output size in pixels when 'Fixed' size is selected.
 
     FullScreenPass::SharedPtr mpPathVisualizeShaderPass;

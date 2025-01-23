@@ -13,9 +13,10 @@ void vs(float3 pos : POSITION, out float4 posSV : SV_POSITION)
 {
     // posSV = transform(pos);
     // posSV = float4(pos, 1);
+    print("input pos", pos);
     posSV = mul(float4(pos, 1), gCamera.getViewProj());
 
-    print("pos", posSV);
+    // print("pos", posSV);
 
 }
 
