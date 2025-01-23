@@ -11,11 +11,11 @@ cbuffer PerFrameCB : register(b0)
 
 void vs(float3 pos : POSITION, out float4 posSV : SV_POSITION)
 {
-	// posSV = transform(pos);
-    posSV = float4(pos, 1);
+    // posSV = transform(pos);
+    // posSV = float4(pos, 1);
+    posSV = mul(float4(pos, 1), gCamera.getViewProj());
 
-    // printSetPixel(gSelectedPixel);
-    print("pos", pos);
+    print("pos", posSV);
 
 }
 
@@ -26,7 +26,6 @@ float4 transform(float3 pos)
 
 float4 ps() : SV_TARGET0
 {
-    print("Hello from shading!", 0);
 	return float4(1, 0, 0, 1);
 }
 

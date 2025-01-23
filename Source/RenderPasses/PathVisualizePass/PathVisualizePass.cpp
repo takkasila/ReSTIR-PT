@@ -41,9 +41,9 @@ namespace
     const char kPathVisualizeShaderPassFile[] = "RenderPasses/PathVisualizePass/PathVisualizePass.ps.slang";
     const char kRasterPassShaderFile[] = "RenderPasses/PathVisualizePass/PathVisualizeRasterPassShader.slang";
 
-	const float space = 2;
+	const float space = 0.1;
 	float3 kVertices[8] = {
-		{space, space, space},
+		{0, 0, 0},
 		{space, 0, 0},
 		{space, space, 0},
 		{0, space, 0},
@@ -117,14 +117,14 @@ void PathVisualizePass::createRasterPass()
 {
     Program::DefineList defines;
     defines.add(mpScene->getSceneDefines());
-    
+
     mpRasterPass = RasterPass::create(kRasterPassShaderFile, "vs", "ps", defines);
 
     mpVertexBuffer = Buffer::create(
         sizeof(kVertices),
         ResourceBindFlags::Vertex,
         Buffer::CpuAccess::Write,
-        kVertices
+        (void*)kVertices
     );
 
     //  Create sample index buffer
@@ -132,14 +132,15 @@ void PathVisualizePass::createRasterPass()
         sizeof(kIndices),
         Resource::BindFlags::Index,
         Buffer::CpuAccess::Write,
-        kIndices
+        (void*)kIndices
     );
 
     // Create vertex array object
     //      Define buffer layout
     auto pVLayout = VertexLayout::create();
     auto pVBLayout = VertexBufferLayout::create();
-    pVBLayout->addElement("POSITION", 0, ResourceFormat::RGB32Float, 8, 0);
+    //      Must set arraySize = 1. This is not a mistake and I don't know why it must set to be 1.
+    pVBLayout->addElement("POSITION", 0, ResourceFormat::RGB32Float, 1, 0);
 
     pVLayout->addBufferLayout(0, pVBLayout);
     Vao::BufferVec vaoBuffers{ mpVertexBuffer };
@@ -237,16 +238,20 @@ void PathVisualizePass::execute(RenderContext* pRenderContext, const RenderData&
 		return;
 	}
 
-    auto pInputImg = renderData[kInputImg]->asTexture();
-    auto pDepth = renderData[kDepth]->asTexture();
-    auto pOutputImg = renderData[kOutputImg]->asTexture();
-    auto pVBuffer = renderData[kInputVBuffer]->asTexture();
+    Texture::SharedPtr pInputImg = renderData[kInputImg]->asTexture();
+    Texture::SharedPtr pDepth = renderData[kDepth]->asTexture();
+    Texture::SharedPtr pOutputImg = renderData[kOutputImg]->asTexture();
 
-    assert(pInputImg && pDepth && pOutputImg && pVBuffer);
+    assert(pInputImg && pDepth && pOutputImg);
 
+    // Create FBO
     Fbo::SharedPtr pFbo = Fbo::create();
-    pFbo->attachColorTarget(pOutputImg, 0);
 
+    //  Render on top of input image by copying from input to the render target
+    pRenderContext->blit(pInputImg->getSRV(), pOutputImg->getRTV());
+
+    //  Bind render target
+    pFbo->attachColorTarget(pOutputImg, 0);
 
     if (mUseRasterPass)
     {
@@ -256,16 +261,14 @@ void PathVisualizePass::execute(RenderContext* pRenderContext, const RenderData&
 			mRecreateRasterPass = false;
 		}
 
-		// Vertex buffer
-		float3* verts = (float3*)mpVertexBuffer->map(Buffer::MapType::WriteDiscard);
-		verts[0] = float3(3, 4, 5);
-		verts[1] = float3(2, 7, 9);
-
-		mpVertexBuffer->unmap();
-
+		//// Vertex buffer
+		//float3* verts = (float3*)mpVertexBuffer->map(Buffer::MapType::WriteDiscard);
+		//verts[0] = float3(3, 4, 5);
+		//verts[1] = float3(2, 7, 9);
+		//mpVertexBuffer->unmap();
 
 		//	Bind data
-		auto pRasterState = mpRasterPass->getState();
+		GraphicsState::SharedPtr pRasterState = mpRasterPass->getState();
 
 		//		FBO
 		pRasterState->setFbo(pFbo);
@@ -321,7 +324,6 @@ void PathVisualizePass::execute(RenderContext* pRenderContext, const RenderData&
         mpPathVisualizeShaderPass["gInputImgTex"] = pInputImg;
         mpPathVisualizeShaderPass["gDepthTex"] = pDepth;
         mpPathVisualizeShaderPass["gPointSampler"] = mpPointSampler;
-        mpPathVisualizeShaderPass["gVBuffer"] = pVBuffer;
 
         //  Store path data log from ReSTIRPTPass
         auto& renderDataDict = renderData.getDictionary();
@@ -346,14 +348,10 @@ void PathVisualizePass::execute(RenderContext* pRenderContext, const RenderData&
 
 void PathVisualizePass::renderUI(Gui::Widgets& widget)
 {
-    widget.text("Path-visualization pass' parameters goes here.");
-
     if (auto group = widget.group("Debugging", true))
     {
         if (group.button("Update Path value", false))
         {
-            std::cout << "update path value" << std::endl;
-
             updatePathData();
         }
 
