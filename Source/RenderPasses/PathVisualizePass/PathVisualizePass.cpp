@@ -206,7 +206,8 @@ void PathVisualizePass::createRasterPass()
 
     // create the depth-state
     DepthStencilState::Desc dsDesc;
-    dsDesc.setDepthEnabled(false);
+    dsDesc.setDepthEnabled(true);
+	dsDesc.setDepthFunc(ComparisonFunc::Less);
     pRasterState->setDepthStencilState(DepthStencilState::create(dsDesc));
 
 
@@ -246,6 +247,7 @@ void PathVisualizePass::updatePathData()
     float3 A, B;
     uint vertexOffset = 0;
     uint indexOffset = 0;
+	float4 colorBegin(0, 1, 0, 1), colorEnd(0, 0, 0, 1);
 
     mCurrentPathLength = mDebugPathData.length;
 
@@ -257,21 +259,22 @@ void PathVisualizePass::updatePathData()
         // Construct change of basis mat
         glm::mat4 M = computeTransformMatToLineSegment(A, B);
 
+		float t = i / float(mDebugPathData.length - 1);
+		float4 color = colorBegin + t * (colorEnd - colorBegin);
+
         for (uint j = 0; j < kPyramidVertCount; j++)
         {
             verts[vertexOffset + j].pos = (M * float4(kPyramidVerts[j], 1)).xyz;
+
+			// TODO: use proper tex coord
             verts[vertexOffset + j].texCoord = float2(0.5, 0.5);
 
             // If target vertex is an RC vertex, color code as red
             if (i + 1 == mDebugPathData.rcVertexIndex)
             {
-                verts[vertexOffset + j].color = float4(1, 0, 0, 1);
+				color = float4(1, 0, 0, 1);
             }
-            else
-            {
-                // TODO: Do color blending 
-                verts[vertexOffset + j].color = float4(0, 1, 0, 1);
-            }
+			verts[vertexOffset + j].color = color;
         }
 
         for (uint j = 0; j < kPyramidIndicesCount; j++)
