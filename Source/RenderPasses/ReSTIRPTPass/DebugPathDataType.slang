@@ -8,6 +8,7 @@ struct DebugPathData
     uint length = 0;
     bool hasRCVertex = false;
     uint rcVertexIndex = 0;
+    float3 L;
     float3 vertices[15];
 };
 

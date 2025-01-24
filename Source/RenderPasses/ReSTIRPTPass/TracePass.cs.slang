@@ -80,6 +80,8 @@ void tracePath(uint pathID, inout PathReservoir giReservoir, uint sampleIdx)
         }
 
         pixelDebugPathDataBuffer[0].length = path.length + 1;
+
+        pixelDebugPathDataBuffer[0].L = path.L;
     }
 
     gPathTracer.finalize(path);
