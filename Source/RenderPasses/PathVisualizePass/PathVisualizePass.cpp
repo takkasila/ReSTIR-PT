@@ -40,8 +40,15 @@ namespace
     const char kPathVisualizeShaderPassFile[] = "RenderPasses/PathVisualizePass/PathVisualizePass.ps.slang";
     const char kRasterPassShaderFile[] = "RenderPasses/PathVisualizePass/PathVisualizeRasterPassShader.slang";
 
-    const float kPyramidHeight = 1;
-    const float kPyramidHalfWidth = 0.01;
+    struct Vertex
+    {
+        float3 pos;
+        float2 texCoord;
+        float4 color;
+    };
+
+    const float kPyramidHeight = 1;     // Should always be 1 because it'll be normalized to fit new space.
+    const float kPyramidHalfWidth = 0.007;  // In world space. This value will not be normalized to fit new space.
 
     const uint kPyramidVertCount = 5;
 
@@ -55,7 +62,7 @@ namespace
 
     const uint kMaxPathLength = 15;
 
-    const size_t kMaxVertexBufferSize = sizeof(float3) * kPyramidVertCount * (kMaxPathLength + 1);
+    const size_t kMaxVertexBufferSize = sizeof(Vertex) * kPyramidVertCount * kMaxPathLength;
 
     const uint kPyramidIndicesCount = 18;
 
@@ -68,7 +75,7 @@ namespace
         3, 0, 4,
 	};
 
-    const size_t kMaxIndicesBufferSize = sizeof(uint) * kPyramidIndicesCount * (kMaxPathLength + 1);
+    const size_t kMaxIndicesBufferSize = sizeof(uint) * kPyramidIndicesCount * kMaxPathLength;
     
 }
 
@@ -123,28 +130,62 @@ void PathVisualizePass::createRasterPass()
 
     mpRasterPass = RasterPass::create(kRasterPassShaderFile, "vs", "ps", defines);
 
+    // Test
+    Vertex verts[1 * kPyramidVertCount];
+    uint indices[1 * kPyramidIndicesCount];
+    {
+
+        float3 A(0, 0, 0), B(0.1, 0, 0);
+
+        uint vertexOffset = 0;
+        uint indexOffset = 0;
+
+        // Construct change of basis mat
+        glm::mat4 M = computeTransformMatToLineSegment(A, B);
+
+        for (uint j = 0; j < kPyramidVertCount; j++)
+        {
+            verts[vertexOffset + j].pos = (M * float4(kPyramidVerts[j], 1)).xyz;
+            verts[vertexOffset + j].texCoord = float2(0.5, 0.5);
+            verts[vertexOffset + j].color = float4(1, 0, 0.5, 1);
+        }
+
+        for (uint j = 0; j < kPyramidIndicesCount; j++)
+        {
+            indices[indexOffset + j] = kPyramidIndices[j] + vertexOffset;
+        }
+
+        vertexOffset += kPyramidVertCount;
+        indexOffset += kPyramidIndicesCount;
+    }
+
     mpVertexBuffer = Buffer::create(
         kMaxVertexBufferSize,
+        //sizeof(verts),
         ResourceBindFlags::Vertex,
         Buffer::CpuAccess::Write,
         nullptr
+        //(void*)verts
     );
 
     //  Create sample index buffer
     mpIndexBuffer = Buffer::create(
         kMaxIndicesBufferSize,
+        //sizeof(indices),
         Resource::BindFlags::Index,
         Buffer::CpuAccess::Write,
         nullptr
+        //(void*)indices
     );
 
     // Create vertex array object
     //      Define buffer layout
     auto pVLayout = VertexLayout::create();
     auto pVBLayout = VertexBufferLayout::create();
-    //      Must set arraySize = 1. This is not a mistake and I don't know why it must set to be 1.
-    pVBLayout->addElement("POSITION", 0, ResourceFormat::RGB32Float, 1, 0);
-
+    //      Must set arraySize = 1. This is not a mistake and I don't know why it must set to be 1. Perhapse it means per vertex?
+    pVBLayout->addElement("POSITION", offsetof(Vertex, Vertex::pos), ResourceFormat::RGB32Float, 1, 0);
+    pVBLayout->addElement("TEXCOORD", offsetof(Vertex, Vertex::texCoord), ResourceFormat::RG32Float, 1, 1);
+    pVBLayout->addElement("COLOR", offsetof(Vertex, Vertex::color), ResourceFormat::RGBA32Float, 1, 2);
     pVLayout->addBufferLayout(0, pVBLayout);
     Vao::BufferVec vaoBuffers{ mpVertexBuffer };
 
@@ -199,8 +240,8 @@ void PathVisualizePass::updatePathData()
     // Construct path geometry
     //      Get pointer to current vertex buffer in device
     //      Should I change to WriteDiscard?
-    float3* verts = (float3*)mpVertexBuffer->map(Buffer::MapType::Write);
-    uint* indices = (uint*)mpIndexBuffer->map(Buffer::MapType::Write);
+    Vertex* verts = static_cast<Vertex*>(mpVertexBuffer->map(Buffer::MapType::WriteDiscard));
+    uint* indices = static_cast<uint*>(mpIndexBuffer->map(Buffer::MapType::WriteDiscard));
 
     float3 A, B;
     uint vertexOffset = 0;
@@ -218,12 +259,24 @@ void PathVisualizePass::updatePathData()
 
         for (uint j = 0; j < kPyramidVertCount; j++)
         {
-            verts[vertexOffset + j] = (M * float4(kPyramidVerts[j], 1)).xyz;
+            verts[vertexOffset + j].pos = (M * float4(kPyramidVerts[j], 1)).xyz;
+            verts[vertexOffset + j].texCoord = float2(0.5, 0.5);
+
+            // If target vertex is an RC vertex, color code as red
+            if (i + 1 == mDebugPathData.rcVertexIndex)
+            {
+                verts[vertexOffset + j].color = float4(1, 0, 0, 1);
+            }
+            else
+            {
+                // TODO: Do color blending 
+                verts[vertexOffset + j].color = float4(0, 1, 0, 1);
+            }
         }
 
         for (uint j = 0; j < kPyramidIndicesCount; j++)
         {
-            indices[indexOffset + j] = kPyramidIndices[j];
+            indices[indexOffset + j] = kPyramidIndices[j] + vertexOffset;
         }
 
         vertexOffset += kPyramidVertCount;
@@ -297,7 +350,7 @@ void PathVisualizePass::execute(RenderContext* pRenderContext, const RenderData&
 
     //  Store path data log from ReSTIRPTPass
     auto& renderDataDict = renderData.getDictionary();
-    auto incomingDebugPathData = renderDataDict.getValue<DebugPathData*>("debugPathData");
+    DebugPathData* incomingDebugPathData = renderDataDict.getValue<DebugPathData*>("debugPathData");
 
     // Filter to only path that has an RC vertex.
     if (incomingDebugPathData->hasRCVertex)
@@ -342,10 +395,12 @@ void PathVisualizePass::execute(RenderContext* pRenderContext, const RenderData&
 		mpPixelDebug->beginFrame(pRenderContext, resolution);
 		mpPixelDebug->prepareProgram(mpRasterPass->getProgram(), mpRasterPass->getRootVar());
 
-		// Run the shader pass
-        // Todo: check why is it only render first pyramid
-        uint tmp = (mCurrentPathLength + 1) * kPyramidIndicesCount;
-        mpRasterPass->drawIndexed(pRenderContext, (mCurrentPathLength + 1) * kPyramidIndicesCount, 0, 0);
+		// Run the raster pass
+        uint indexCount = mCurrentPathLength * kPyramidIndicesCount;
+        //uint indexCount = 1 * kPyramidIndicesCount;
+        uint startIndexLocation = 0;
+        uint baseVertexLocation = 0;    // should always be zero
+        mpRasterPass->drawIndexed(pRenderContext, indexCount, startIndexLocation, baseVertexLocation);
 
 		mpPixelDebug->endFrame(pRenderContext);
 
@@ -418,4 +473,19 @@ bool PathVisualizePass::onMouseEvent(const MouseEvent& mouseEvent)
     mSelectedCursorPosition = uint2(mouseEvent.screenPos);
 
 	return mpPixelDebug->onMouseEvent(mouseEvent);
+}
+
+bool PathVisualizePass::onKeyEvent(const KeyboardEvent& keyEvent)
+{
+    // shortcut key "u" to call updatePath,
+    if (keyEvent.key == KeyboardEvent::Key::U
+        && keyEvent.type == KeyboardEvent::Type::KeyReleased
+        && keyEvent.mods.isAltDown == false
+        && keyEvent.mods.isCtrlDown == false
+        && keyEvent.mods.isShiftDown == false)
+    {
+        updatePathData();
+    }
+
+    return false;
 }

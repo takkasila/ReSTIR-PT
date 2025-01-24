@@ -4,30 +4,44 @@ import Scene.Camera.Camera;
 
 cbuffer PerFrameCB : register(b0)
 {
-	float4x4 gvpTransform;
     Camera gCamera;
     uint2 gSelectedPixel;
 };
 
-void vs(float3 pos : POSITION, out float4 posSV : SV_POSITION)
+struct VSIn
 {
-    // posSV = transform(pos);
-    // posSV = float4(pos, 1);
-    print("input pos", pos);
-    posSV = mul(float4(pos, 1), gCamera.getViewProj());
+    float3 pos : POSITION;
+    float2 texCoord : TEXCOORD;
+    float4 color : COLOR;
+};
 
-    // print("pos", posSV);
+struct VSOut
+{
+    float4 pos : SV_POSITION;
+    float2 texCoord : TEXCOORD;
+    float4 color : COLOR;
+};
 
+VSOut vs(VSIn vsIn)
+{
+    print("input pos", vsIn.pos);
+    print("input texCoord", vsIn.texCoord);
+    print("input color", vsIn.color);
+
+    VSOut vsOut;
+
+    vsOut.pos = mul(float4(vsIn.pos, 1), gCamera.getViewProj());
+
+    vsOut.texCoord = vsIn.texCoord;
+    vsOut.color = vsIn.color;
+
+    return vsOut;
 }
 
-float4 transform(float3 pos)
+float4 ps(VSOut vsOut) : SV_TARGET
 {
-	return mul(float4(pos, 1), gvpTransform);
-}
-
-float4 ps() : SV_TARGET0
-{
-	return float4(1, 0, 0, 1);
+    float4 color = vsOut.color;
+	return color;
 }
 
 
