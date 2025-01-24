@@ -88,4 +88,7 @@ private:
     bool mUseRasterPass = true;
 
     Buffer::SharedPtr mpVertexBuffer;
+    Buffer::SharedPtr mpIndexBuffer;
+
+    uint mCurrentPathLength = 0;
 };

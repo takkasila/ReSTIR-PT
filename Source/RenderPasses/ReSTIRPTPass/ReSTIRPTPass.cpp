@@ -378,7 +378,7 @@ ReSTIRPTPass::ReSTIRPTPass(const Dictionary& dict)
 
     mpPixelStats = PixelStats::create();
     mpPixelDebug = PixelDebug::create(1000);
-    //mpPixelDebug->setEnabled(true);
+    mpPixelDebug->setEnabled(true);
     mpReadbackFence = GpuFence::create();
 }
 
@@ -1595,9 +1595,12 @@ void ReSTIRPTPass::endFrame(RenderContext* pRenderContext, const RenderData& ren
 
     // Get and store path data
 
-    Falcor::DebugPathData* debugPathData = static_cast<DebugPathData*>( mpPixelDebugPathBuffer->map(Buffer::MapType::Read) );
+    // Copy debugPathData
+    DebugPathData* debugPathData = static_cast<DebugPathData*>( mpPixelDebugPathBuffer->map(Buffer::MapType::Read) );
 
     renderData.getDictionary()["debugPathData"] = debugPathData;
+
+    mpPixelDebugPathBuffer->unmap();
 
 }
 

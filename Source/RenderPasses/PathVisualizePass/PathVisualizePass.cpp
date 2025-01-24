@@ -43,23 +43,32 @@ namespace
     const float kPyramidHeight = 1;
     const float kPyramidHalfWidth = 0.01;
 
-	float3 kVertices[5] = {
+    const uint kPyramidVertCount = 5;
+
+    float3 kPyramidVerts[kPyramidVertCount] = {
         {-kPyramidHalfWidth, 0, kPyramidHalfWidth},
         {kPyramidHalfWidth, 0, kPyramidHalfWidth},
         {kPyramidHalfWidth, 0, -kPyramidHalfWidth},
         {-kPyramidHalfWidth, 0, -kPyramidHalfWidth},
         {0, kPyramidHeight, 0},
-	};
+    };
 
-    const uint kIndicesCount = 18;
-	uint kIndices[kIndicesCount] = {
-		0, 1, 2,
-        0, 2, 3,
+    const uint kMaxPathLength = 15;
+
+    const size_t kMaxVertexBufferSize = sizeof(float3) * kPyramidVertCount * (kMaxPathLength + 1);
+
+    const uint kPyramidIndicesCount = 18;
+
+	uint kPyramidIndices[kPyramidIndicesCount] = {
+		0, 2, 1,
+        0, 3, 2,
         0, 1, 4,
         1, 2, 4,
         2, 3, 4,
         3, 0, 4,
 	};
+
+    const size_t kMaxIndicesBufferSize = sizeof(uint) * kPyramidIndicesCount * (kMaxPathLength + 1);
     
 }
 
@@ -115,18 +124,18 @@ void PathVisualizePass::createRasterPass()
     mpRasterPass = RasterPass::create(kRasterPassShaderFile, "vs", "ps", defines);
 
     mpVertexBuffer = Buffer::create(
-        sizeof(kVertices),
+        kMaxVertexBufferSize,
         ResourceBindFlags::Vertex,
         Buffer::CpuAccess::Write,
-        (void*)kVertices
+        nullptr
     );
 
     //  Create sample index buffer
-    Buffer::SharedPtr pIndexBuffer = Buffer::create(
-        sizeof(kIndices),
+    mpIndexBuffer = Buffer::create(
+        kMaxIndicesBufferSize,
         Resource::BindFlags::Index,
         Buffer::CpuAccess::Write,
-        (void*)kIndices
+        nullptr
     );
 
     // Create vertex array object
@@ -144,7 +153,7 @@ void PathVisualizePass::createRasterPass()
         Vao::Topology::TriangleList,
         pVLayout,
         vaoBuffers,
-        pIndexBuffer,
+        mpIndexBuffer,
         ResourceFormat::R32Uint
     );
 
@@ -181,45 +190,48 @@ void PathVisualizePass::createRasterPass()
 void PathVisualizePass::updatePathData()
 {
 
-    // Construct change of basis mat
-    float3 A(0, 0.3, 0), B(0.1, 0.1, 0.1);
-
-
-    // Apply over vertices
-    //      Get pointer to current vertex buffer in device
-    float3* verts = (float3*)mpVertexBuffer->map(Buffer::MapType::Write);
-
-    glm::mat4 M = computeTransformMatToLineSegment(A, B);
-
-    for (uint i = 0; i < 5; i++)
-    {
-        verts[i] = (M * float4(kVertices[i], 1)).xyz;
-    }
-
-    mpVertexBuffer->unmap();
-
-    return;
-
     if (mDebugPathData.length == 0)
         return;
 
     if (!mDebugPathData.hasRCVertex)
         return;
 
-    mPathVertices.clear();
+    // Construct path geometry
+    //      Get pointer to current vertex buffer in device
+    //      Should I change to WriteDiscard?
+    float3* verts = (float3*)mpVertexBuffer->map(Buffer::MapType::Write);
+    uint* indices = (uint*)mpIndexBuffer->map(Buffer::MapType::Write);
 
-    for (int i = 0; i < mDebugPathData.length; i++)
+    float3 A, B;
+    uint vertexOffset = 0;
+    uint indexOffset = 0;
+
+    mCurrentPathLength = mDebugPathData.length;
+
+    for (uint i = 0; i < mDebugPathData.length; i++)
     {
-        mPathVertices.emplace_back(mDebugPathData.vertices[i]);
+        A = mDebugPathData.vertices[i];
+        B = mDebugPathData.vertices[i + 1];
+
+        // Construct change of basis mat
+        glm::mat4 M = computeTransformMatToLineSegment(A, B);
+
+        for (uint j = 0; j < kPyramidVertCount; j++)
+        {
+            verts[vertexOffset + j] = (M * float4(kPyramidVerts[j], 1)).xyz;
+        }
+
+        for (uint j = 0; j < kPyramidIndicesCount; j++)
+        {
+            indices[indexOffset + j] = kPyramidIndices[j];
+        }
+
+        vertexOffset += kPyramidVertCount;
+        indexOffset += kPyramidIndicesCount;
     }
 
-    // Convert path vertices into a 1D-rgb texture.
-    Texture::SharedPtr pathVerticesTex = Texture::create1D((uint32_t)mPathVertices.size(), ResourceFormat::RGB32Float, 1, 1, mPathVertices.data());
-
-    // Bind pointer to texture
-    mpPathVisualizeShaderPass["gPathVerticesTex"] = pathVerticesTex;
-
-    mpPathVisualizeShaderPass["PerFrameCB"]["gPathLenght"] = mPathVertices.size();
+    mpVertexBuffer->unmap();
+    mpIndexBuffer->unmap();
 }
 
 glm::mat4 PathVisualizePass::computeTransformMatToLineSegment(float3 lineBegin, float3 lineEnd)
@@ -283,6 +295,14 @@ void PathVisualizePass::execute(RenderContext* pRenderContext, const RenderData&
 
     assert(pInputImg && pDepth && pOutputImg);
 
+    //  Store path data log from ReSTIRPTPass
+    auto& renderDataDict = renderData.getDictionary();
+    auto incomingDebugPathData = renderDataDict.getValue<DebugPathData*>("debugPathData");
+
+    // Filter to only path that has an RC vertex.
+    if (incomingDebugPathData->hasRCVertex)
+        mDebugPathData = *incomingDebugPathData;
+
     // Create FBO
     Fbo::SharedPtr pFbo = Fbo::create();
 
@@ -299,12 +319,6 @@ void PathVisualizePass::execute(RenderContext* pRenderContext, const RenderData&
 			createRasterPass();
 			mRecreateRasterPass = false;
 		}
-
-		//// Vertex buffer
-		//float3* verts = (float3*)mpVertexBuffer->map(Buffer::MapType::WriteDiscard);
-		//verts[0] = float3(3, 4, 5);
-		//verts[1] = float3(2, 7, 9);
-		//mpVertexBuffer->unmap();
 
 		//	Bind data
 		GraphicsState::SharedPtr pRasterState = mpRasterPass->getState();
@@ -329,7 +343,9 @@ void PathVisualizePass::execute(RenderContext* pRenderContext, const RenderData&
 		mpPixelDebug->prepareProgram(mpRasterPass->getProgram(), mpRasterPass->getRootVar());
 
 		// Run the shader pass
-		mpRasterPass->drawIndexed(pRenderContext, kIndicesCount, 0, 0);
+        // Todo: check why is it only render first pyramid
+        uint tmp = (mCurrentPathLength + 1) * kPyramidIndicesCount;
+        mpRasterPass->drawIndexed(pRenderContext, (mCurrentPathLength + 1) * kPyramidIndicesCount, 0, 0);
 
 		mpPixelDebug->endFrame(pRenderContext);
 
@@ -363,12 +379,7 @@ void PathVisualizePass::execute(RenderContext* pRenderContext, const RenderData&
         mpPathVisualizeShaderPass["gDepthTex"] = pDepth;
         mpPathVisualizeShaderPass["gPointSampler"] = mpPointSampler;
 
-        //  Store path data log from ReSTIRPTPass
-        auto& renderDataDict = renderData.getDictionary();
-        auto incomingDebugPathData = renderDataDict.getValue<DebugPathData*>("debugPathData");
-        // Filter to only path that has an RC vertex.
-        if (incomingDebugPathData->hasRCVertex)
-            mDebugPathData = *incomingDebugPathData;
+        
 
         // Enable pixel debug
         mpPixelDebug->beginFrame(pRenderContext, resolution);
