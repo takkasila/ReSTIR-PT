@@ -28,6 +28,7 @@ import Utils.Debug.PixelDebug;
 import LoadShadingData;
 import PathBuilder;
 import PathReservoir;
+import DebugPathDataType;
 
 #include "Utils/Math/MathConstants.slangh"
 
@@ -963,7 +964,7 @@ struct PathTracer
         After handling the hit, a new scatter ray is generated or the path is terminated.
         \param[in,out] path The path state.
     */
-    void handleHit(inout PathState path)
+    void handleHit(inout PathState path, out DebugVertexState debugVertexState)
     {
         // Upon hit:
         // - Load vertex/material data
@@ -1380,6 +1381,8 @@ struct PathTracer
                 {
                     if(gIsDebug) print("--- Sample light: valid sample", 0);
 
+                    // Save NEE vertex
+
                     // Apply MIS weight.
                     float misWeight = 1.f;
                     float scatterPdf = 0.f;
@@ -1432,6 +1435,9 @@ struct PathTracer
                                 bool selected = path.pathBuilder.addNeeVertex(params, path.length, ls.dir, Lr, weight * ls.Li * path.thp, path.useHybridShift,
                                     path.russianRoulettePdf, misWeight, ls.pdf, ls.lightType, path.pathReservoir, path.enableRandomReplay);
 #endif
+
+                                debugVertexState.isSampledLight = true;
+                                debugVertexState.sampledLightPosition = ls.origin + ls.dir * ls.distance;
                             }
                         }
                     }
@@ -1725,6 +1731,8 @@ struct PathTracer
 
         float randomReplayProb = 1.f;
 
+        DebugVertexState debugVertexState;
+
         while (path.isActive() && path.isHit())
         {
             // Handle surface hit
@@ -1732,7 +1740,7 @@ struct PathTracer
             {
                 if (path.isHit())
                 {
-                    handleHit(path);
+                    handleHit(path, debugVertexState);
                 }
             }
 
@@ -1779,6 +1787,8 @@ struct PathTracer
             return 0.f;
         }
 
+        DebugVertexState debugVertexState;
+
         while (path.isActive() && path.isHit())
         {
             // Volume scattering is ignored
@@ -1787,7 +1797,7 @@ struct PathTracer
             {
                 if (path.isHit())
                 {
-                    handleHit(path);
+                    handleHit(path, debugVertexState);
                 }
             }
 
@@ -1941,6 +1951,8 @@ struct PathTracer
             path.sg = SampleGenerator(tempPathReservoir.rcRandomSeed);
             if (path.isActive()) nextVertex(path);
 
+            DebugVertexState debugVertexState;
+
             while (path.isActive() && path.isHit())
             {
                 // Volume scattering is ignored
@@ -1949,7 +1961,7 @@ struct PathTracer
                 {
                     if (path.isHit())
                     {
-                        handleHit(path);
+                        handleHit(path, debugVertexState);
                     }
                 }
 

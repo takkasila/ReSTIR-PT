@@ -27,6 +27,7 @@
  **************************************************************************/
 #include "PathVisualizePass.h"
 #include <iostream>
+#include <algorithm>
 
 
 namespace
@@ -358,6 +359,17 @@ void PathVisualizePass::execute(RenderContext* pRenderContext, const RenderData&
     // Filter to only path that has an RC vertex.
     if (incomingDebugPathData->hasRCVertex)
         mDebugPathData = *incomingDebugPathData;
+
+    bool hasAnNEE = std::any_of(
+        std::begin(incomingDebugPathData->isSampledLight),
+        std::begin(incomingDebugPathData->isSampledLight) + incomingDebugPathData->length,
+        [](bool b) {return b; }
+    );
+
+    if (hasAnNEE)
+    {
+        std::cout << "Found a path with NEE!" << std::endl;
+    }
 
     // Create FBO
     Fbo::SharedPtr pFbo = Fbo::create();

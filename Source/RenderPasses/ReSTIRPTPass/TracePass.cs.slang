@@ -29,6 +29,7 @@ void tracePath(uint pathID, inout PathReservoir giReservoir, uint sampleIdx)
 
     uint2 selectedPixel = getSelctedPixelLog();
 
+
     print("pixel", path.getPixel());
     print("pathID", pathID);
     print("", 0);
@@ -44,7 +45,18 @@ void tracePath(uint pathID, inout PathReservoir giReservoir, uint sampleIdx)
 
         if (path.isHit())
         {
-            gPathTracer.handleHit(path);
+            DebugVertexState debugVertexState;
+            debugVertexState.isSampledLight = false;
+
+            gPathTracer.handleHit(path, debugVertexState);
+
+
+            if (all(selectedPixel == path.getPixel()))
+            {
+                pixelDebugPathDataBuffer[0].isSampledLight[(int)path.length] = debugVertexState.isSampledLight;
+                pixelDebugPathDataBuffer[0].sampledLightPosition[(int)path.length] = debugVertexState.sampledLightPosition;
+            }
+
 
             if (path.isTerminated())
             {
