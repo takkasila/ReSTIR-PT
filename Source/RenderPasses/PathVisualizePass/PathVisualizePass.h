@@ -58,18 +58,14 @@ public:
 private:
     PathVisualizePass(const Dictionary& dict);
 
-    void createPathVisualizeShaderPass();
     void createRasterPass();
     void updatePathData();
 
     static glm::mat4 computeTransformMatToLineSegment(float3 lineBegin, float3 lineEnd);
 
-    uint2 mFixedOutputSize = { 512, 512 };                                                  ///< Output size in pixels when 'Fixed' size is selected.
+    uint2 mFixedOutputSize = { 512, 512 };    //< Output size in pixels when 'Fixed' size is selected.
 
-    FullScreenPass::SharedPtr mpPathVisualizeShaderPass;
     Sampler::SharedPtr mpPointSampler;
-
-    bool mRecreatePathVisualizeShaderPass = true;
 
     PixelDebug::SharedPtr mpPixelDebug;
 
@@ -85,12 +81,8 @@ private:
 
     bool mRecreateRasterPass = true;
 
-    bool mUseRasterPass = true;
-
     Buffer::SharedPtr mpVertexBuffer;
     Buffer::SharedPtr mpIndexBuffer;
-
-    uint mCurrentPathLength = 0;
 
     uint mTotalIndices = 0;
 };
