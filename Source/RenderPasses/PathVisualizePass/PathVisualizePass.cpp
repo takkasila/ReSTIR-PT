@@ -63,7 +63,8 @@ namespace
 
     const uint kMaxPathLength = 15;
 
-    const size_t kMaxVertexBufferSize = sizeof(Vertex) * kPyramidVertCount * kMaxPathLength;
+    //  Compute maxmimum vertex buffer size. We multiply by 2 here to accommodate an additional NEE segment per vertex.
+    const size_t kMaxVertexBufferSize = sizeof(Vertex) * kPyramidVertCount * kMaxPathLength * 2;
 
     const uint kPyramidIndicesCount = 18;
 
@@ -76,7 +77,7 @@ namespace
         3, 0, 4,
 	};
 
-    const size_t kMaxIndicesBufferSize = sizeof(uint) * kPyramidIndicesCount * kMaxPathLength;
+    const size_t kMaxIndicesBufferSize = sizeof(uint) * kPyramidIndicesCount * kMaxPathLength * 2;
     
 }
 
@@ -239,9 +240,10 @@ void PathVisualizePass::updatePathData()
     if (!mDebugPathData.hasRCVertex)
         return;
 
+    //
     // Construct path geometry
+    //
     //      Get pointer to current vertex buffer in device
-    //      Should I change to WriteDiscard?
     Vertex* verts = static_cast<Vertex*>(mpVertexBuffer->map(Buffer::MapType::WriteDiscard));
     uint* indices = static_cast<uint*>(mpIndexBuffer->map(Buffer::MapType::WriteDiscard));
 
@@ -249,6 +251,8 @@ void PathVisualizePass::updatePathData()
     uint vertexOffset = 0;
     uint indexOffset = 0;
 	float4 colorBegin(0, 1, 0, 1), colorEnd(0, 0, 0, 1);
+    float4 color;
+    glm::mat4 M;
 
     mCurrentPathLength = mDebugPathData.length;
 
@@ -258,11 +262,12 @@ void PathVisualizePass::updatePathData()
         B = mDebugPathData.vertices[i + 1];
 
         // Construct change of basis mat
-        glm::mat4 M = computeTransformMatToLineSegment(A, B);
+        M = computeTransformMatToLineSegment(A, B);
 
 		float t = i / float(mDebugPathData.length - 1);
-		float4 color = colorBegin + t * (colorEnd - colorBegin);
+		color = colorBegin + t * (colorEnd - colorBegin);
 
+        // Vertex
         for (uint j = 0; j < kPyramidVertCount; j++)
         {
             verts[vertexOffset + j].pos = (M * float4(kPyramidVerts[j], 1)).xyz;
@@ -278,6 +283,7 @@ void PathVisualizePass::updatePathData()
 			verts[vertexOffset + j].color = color;
         }
 
+        // Index
         for (uint j = 0; j < kPyramidIndicesCount; j++)
         {
             indices[indexOffset + j] = kPyramidIndices[j] + vertexOffset;
@@ -286,6 +292,58 @@ void PathVisualizePass::updatePathData()
         vertexOffset += kPyramidVertCount;
         indexOffset += kPyramidIndicesCount;
     }
+
+
+    //
+    // Construct NEE segments geometry
+    //
+    bool hasAnNEE = std::any_of(
+        std::begin(mDebugPathData.isSampledLight),
+        std::begin(mDebugPathData.isSampledLight) + mDebugPathData.length,
+        [](bool b) {return b; }
+    );
+    if (hasAnNEE)
+    {
+        // Gather indices of vertex that has NEE
+        std::vector<uint> neeVertexIndex;
+        for (uint i = 0; i < mDebugPathData.length; i++)
+        {
+            if (mDebugPathData.isSampledLight[i])
+                neeVertexIndex.emplace_back(i);
+        }
+
+        for (uint i : neeVertexIndex)
+        {
+            A = mDebugPathData.vertices[i];
+            B = mDebugPathData.sampledLightPosition[i];
+
+            // Construct change of basis mat
+            M = computeTransformMatToLineSegment(A, B);
+
+            // Vertex
+            for (uint j = 0; j < kPyramidVertCount; j++)
+            {
+                verts[vertexOffset + j].pos = (M * float4(kPyramidVerts[j], 1)).xyz;
+
+                // TODO: use proper tex coord
+                verts[vertexOffset + j].texCoord = float2(0.5, 0.5);
+
+                verts[vertexOffset + j].color = float4(1, 1, 0, 1);
+            }
+
+            // Index
+            for (uint j = 0; j < kPyramidIndicesCount; j++)
+            {
+                indices[indexOffset + j] = kPyramidIndices[j] + vertexOffset;
+            }
+
+            vertexOffset += kPyramidVertCount;
+            indexOffset += kPyramidIndicesCount;
+        }
+    }
+
+    mTotalIndices = indexOffset;
+
 
     mpVertexBuffer->unmap();
     mpIndexBuffer->unmap();
@@ -411,11 +469,7 @@ void PathVisualizePass::execute(RenderContext* pRenderContext, const RenderData&
 		mpPixelDebug->prepareProgram(mpRasterPass->getProgram(), mpRasterPass->getRootVar());
 
 		// Run the raster pass
-        uint indexCount = mCurrentPathLength * kPyramidIndicesCount;
-        //uint indexCount = 1 * kPyramidIndicesCount;
-        uint startIndexLocation = 0;
-        uint baseVertexLocation = 0;    // should always be zero
-        mpRasterPass->drawIndexed(pRenderContext, indexCount, startIndexLocation, baseVertexLocation);
+        mpRasterPass->drawIndexed(pRenderContext, mTotalIndices, 0, 0);
 
 		mpPixelDebug->endFrame(pRenderContext);
 

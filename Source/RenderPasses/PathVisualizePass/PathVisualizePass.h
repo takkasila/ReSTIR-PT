@@ -91,4 +91,6 @@ private:
     Buffer::SharedPtr mpIndexBuffer;
 
     uint mCurrentPathLength = 0;
+
+    uint mTotalIndices = 0;
 };
