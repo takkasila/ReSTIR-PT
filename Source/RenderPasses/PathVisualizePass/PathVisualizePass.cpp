@@ -384,10 +384,10 @@ RenderPassReflection PathVisualizePass::reflect(const CompileData& compileData)
 
 void PathVisualizePass::execute(RenderContext* pRenderContext, const RenderData& renderData)
 {
-	if (!mpScene)
-	{
-		return;
-	}
+    if (!mpScene)
+    {
+        return;
+    }
 
     Texture::SharedPtr pInputImg = renderData[kInputImg]->asTexture();
     Texture::SharedPtr pDepth = renderData[kDepth]->asTexture();
@@ -399,20 +399,28 @@ void PathVisualizePass::execute(RenderContext* pRenderContext, const RenderData&
     auto& renderDataDict = renderData.getDictionary();
     DebugPathData* incomingDebugPathData = renderDataDict.getValue<DebugPathData*>("debugPathData");
 
-    // Filter to only path that has an RC vertex.
-    if (incomingDebugPathData->hasRCVertex)
+
+    //  Filter and copy debug path data from ReSTIRPT pass
+    bool isCopyNewPathData = !mShowOnlyPathWithRCVertex
+        || (mShowOnlyPathWithRCVertex && incomingDebugPathData->hasRCVertex);
+
+
+    bool hasAnNEE = false;
+    if (mShowOnlyPathWithNEE)
+    {
+        hasAnNEE = std::any_of(
+            std::begin(incomingDebugPathData->isSampledLight),
+            std::begin(incomingDebugPathData->isSampledLight) + incomingDebugPathData->length,
+            [](bool b) {return b; }
+        );
+    }
+
+    isCopyNewPathData &= !mShowOnlyPathWithNEE
+        || (mShowOnlyPathWithNEE && hasAnNEE);
+
+    if(isCopyNewPathData)
         mDebugPathData = *incomingDebugPathData;
 
-    bool hasAnNEE = std::any_of(
-        std::begin(incomingDebugPathData->isSampledLight),
-        std::begin(incomingDebugPathData->isSampledLight) + incomingDebugPathData->length,
-        [](bool b) {return b; }
-    );
-
-    if (hasAnNEE)
-    {
-        std::cout << "Found a path with NEE!" << std::endl;
-    }
 
     // Create FBO
     Fbo::SharedPtr pFbo = Fbo::create();
@@ -460,6 +468,9 @@ void PathVisualizePass::execute(RenderContext* pRenderContext, const RenderData&
 
 void PathVisualizePass::renderUI(Gui::Widgets& widget)
 {
+    widget.checkbox("Show only path with Reconnection Vertex", mShowOnlyPathWithRCVertex);
+    widget.checkbox("Show only path with NEE", mShowOnlyPathWithNEE);
+
     if (auto group = widget.group("Debugging", true))
     {
         if (group.button("Update Path value", false))

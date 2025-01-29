@@ -85,4 +85,7 @@ private:
     Buffer::SharedPtr mpIndexBuffer;
 
     uint mTotalIndices = 0;
+
+    bool mShowOnlyPathWithRCVertex = true;
+    bool mShowOnlyPathWithNEE = true;
 };

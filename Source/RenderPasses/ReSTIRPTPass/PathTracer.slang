@@ -763,6 +763,7 @@ struct PathTracer
         bool valid = false;
         if (kUseEnvLight && lightType == (uint)LightSampleType::EnvMap)
         {
+            if (gIsDebug) print("---- Sample light: EnvMap", 0);
             valid = generateEnvMapSample(vertex, sg, ls);
         }
         if (kUseEmissiveLights && lightType == (uint)LightSampleType::Emissive)
@@ -770,12 +771,16 @@ struct PathTracer
             // Emissive light samplers have an option to exclusively sample the upper hemisphere.
             bool upperHemisphere = sampleUpperHemisphere && !sampleLowerHemisphere;
 
+            if (gIsDebug) print("---- Sample light: Emissive", 0);
+
             {
                 valid = generateEmissiveSample(vertex, upperHemisphere, sg, ls);
             }
         }
         if (kUseAnalyticLights && lightType == (uint)LightSampleType::Analytic)
         {
+            if (gIsDebug) print("---- Sample light: Analytic", 0);
+
             valid = generateAnalyticLightSample(vertex, sg, ls);
         }
         if (!valid) return false;
@@ -1381,6 +1386,9 @@ struct PathTracer
                 {
                     if(gIsDebug) print("--- Sample light: valid sample", 0);
 
+                    debugVertexState.isSampledLight = true;
+                    debugVertexState.sampledLightPosition = ls.origin + ls.dir * ls.distance;
+
                     // Save NEE vertex
 
                     // Apply MIS weight.
@@ -1436,8 +1444,8 @@ struct PathTracer
                                     path.russianRoulettePdf, misWeight, ls.pdf, ls.lightType, path.pathReservoir, path.enableRandomReplay);
 #endif
 
-                                debugVertexState.isSampledLight = true;
-                                debugVertexState.sampledLightPosition = ls.origin + ls.dir * ls.distance;
+                                //debugVertexState.isSampledLight = true;
+                                //debugVertexState.sampledLightPosition = ls.origin + ls.dir * ls.distance;
                             }
                         }
                     }
