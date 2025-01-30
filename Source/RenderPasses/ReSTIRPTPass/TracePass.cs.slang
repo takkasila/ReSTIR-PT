@@ -91,7 +91,7 @@ void tracePath(uint pathID, inout PathReservoir giReservoir, uint sampleIdx)
             pixelDebugPathDataBuffer[0].rcVertexIndex = path.pathBuilder.rcVertexLength + 1;
         }
 
-        pixelDebugPathDataBuffer[0].length = path.length + 1;
+        pixelDebugPathDataBuffer[0].vertexCount = path.length + 1;
 
         pixelDebugPathDataBuffer[0].L = path.L;
     }

@@ -28,6 +28,7 @@
 #include "PathVisualizePass.h"
 #include <iostream>
 #include <algorithm>
+#include "DebugPathDataType.slang";
 
 
 namespace
@@ -60,9 +61,7 @@ namespace
         {0, kPyramidHeight, 0},
     };
 
-    const uint kMaxPathLength = 15;
-
-    //  Compute maxmimum vertex buffer size. We multiply by 2 here to accommodate an additional NEE segment per vertex.
+    //  Compute maximum vertex buffer size. We multiply by 2 here to accommodate an additional NEE segment per vertex.
     const size_t kMaxVertexBufferSize = sizeof(Vertex) * kPyramidVertCount * kMaxPathLength * 2;
 
     const uint kPyramidIndicesCount = 18;
@@ -172,7 +171,7 @@ void PathVisualizePass::createRasterPass()
     //      Define buffer layout
     auto pVLayout = VertexLayout::create();
     auto pVBLayout = VertexBufferLayout::create();
-    //      Must set arraySize = 1. This is not a mistake and I don't know why it must set to be 1. Perhapse it means per vertex?
+    //      Must set arraySize = 1. This is not a mistake and I don't know why it must set to be 1. Perhaps it means per vertex?
     pVBLayout->addElement("POSITION", offsetof(Vertex, Vertex::pos), ResourceFormat::RGB32Float, 1, 0);
     pVBLayout->addElement("TEXCOORD", offsetof(Vertex, Vertex::texCoord), ResourceFormat::RG32Float, 1, 1);
     pVBLayout->addElement("COLOR", offsetof(Vertex, Vertex::color), ResourceFormat::RGBA32Float, 1, 2);
@@ -222,10 +221,7 @@ void PathVisualizePass::createRasterPass()
 void PathVisualizePass::updatePathData()
 {
 
-    if (mDebugPathData.length == 0)
-        return;
-
-    if (!mDebugPathData.hasRCVertex)
+    if (mDebugPathData.vertexCount == 0)
         return;
 
     //
@@ -242,7 +238,7 @@ void PathVisualizePass::updatePathData()
     float4 color;
     glm::mat4 M;
 
-    for (uint i = 0; i < mDebugPathData.length; i++)
+    for (uint i = 0; i < mDebugPathData.vertexCount - 1; i++)
     {
         A = mDebugPathData.vertices[i];
         B = mDebugPathData.vertices[i + 1];
@@ -250,7 +246,7 @@ void PathVisualizePass::updatePathData()
         // Construct change of basis mat
         M = computeTransformMatToLineSegment(A, B);
 
-		float t = i / float(mDebugPathData.length - 1);
+		float t = i / float(mDebugPathData.vertexCount - 1);
 		color = colorBegin + t * (colorEnd - colorBegin);
 
         // Vertex
@@ -285,14 +281,14 @@ void PathVisualizePass::updatePathData()
     //
     bool hasAnNEE = std::any_of(
         std::begin(mDebugPathData.isSampledLight),
-        std::begin(mDebugPathData.isSampledLight) + mDebugPathData.length,
+        std::begin(mDebugPathData.isSampledLight) + mDebugPathData.vertexCount,
         [](bool b) {return b; }
     );
     if (hasAnNEE)
     {
         // Gather indices of vertex that has NEE
         std::vector<uint> neeVertexIndex;
-        for (uint i = 0; i < mDebugPathData.length; i++)
+        for (uint i = 0; i < mDebugPathData.vertexCount; i++)
         {
             if (mDebugPathData.isSampledLight[i])
                 neeVertexIndex.emplace_back(i);
@@ -410,7 +406,7 @@ void PathVisualizePass::execute(RenderContext* pRenderContext, const RenderData&
     {
         hasAnNEE = std::any_of(
             std::begin(incomingDebugPathData->isSampledLight),
-            std::begin(incomingDebugPathData->isSampledLight) + incomingDebugPathData->length,
+            std::begin(incomingDebugPathData->isSampledLight) + incomingDebugPathData->vertexCount,
             [](bool b) {return b; }
         );
     }
