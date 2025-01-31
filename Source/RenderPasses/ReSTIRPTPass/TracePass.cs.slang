@@ -40,7 +40,7 @@ void tracePath(uint pathID, inout PathReservoir giReservoir, uint sampleIdx)
 
         if (all(selectedPixel == path.getPixel()))
         {
-            pixelDebugPathDataBuffer[0].vertices[(int)path.length] = path.origin;
+            pixelDebugPathDataBuffer[0].vertices[(int)path.length] = float4(path.origin, 1);
         }
 
         if (path.isHit())
@@ -54,7 +54,8 @@ void tracePath(uint pathID, inout PathReservoir giReservoir, uint sampleIdx)
             if (all(selectedPixel == path.getPixel()))
             {
                 pixelDebugPathDataBuffer[0].isSampledLight[(int)path.length] = debugVertexState.isSampledLight;
-                pixelDebugPathDataBuffer[0].sampledLightPosition[(int)path.length] = debugVertexState.sampledLightPosition;
+                pixelDebugPathDataBuffer[0].sampledLightPosition[(int)path.length] = float4(debugVertexState.sampledLightPosition, 1);
+                pixelDebugPathDataBuffer[0].sampledLightRadiance[(int)path.length] = float4(debugVertexState.sampledLightRadiance, 1);
             }
 
 
@@ -93,7 +94,7 @@ void tracePath(uint pathID, inout PathReservoir giReservoir, uint sampleIdx)
 
         pixelDebugPathDataBuffer[0].vertexCount = path.length + 1;
 
-        pixelDebugPathDataBuffer[0].L = path.L;
+        pixelDebugPathDataBuffer[0].L = float4(path.L, 1);
     }
 
     gPathTracer.finalize(path);

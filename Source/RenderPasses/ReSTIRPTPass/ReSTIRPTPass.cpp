@@ -1598,7 +1598,9 @@ void ReSTIRPTPass::endFrame(RenderContext* pRenderContext, const RenderData& ren
     // Copy debugPathData
     DebugPathData* debugPathData = static_cast<DebugPathData*>( mpPixelDebugPathBuffer->map(Buffer::MapType::Read) );
 
-    renderData.getDictionary()["debugPathData"] = debugPathData;
+    mDebugPathData = *debugPathData;
+
+    renderData.getDictionary()["debugPathData"] = &mDebugPathData;
 
     mpPixelDebugPathBuffer->unmap();
 

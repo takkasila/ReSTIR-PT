@@ -276,8 +276,8 @@ void PathVisualizePass::updatePathData()
 
     for (uint i = 0; i < mDebugPathData.vertexCount - 1; i++)
     {
-        A = mDebugPathData.vertices[i];
-        B = mDebugPathData.vertices[i + 1];
+        A = mDebugPathData.vertices[i].xyz;
+        B = mDebugPathData.vertices[i + 1].xyz;
 
         // Construct change of basis mat
         M = computeTransformMatToLineSegment(A, B);
@@ -332,8 +332,8 @@ void PathVisualizePass::updatePathData()
 
         for (uint i : neeVertexIndex)
         {
-            A = mDebugPathData.vertices[i];
-            B = mDebugPathData.sampledLightPosition[i];
+            A = mDebugPathData.vertices[i].xyz;
+            B = mDebugPathData.sampledLightPosition[i].xyz;
 
             // Construct change of basis mat
             M = computeTransformMatToLineSegment(A, B);

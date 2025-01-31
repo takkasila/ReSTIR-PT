@@ -16,6 +16,7 @@
 #include "Rendering/Materials/TexLODTypes.slang"
 #include "Params.slang"
 #include <fstream>
+#include "DebugPathDataType.slang";
 
 using namespace Falcor;
 
@@ -224,4 +225,6 @@ private:
     Buffer::SharedPtr               mNRooksPatternBuffer;
 
     Buffer::SharedPtr               mpPixelDebugPathBuffer;
+
+    DebugPathData                   mDebugPathData;
 };

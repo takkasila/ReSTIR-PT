@@ -1384,10 +1384,16 @@ struct PathTracer
 
                 if (validSample)
                 {
-                    if(gIsDebug) print("--- Sample light: valid sample", 0);
+                    if(gIsDebug)
+                    {
+                        print("--- Sample light: valid sample", 0);
 
-                    debugVertexState.isSampledLight = true;
-                    debugVertexState.sampledLightPosition = ls.origin + ls.dir * ls.distance;
+                        debugVertexState.isSampledLight = true;
+
+                        debugVertexState.sampledLightPosition = ls.origin + ls.dir * ls.distance;
+
+                        debugVertexState.sampledLightRadiance = ls.Li;
+                    }
 
                     // Save NEE vertex
 
