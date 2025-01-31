@@ -218,11 +218,47 @@ void PathVisualizePass::createRasterPass()
     pRasterState->setBlendState(BlendState::create(blendDesc));
 }
 
+void PathVisualizePass::filterCopyPathData(DebugPathData* incomingDebugPathData)
+{
+    
+    //  Filter and copy debug path data from ReSTIRPT pass
+    bool isCopyNewPathData = true;
+
+    //  Going through the conditions
+
+    //      Has atleast 2 vertices (1 path)
+    isCopyNewPathData &= incomingDebugPathData->vertexCount > 1;
+
+    //      Path with RC vertex
+    isCopyNewPathData &= !mShowOnlyPathWithRCVertex
+        || (mShowOnlyPathWithRCVertex && incomingDebugPathData->hasRCVertex);
+
+    //      Path with NEE
+    bool hasAnNEE = false;
+    if (mShowOnlyPathWithNEE)
+    {
+        hasAnNEE = std::any_of(
+            std::begin(incomingDebugPathData->isSampledLight),
+            std::begin(incomingDebugPathData->isSampledLight) + incomingDebugPathData->vertexCount,
+            [](bool b) {return b; }
+        );
+    }
+
+    isCopyNewPathData &= !mShowOnlyPathWithNEE
+        || (mShowOnlyPathWithNEE && hasAnNEE);
+
+    //      Finally copy if all conditions are met
+    if (isCopyNewPathData)
+        mRunningPathData = *incomingDebugPathData;
+}
+
 void PathVisualizePass::updatePathData()
 {
-
-    if (mDebugPathData.vertexCount == 0)
+    if (mRunningPathData.vertexCount < 1)
         return;
+
+    // Copy from temporary to current
+    mDebugPathData = mRunningPathData;
 
     //
     // Construct path geometry
@@ -391,32 +427,11 @@ void PathVisualizePass::execute(RenderContext* pRenderContext, const RenderData&
 
     assert(pInputImg && pDepth && pOutputImg);
 
-    //  Store path data log from ReSTIRPTPass
-    auto& renderDataDict = renderData.getDictionary();
+    //  Store running path data
+    InternalDictionary& renderDataDict = renderData.getDictionary();
+    //      Get debug path data from ReSTIRPTPass
     DebugPathData* incomingDebugPathData = renderDataDict.getValue<DebugPathData*>("debugPathData");
-
-
-    //  Filter and copy debug path data from ReSTIRPT pass
-    bool isCopyNewPathData = !mShowOnlyPathWithRCVertex
-        || (mShowOnlyPathWithRCVertex && incomingDebugPathData->hasRCVertex);
-
-
-    bool hasAnNEE = false;
-    if (mShowOnlyPathWithNEE)
-    {
-        hasAnNEE = std::any_of(
-            std::begin(incomingDebugPathData->isSampledLight),
-            std::begin(incomingDebugPathData->isSampledLight) + incomingDebugPathData->vertexCount,
-            [](bool b) {return b; }
-        );
-    }
-
-    isCopyNewPathData &= !mShowOnlyPathWithNEE
-        || (mShowOnlyPathWithNEE && hasAnNEE);
-
-    if(isCopyNewPathData)
-        mDebugPathData = *incomingDebugPathData;
-
+    filterCopyPathData(incomingDebugPathData);
 
     // Create FBO
     Fbo::SharedPtr pFbo = Fbo::create();

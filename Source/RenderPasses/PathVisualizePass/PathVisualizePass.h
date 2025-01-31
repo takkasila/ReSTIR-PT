@@ -59,6 +59,7 @@ private:
     PathVisualizePass(const Dictionary& dict);
 
     void createRasterPass();
+    void filterCopyPathData(DebugPathData* incomingDebugPathData);
     void updatePathData();
 
     static glm::mat4 computeTransformMatToLineSegment(float3 lineBegin, float3 lineEnd);
@@ -75,7 +76,8 @@ private:
 
     std::vector<float3> mPathVertices;
 
-    DebugPathData mDebugPathData;
+    DebugPathData mRunningPathData;     // Running path data that changes every frame.
+    DebugPathData mDebugPathData;       // Current path data that being visualized.
 
     RasterPass::SharedPtr mpRasterPass;
 

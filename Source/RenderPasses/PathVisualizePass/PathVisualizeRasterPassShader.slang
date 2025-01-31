@@ -24,9 +24,9 @@ struct VSOut
 
 VSOut vs(VSIn vsIn)
 {
-    print("input pos", vsIn.pos);
-    print("input texCoord", vsIn.texCoord);
-    print("input color", vsIn.color);
+    //print("input pos", vsIn.pos);
+    //print("input texCoord", vsIn.texCoord);
+    //print("input color", vsIn.color);
 
     VSOut vsOut;
 
