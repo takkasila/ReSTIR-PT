@@ -31,7 +31,7 @@ struct PathRetracePass
     ByteAddressBuffer nRooksPattern;
 
     RWTexture2D<float4> outputColor;                      ///< Output resolved color.
-    RWStructuredBuffer<PathReservoir> outputReservoirs;                  
+    RWStructuredBuffer<PathReservoir> outputReservoirs;
     RWStructuredBuffer<PathReservoir> temporalReservoirs;
     RWStructuredBuffer<PixelReconnectionData> reconnectionDataBuffer;
 
@@ -81,6 +81,8 @@ struct PathRetracePass
     */
     void ReSTIR(const uint2 pixel)
     {
+        print("TemporalPathRetrace.cs.slang: begin", 0);
+
         // TODO: How to seed efficiently?
         var sg = TinyUniformSampleGenerator(pixel, (kCandidateSamples + 1 + gNumSpatialRounds) * params.seed + kCandidateSamples);
 
@@ -88,6 +90,7 @@ struct PathRetracePass
         const uint centralOffset = params.getReservoirOffset(pixel);
         PathReservoir centralReservoir = outputReservoirs[centralOffset];
 
+        // X_0 = camera, X_1 = primary hit
         PackedHitInfo centralPrimaryHitPacked;
         ShadingData centralPrimarySd = getPixelShadingData(pixel, centralPrimaryHitPacked);
         if (!isValidPackedHitInfo(centralPrimaryHitPacked)) return;
@@ -100,6 +103,7 @@ struct PathRetracePass
 
         bool foundTemporalSurface = true;
 
+        // False by default
         if (gEnableTemporalReprojection)
         {
             prevPixel = pixel + motionVector * params.frameDim + (sampleNext2D(sg) * 1.f - 0.f);
@@ -110,6 +114,8 @@ struct PathRetracePass
         PackedHitInfo temporalPrimaryHitPacked;
         ShadingData temporalPrimarySd = getPixelTemporalShadingData(prevPixel, temporalPrimaryHitPacked);
         if (!isValidPackedHitInfo(temporalPrimaryHitPacked)) return;
+
+        print("temporalPrimarySd.posW", temporalPrimarySd.posW);
 
         PathReservoir temporalReservoir = temporalReservoirs[params.getReservoirOffset(prevPixel)];
 
@@ -126,14 +132,19 @@ struct PathRetracePass
         // write to memory
         if (centralReservoir.pathFlags.rcVertexLength() > 1)
         {
+            print("- traceHybridShiftRays centralReservoir", 0);
+            //  Use previous frame data
             Tp = traceHybridShiftRays(params, true, temporalPrimaryHitPacked, temporalPrimarySd, centralReservoir, dstRcPrevVertexHit, dstRcPrevVertexWo);
             reconnectionDataBuffer[centralOffset].data[0] = ReconnectionData(dstRcPrevVertexHit, dstRcPrevVertexWo, Tp);
         }
         if (temporalReservoir.pathFlags.rcVertexLength() > 1)
         {
+            print("- traceHybridShiftRays temporalReservoir", 0);
             Tp2 = traceHybridShiftRays(params, false, centralPrimaryHitPacked, centralPrimarySd, temporalReservoir, dstRcPrevVertexHit2, dstRcPrevVertexWo2);
             reconnectionDataBuffer[centralOffset].data[1] = ReconnectionData(dstRcPrevVertexHit2, dstRcPrevVertexWo2, Tp2);
         }
+
+        print("TemporalPathRetrace.cs.slang: end", 0);
     }
 
     /** Entry point for merge pass.

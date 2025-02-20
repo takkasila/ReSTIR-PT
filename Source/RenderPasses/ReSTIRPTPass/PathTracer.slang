@@ -1777,6 +1777,7 @@ struct PathTracer
     float3 traceRandomReplayPathHybridSimple(HitInfo hit, ShadingData sd, Ray ray, ReSTIRPathFlags pathFlags,
         uint initRandomSeed, inout HitInfo rcPrevHit, inout float3 rcPrevHitWo)
     {
+        print("-- traceRandomReplayPathHybridSimple: begin", 0);
         PathState path;
         bool isRcVertexEscapedVertex = pathFlags.pathLength() + 1 == pathFlags.rcVertexLength();
         generateRandomReplayPath(path, hit, ray, initRandomSeed, pathFlags.pathLength(), pathFlags.lastVertexNEE(), isRcVertexEscapedVertex);
@@ -1845,6 +1846,8 @@ struct PathTracer
         {
             L = path.L;
         }
+
+        print("-- traceRandomReplayPathHybridSimple: end", 0);
 
         return L;
     }
