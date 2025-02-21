@@ -61,8 +61,15 @@ namespace
         {0, kPyramidHeight, 0},
     };
 
-    //  Compute maximum vertex buffer size. We multiply by 2 here to accommodate an additional NEE segment per vertex.
-    const size_t kMaxVertexBufferSize = sizeof(Vertex) * kPyramidVertCount * kMaxPathLength * 2;
+    //  Total number of debug paths.
+    //      - canonical path
+    //      - NEE branch
+    //      - temporal central-resevoir retrace path
+    //      - temporal temporal-resevoir retrace path
+    const uint kTotalDebugPath = 4;
+
+    //  Compute maximum vertex buffer size.
+    const size_t kMaxVertexBufferSize = sizeof(Vertex) * kPyramidVertCount * kMaxPathLength * kTotalDebugPath;
 
     const uint kPyramidIndicesCount = 18;
 
@@ -75,8 +82,8 @@ namespace
         3, 0, 4,
 	};
 
-    const size_t kMaxIndicesBufferSize = sizeof(uint) * kPyramidIndicesCount * kMaxPathLength * 2;
-    
+    const size_t kMaxIndicesBufferSize = sizeof(uint) * kPyramidIndicesCount * kMaxPathLength * kTotalDebugPath;
+
 }
 
 // Don't remove this. it's required for hot-reload to function properly
@@ -220,7 +227,7 @@ void PathVisualizePass::createRasterPass()
 
 void PathVisualizePass::filterCopyPathData(DebugPathData* incomingDebugPathData)
 {
-    
+
     //  Filter and copy debug path data from ReSTIRPT pass
     bool isCopyNewPathData = true;
 
@@ -259,6 +266,9 @@ void PathVisualizePass::updatePathData()
 
     // Copy from temporary to current
     mDebugPathData = mRunningPathData;
+
+    mTemporalCentralPathData = mRunningTemporalCentralPathData;
+    mTemporalTemporalPathData = mRunningTemporalTemporalPathData;
 
     //
     // Construct path geometry
@@ -360,6 +370,76 @@ void PathVisualizePass::updatePathData()
         }
     }
 
+    //
+    //  Construct temporal central-resevoir retrace path geometry
+    //
+    colorBegin = float4(0, 0, 1, 1);
+    for (int i = 0; i < int(mTemporalCentralPathData.vertexCount) - 1; i++)
+    {
+        A = mTemporalCentralPathData.vertices[i].xyz;
+        B = mTemporalCentralPathData.vertices[i + 1].xyz;
+
+        // Construct change of basis mat
+        M = computeTransformMatToLineSegment(A, B);
+
+        float t = i / float(mTemporalCentralPathData.vertexCount - 1);
+        color = colorBegin + t * (colorEnd - colorBegin);
+
+        // Vertex
+        for (uint j = 0; j < kPyramidVertCount; j++)
+        {
+            verts[vertexOffset + j].pos = (M * float4(kPyramidVerts[j], 1)).xyz;
+
+            // TODO: use proper tex coord
+            verts[vertexOffset + j].texCoord = float2(0.5, 0.5);
+            verts[vertexOffset + j].color = color;
+        }
+
+        // Index
+        for (uint j = 0; j < kPyramidIndicesCount; j++)
+        {
+            indices[indexOffset + j] = kPyramidIndices[j] + vertexOffset;
+        }
+
+        vertexOffset += kPyramidVertCount;
+        indexOffset += kPyramidIndicesCount;
+    }
+
+    //
+    //  Construct temporal temporal-resevoir retrace path geometry
+    //
+    colorBegin = float4(0, 1, 1, 1);
+    for (int i = 0; i < int(mTemporalTemporalPathData.vertexCount) - 1; i++)
+    {
+        A = mTemporalTemporalPathData.vertices[i].xyz;
+        B = mTemporalTemporalPathData.vertices[i + 1].xyz;
+
+        // Construct change of basis mat
+        M = computeTransformMatToLineSegment(A, B);
+
+        float t = i / float(mTemporalTemporalPathData.vertexCount - 1);
+        color = colorBegin + t * (colorEnd - colorBegin);
+
+        // Vertex
+        for (uint j = 0; j < kPyramidVertCount; j++)
+        {
+            verts[vertexOffset + j].pos = (M * float4(kPyramidVerts[j], 1)).xyz;
+
+            // TODO: use proper tex coord
+            verts[vertexOffset + j].texCoord = float2(0.5, 0.5);
+            verts[vertexOffset + j].color = color;
+        }
+
+        // Index
+        for (uint j = 0; j < kPyramidIndicesCount; j++)
+        {
+            indices[indexOffset + j] = kPyramidIndices[j] + vertexOffset;
+        }
+
+        vertexOffset += kPyramidVertCount;
+        indexOffset += kPyramidIndicesCount;
+    }
+
     mTotalIndices = indexOffset;
 
     mpVertexBuffer->unmap();
@@ -428,10 +508,20 @@ void PathVisualizePass::execute(RenderContext* pRenderContext, const RenderData&
     assert(pInputImg && pDepth && pOutputImg);
 
     //  Store running path data
-    InternalDictionary& renderDataDict = renderData.getDictionary();
-    //      Get debug path data from ReSTIRPTPass
-    DebugPathData* incomingDebugPathData = renderDataDict.getValue<DebugPathData*>("debugPathData");
-    filterCopyPathData(incomingDebugPathData);
+    {
+        InternalDictionary& renderDataDict = renderData.getDictionary();
+
+        //      Get debug path data from ReSTIRPTPass
+        DebugPathData* incomingDebugPathData = renderDataDict.getValue<DebugPathData*>("debugPathData");
+        DebugPathData* incomingTemporalCentralPathData = renderDataDict.getValue<DebugPathData*>("temporalCentralPathData");
+        DebugPathData* incomingTemporalTemporalPathData = renderDataDict.getValue<DebugPathData*>("temporalTemporalPathData");
+
+        filterCopyPathData(incomingDebugPathData);
+
+        // TODO: filter this
+        mRunningTemporalCentralPathData = *incomingTemporalCentralPathData;
+        mRunningTemporalTemporalPathData = *incomingTemporalTemporalPathData;
+    }
 
     // Create FBO
     Fbo::SharedPtr pFbo = Fbo::create();

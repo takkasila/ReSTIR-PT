@@ -119,8 +119,6 @@ struct PathRetracePass
         ShadingData temporalPrimarySd = getPixelTemporalShadingData(prevPixel, temporalPrimaryHitPacked);
         if (!isValidPackedHitInfo(temporalPrimaryHitPacked)) return;
 
-        print("temporalPrimarySd.posW", temporalPrimarySd.posW);
-
         PathReservoir temporalReservoir = temporalReservoirs[params.getReservoirOffset(prevPixel)];
 
         // talbot MIS
@@ -151,7 +149,10 @@ struct PathRetracePass
 
             if (isDebug)
             {
+                // TODO: Add RC vertex as last vertex
+                //HitInfo centralReservoir = centralReservoir.rcVertexHit.getHitInfo();
                 debugCentralResevoirPathDataBuffer[0] = debugPathData1;
+
             }
         }
         if (temporalReservoir.pathFlags.rcVertexLength() > 1)

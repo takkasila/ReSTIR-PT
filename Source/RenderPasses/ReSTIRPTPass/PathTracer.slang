@@ -2085,7 +2085,10 @@ struct PathTracer
                 outputColor[pixel] += float4(L, 1.f);
 
             if (PathSamplingMode(kPathSamplingMode) != PathSamplingMode::PathTracing)
+            {
+                print("- Update reservoir", 0);
                 outputReservoirs[reservoirIdx] = path.pathReservoir;
+            }
         }
         else
         {
@@ -2128,6 +2131,8 @@ struct PathTracer
                 {
                     if (giReservoir.mergeInSamplePixel(path.pathReservoir, path.sg))
                     {
+                        print("- Merge in sample pixel to reservoir", 0);
+
                         giReservoir.F = path.pathReservoir.F;
                     }
                 }
@@ -2159,6 +2164,7 @@ struct PathTracer
                     else
                         outputColor[pixel] += float4(L, 1.f);
 
+                    print("- Update reservoir", 0);
                     outputReservoirs[reservoirIdx] = giReservoir;
                 }
             }

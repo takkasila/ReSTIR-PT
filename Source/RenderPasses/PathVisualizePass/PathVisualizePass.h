@@ -79,6 +79,12 @@ private:
     DebugPathData mRunningPathData;     // Running path data that changes every frame.
     DebugPathData mDebugPathData;       // Current path data that being visualized.
 
+    DebugPathData mRunningTemporalCentralPathData;
+    DebugPathData mTemporalCentralPathData;
+    DebugPathData mRunningTemporalTemporalPathData;
+    DebugPathData mTemporalTemporalPathData;
+
+
     RasterPass::SharedPtr mpRasterPass;
 
     bool mRecreateRasterPass = true;
