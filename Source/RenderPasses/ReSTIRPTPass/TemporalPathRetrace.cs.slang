@@ -13,6 +13,7 @@ import Utils.Sampling.TinyUniformSampleGenerator;
 import Utils.Math.Ray;
 import LoadShadingData;
 import Rendering.Materials.MaterialShading;
+import DebugPathDataType;
 
 /** TODO.
 */
@@ -34,6 +35,9 @@ struct PathRetracePass
     RWStructuredBuffer<PathReservoir> outputReservoirs;
     RWStructuredBuffer<PathReservoir> temporalReservoirs;
     RWStructuredBuffer<PixelReconnectionData> reconnectionDataBuffer;
+
+    RWStructuredBuffer<DebugPathData> debugCentralResevoirPathDataBuffer;
+    RWStructuredBuffer<DebugPathData> debugTemporalResevoirPathDataBuffer;
 
     int  gNumSpatialRounds;
     bool gEnableTemporalReprojection;
@@ -129,19 +133,36 @@ struct PathRetracePass
         float3 Tp;
         float3 Tp2;
 
+        DebugPathData debugPathData1;
+        DebugPathData debugPathData2;
+
+        bool isDebug = all(getSelctedPixelLog() == pixel);
+
         // write to memory
         if (centralReservoir.pathFlags.rcVertexLength() > 1)
         {
             print("- traceHybridShiftRays centralReservoir", 0);
             //  Use previous frame data
-            Tp = traceHybridShiftRays(params, true, temporalPrimaryHitPacked, temporalPrimarySd, centralReservoir, dstRcPrevVertexHit, dstRcPrevVertexWo);
+            Tp = traceHybridShiftRays(params, true, temporalPrimaryHitPacked, temporalPrimarySd, centralReservoir, dstRcPrevVertexHit, dstRcPrevVertexWo, debugPathData1);
             reconnectionDataBuffer[centralOffset].data[0] = ReconnectionData(dstRcPrevVertexHit, dstRcPrevVertexWo, Tp);
+
+            if (isDebug)
+            {
+                print("The debug pixel is hit in central reservoir!", pixel);
+                debugCentralResevoirPathDataBuffer[0].hasRCVertex = true;
+            }
         }
         if (temporalReservoir.pathFlags.rcVertexLength() > 1)
         {
             print("- traceHybridShiftRays temporalReservoir", 0);
-            Tp2 = traceHybridShiftRays(params, false, centralPrimaryHitPacked, centralPrimarySd, temporalReservoir, dstRcPrevVertexHit2, dstRcPrevVertexWo2);
+            Tp2 = traceHybridShiftRays(params, false, centralPrimaryHitPacked, centralPrimarySd, temporalReservoir, dstRcPrevVertexHit2, dstRcPrevVertexWo2, debugPathData2);
             reconnectionDataBuffer[centralOffset].data[1] = ReconnectionData(dstRcPrevVertexHit2, dstRcPrevVertexWo2, Tp2);
+
+            if (isDebug)
+            {
+                print("The debug pixel is hit in temporal reservoir!", pixel);
+                // debugTemporalResevoirPathDataBuffer[0] = debugPathData2;
+            }
         }
 
         print("TemporalPathRetrace.cs.slang: end", 0);

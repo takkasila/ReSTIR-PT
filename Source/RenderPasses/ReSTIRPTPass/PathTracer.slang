@@ -1775,7 +1775,7 @@ struct PathTracer
     }
 
     float3 traceRandomReplayPathHybridSimple(HitInfo hit, ShadingData sd, Ray ray, ReSTIRPathFlags pathFlags,
-        uint initRandomSeed, inout HitInfo rcPrevHit, inout float3 rcPrevHitWo)
+        uint initRandomSeed, inout HitInfo rcPrevHit, inout float3 rcPrevHitWo, inout DebugPathData debugPathData)
     {
         print("-- traceRandomReplayPathHybridSimple: begin", 0);
         PathState path;
@@ -1795,6 +1795,9 @@ struct PathTracer
 
         // set up the two scatter directions (or half vectors) for reuse
 
+        debugPathData.vertices[(int)path.length] = float4(path.origin, 1);
+        DebugVertexState debugVertexState;
+
         generateReplayPrimaryScatterRay(path, sd);
         if (path.isActive()) nextVertex(path);
         else
@@ -1802,7 +1805,6 @@ struct PathTracer
             return 0.f;
         }
 
-        DebugVertexState debugVertexState;
 
         while (path.isActive() && path.isHit())
         {
@@ -1813,6 +1815,7 @@ struct PathTracer
                 if (path.isHit())
                 {
                     handleHit(path, debugVertexState);
+                    debugPathData.vertices[(int)path.length] = float4(path.origin, 1);
                 }
             }
 

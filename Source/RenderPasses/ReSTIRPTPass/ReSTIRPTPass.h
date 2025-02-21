@@ -225,6 +225,10 @@ private:
     Buffer::SharedPtr               mNRooksPatternBuffer;
 
     Buffer::SharedPtr               mpPixelDebugPathBuffer;
-
     DebugPathData                   mDebugPathData;
+
+    Buffer::SharedPtr               mpTemporalCentralPathDataBuffer;
+    DebugPathData                   mTemporalCentralPathData;
+    Buffer::SharedPtr               mpTemporalTemporalPathDataBuffer;
+    DebugPathData                   mTemporalTemporalPathData;
 };

@@ -1284,6 +1284,16 @@ void ReSTIRPTPass::prepareResources(RenderContext* pRenderContext, const RenderD
         mpPixelDebugPathBuffer = Buffer::createStructured(var["pixelDebugPathDataBuffer"], 1);
     }
 
+    if (!mpTemporalCentralPathDataBuffer)
+    {
+        mpTemporalCentralPathDataBuffer = Buffer::createStructured(var["pixelDebugPathDataBuffer"], 1);
+    }
+
+    if (!mpTemporalTemporalPathDataBuffer)
+    {
+        mpTemporalTemporalPathDataBuffer = Buffer::createStructured(var["pixelDebugPathDataBuffer"], 1);
+    }
+
 }
 
 
@@ -1597,12 +1607,19 @@ void ReSTIRPTPass::endFrame(RenderContext* pRenderContext, const RenderData& ren
 
     // Copy debugPathData
     DebugPathData* debugPathData = static_cast<DebugPathData*>( mpPixelDebugPathBuffer->map(Buffer::MapType::Read) );
-
     mDebugPathData = *debugPathData;
-
     renderData.getDictionary()["debugPathData"] = &mDebugPathData;
-
     mpPixelDebugPathBuffer->unmap();
+
+    DebugPathData* temporalCentralPathData = static_cast<DebugPathData*>(mpTemporalCentralPathDataBuffer->map(Buffer::MapType::Read));
+    mTemporalCentralPathData = *temporalCentralPathData;
+    renderData.getDictionary()["temporalCentralPathData"] = &mTemporalCentralPathData;
+    mpTemporalCentralPathDataBuffer->unmap();
+
+    DebugPathData* temporalTemporalPathData = static_cast<DebugPathData*>(mpTemporalTemporalPathDataBuffer->map(Buffer::MapType::Read));
+    mTemporalTemporalPathData = *temporalTemporalPathData;
+    renderData.getDictionary()["temporalTemporalPathData"] = &mTemporalTemporalPathData;
+    mpTemporalTemporalPathDataBuffer->unmap();
 
 }
 
@@ -1811,6 +1828,9 @@ void ReSTIRPTPass::PathRetracePass(RenderContext* pRenderContext, uint32_t resti
         var["gNoResamplingForTemporalReuse"] = mNoResamplingForTemporalReuse;
         if (!mUseMaxHistory) var["gTemporalHistoryLength"] = 1e30f;
         else var["gTemporalHistoryLength"] = (float)mTemporalHistoryLength;
+
+        var["debugCentralResevoirPathDataBuffer"] = mpTemporalCentralPathDataBuffer;
+        var["debugTemporalResevoirPathDataBuffer"] = mpTemporalTemporalPathDataBuffer;
     }
     else
     {

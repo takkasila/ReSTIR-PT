@@ -15,6 +15,7 @@ import Scene.RaytracingInline;
 import Scene.Scene;
 import PathTracer;
 import RenderPasses.Shared.Denoising.NRDData;
+import DebugPathDataType;
 
 ParameterBlock<PathTracer> gPathTracer;
 
@@ -199,9 +200,8 @@ float3 computeShiftedIntegrandHybrid(const RestirPathTracerParams params, bool u
     return Tp * rcTp;
 }
 
-
 float3 traceHybridShiftRays(const RestirPathTracerParams params, bool usePrev, const PackedHitInfo dstPrimaryHitPacked, const ShadingData dstPrimarySd,
-    PathReservoir srcReservoir, inout HitInfo dstRcPrevVertexHit, inout float3 dstRcPrevVertexWo)
+                            PathReservoir srcReservoir, inout HitInfo dstRcPrevVertexHit, inout float3 dstRcPrevVertexWo, inout DebugPathData debugPathData)
 {
     // usePrev means use previous frame data
     if (srcReservoir.weight == 0.f) return 0.f;
@@ -211,7 +211,7 @@ float3 traceHybridShiftRays(const RestirPathTracerParams params, bool usePrev, c
     dstPrimaryHit.unpack(dstPrimaryHitPacked);
     Ray ray = Ray(gScene.camera.getPosition(usePrev), -dstPrimarySd.V, 0, kRayTMax); // this ray can be arbitrary, does not affect results
 
-    float3 Tp = gPathTracer.traceRandomReplayPathHybridSimple(dstPrimaryHit, dstPrimarySd, ray, srcReservoir.pathFlags, srcReservoir.initRandomSeed, dstRcPrevVertexHit, dstRcPrevVertexWo);
+    float3 Tp = gPathTracer.traceRandomReplayPathHybridSimple(dstPrimaryHit, dstPrimarySd, ray, srcReservoir.pathFlags, srcReservoir.initRandomSeed, dstRcPrevVertexHit, dstRcPrevVertexWo, debugPathData);
 
     return Tp;
 }
@@ -293,7 +293,7 @@ float3 computeShiftedIntegrandReconnectionPathTree(const RestirPathTracerParams 
     if (isJacobianInvalid(Jacobian)) return 0.f;
 
     float3 dstF1 = evalBSDFCosine(dstPrimarySd, dstConnectionV, allowedSampledTypes1, isDelta1);
-    float3 dstIntegrand = dstF1 / dstPDF1; 
+    float3 dstIntegrand = dstF1 / dstPDF1;
 
     float3 dstIntegrandNEE;
 
@@ -406,7 +406,7 @@ float3 computeShiftedIntegrandReconnection(const RestirPathTracerParams params, 
     srcPrimarySd.posW = srcPrimarySd.computeNewRayOrigin(!isTransmission);
     dstPrimarySd.posW = dstPrimarySd.computeNewRayOrigin(!isTransmission);
 
-    if (!rcVertexHitExists) 
+    if (!rcVertexHitExists)
     {
         float3 dstIntegrand = 0.f;
         // are we having a infinite light as rcVertex?
@@ -493,8 +493,8 @@ float3 computeShiftedIntegrandReconnection(const RestirPathTracerParams params, 
 
     float dstRcVertexScatterPdfAll = 0.f;
     float dstPDF2 = 1.f;
-    float dstRcVertexScatterPdf = 1.f; 
-    float srcRcVertexScatterPdf = 1.f;  
+    float dstRcVertexScatterPdf = 1.f;
+    float srcRcVertexScatterPdf = 1.f;
 
     uint allowedSampledTypes2 = isRcVertexNEE ? -1 : getAllowedBSDFFlags(srcReservoir.pathFlags.decodeIsSpecularBounce(false));
 
@@ -534,7 +534,7 @@ float3 computeShiftedIntegrandReconnection(const RestirPathTracerParams params, 
         {
             float lightPdf = srcReservoir.lightPdf;
             float misWeight = PathTracer::evalMIS(1, isRcVertexNEE ? lightPdf : dstRcVertexScatterPdfAll, 1, isRcVertexNEE ? dstRcVertexScatterPdfAll : lightPdf);
-            dstIntegrand = dstIntegrand * misWeight; 
+            dstIntegrand = dstIntegrand * misWeight;
             dstIntegrandNoF1 = dstIntegrandNoF1 * misWeight;
             if (!isRcVertexNEE)
                 Jacobian *= dstRcVertexScatterPdf / srcRcVertexScatterPdf;
