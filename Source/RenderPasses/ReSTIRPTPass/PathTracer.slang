@@ -1787,7 +1787,16 @@ struct PathTracer
 
         setDataBeforeTermination(rcPrevHit, rcPrevHitWo);
 
+        debugPathData.vertexCount = 0;
+        debugPathData.vertices[debugPathData.vertexCount] = float4(path.origin, 1);
+        debugPathData.vertexCount += 1;
+
+        // Advance to next vertex (primary hit)
         path.origin = sd.computeNewRayOrigin();
+
+        debugPathData.vertices[debugPathData.vertexCount] = float4(path.origin, 1);
+        debugPathData.vertexCount += 1;
+
 
         // this is also applicable for random number reuse
         path.pathBuilder.pathFlags.flags = 0;
@@ -1795,7 +1804,6 @@ struct PathTracer
 
         // set up the two scatter directions (or half vectors) for reuse
 
-        debugPathData.vertices[(int)path.length] = float4(path.origin, 1);
         DebugVertexState debugVertexState;
 
         generateReplayPrimaryScatterRay(path, sd);
@@ -1815,7 +1823,9 @@ struct PathTracer
                 if (path.isHit())
                 {
                     handleHit(path, debugVertexState);
-                    debugPathData.vertices[(int)path.length] = float4(path.origin, 1);
+
+                    debugPathData.vertices[debugPathData.vertexCount] = float4(path.origin, 1);
+                    debugPathData.vertexCount += 1;
                 }
             }
 

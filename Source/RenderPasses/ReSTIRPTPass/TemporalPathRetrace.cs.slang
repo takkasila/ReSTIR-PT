@@ -135,6 +135,8 @@ struct PathRetracePass
 
         DebugPathData debugPathData1;
         DebugPathData debugPathData2;
+        debugPathData1.init();
+        debugPathData2.init();
 
         bool isDebug = all(getSelctedPixelLog() == pixel);
 
@@ -142,26 +144,26 @@ struct PathRetracePass
         if (centralReservoir.pathFlags.rcVertexLength() > 1)
         {
             print("- traceHybridShiftRays centralReservoir", 0);
+
             //  Use previous frame data
             Tp = traceHybridShiftRays(params, true, temporalPrimaryHitPacked, temporalPrimarySd, centralReservoir, dstRcPrevVertexHit, dstRcPrevVertexWo, debugPathData1);
             reconnectionDataBuffer[centralOffset].data[0] = ReconnectionData(dstRcPrevVertexHit, dstRcPrevVertexWo, Tp);
 
             if (isDebug)
             {
-                print("The debug pixel is hit in central reservoir!", pixel);
-                debugCentralResevoirPathDataBuffer[0].hasRCVertex = true;
+                debugCentralResevoirPathDataBuffer[0] = debugPathData1;
             }
         }
         if (temporalReservoir.pathFlags.rcVertexLength() > 1)
         {
             print("- traceHybridShiftRays temporalReservoir", 0);
+
             Tp2 = traceHybridShiftRays(params, false, centralPrimaryHitPacked, centralPrimarySd, temporalReservoir, dstRcPrevVertexHit2, dstRcPrevVertexWo2, debugPathData2);
             reconnectionDataBuffer[centralOffset].data[1] = ReconnectionData(dstRcPrevVertexHit2, dstRcPrevVertexWo2, Tp2);
 
             if (isDebug)
             {
-                print("The debug pixel is hit in temporal reservoir!", pixel);
-                // debugTemporalResevoirPathDataBuffer[0] = debugPathData2;
+                debugTemporalResevoirPathDataBuffer[0] = debugPathData2;
             }
         }
 
