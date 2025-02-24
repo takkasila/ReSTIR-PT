@@ -149,10 +149,15 @@ struct PathRetracePass
 
             if (isDebug)
             {
-                // TODO: Add RC vertex as last vertex
-                //HitInfo centralReservoir = centralReservoir.rcVertexHit.getHitInfo();
-                debugCentralResevoirPathDataBuffer[0] = debugPathData1;
+                // Add RC vertex at the end
+                TriangleHit centralReservoirRCVertexHit = centralReservoir.rcVertexHit.getHitInfo().getTriangleHit();
+                VertexData rcVertex = gScene.getVertexData(centralReservoirRCVertexHit);
+                debugPathData1.vertices[debugPathData1.vertexCount] = float4(rcVertex.posW, 1);
+                debugPathData1.vertexCount += 1;
 
+                print("- centralReservoirRCVertex", rcVertex.posW);
+
+                debugCentralResevoirPathDataBuffer[0] = debugPathData1;
             }
         }
         if (temporalReservoir.pathFlags.rcVertexLength() > 1)
@@ -164,6 +169,14 @@ struct PathRetracePass
 
             if (isDebug)
             {
+                // Add RC vertex at the end
+                TriangleHit temporalReservoirRCVertexHit = temporalReservoir.rcVertexHit.getHitInfo().getTriangleHit();
+                VertexData rcVertex = gScene.getVertexData(temporalReservoirRCVertexHit);
+                debugPathData2.vertices[debugPathData2.vertexCount] = float4(rcVertex.posW, 1);
+                debugPathData2.vertexCount += 1;
+
+                print("- temporalReservoirRCVertex", rcVertex.posW);
+
                 debugTemporalResevoirPathDataBuffer[0] = debugPathData2;
             }
         }

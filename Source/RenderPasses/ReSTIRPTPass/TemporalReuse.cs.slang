@@ -33,7 +33,7 @@ struct PathReusePass
     RWStructuredBuffer<PathReservoir> temporalReservoirs;  // reservoir from previous frame
     StructuredBuffer<PixelReconnectionData> reconnectionDataBuffer;
 
-    Texture2D<float4> directLighting;                  
+    Texture2D<float4> directLighting;
     bool useDirectLighting;
 
     int  gNumSpatialRounds;
@@ -248,7 +248,7 @@ struct PathReusePass
                 // MIS weight
                 if (dstReservoir.weight > 0 && ReSTIRMISKind(kTemporalReSTIRMISKind) != ReSTIRMISKind::ConstantBiased && !gNoResamplingForTemporalReuse)
                 {
-                    if (chooseCurrent) // need to know prev pdf 
+                    if (chooseCurrent) // need to know prev pdf
                     {
                         float count = currentM;
                         float prefixJacobian = 1.f;
@@ -323,6 +323,8 @@ struct PathReusePass
 
         printSetPixel(pixel);
         logSetPixel(pixel);
+
+        print("Enter TemporalReuse!", 0);
 
         ReSTIR(pixel);
     }

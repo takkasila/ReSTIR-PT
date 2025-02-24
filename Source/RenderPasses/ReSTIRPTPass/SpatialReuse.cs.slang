@@ -58,7 +58,7 @@ struct PathReusePass
 
     uint gSppId;
 
-    Texture2D<float4> directLighting;  
+    Texture2D<float4> directLighting;
     bool useDirectLighting;
 
     bool isValidPackedHitInfo(PackedHitInfo packed)
@@ -111,7 +111,7 @@ struct PathReusePass
 
     int2 getPathReuseNextNeighborPixel(int4 NRookQuery, int2 pixel, int i)
     {
-        // 
+        //
         if (PathReusePattern(gSpatialReusePattern) == PathReusePattern::Block)
         {
             int2 block = pixel / 4;
@@ -144,7 +144,7 @@ struct PathReusePass
                 -gSmallWindowRadius + (i / smallWindowDiameter));
             if (all(neighborPixel == pixel)) neighborPixel = int2(-1);
         }
- 
+
         return neighborPixel;
     }
 
@@ -227,7 +227,7 @@ struct PathReusePass
 
                 PathReservoir tempDstReservoir = dstReservoir;
 
-                if (i == pixelInBlock.x) 
+                if (i == pixelInBlock.x)
                 {
                     tempDstReservoir = neighborReservoir;
                     tempDstReservoir.rcVertexIrradiance[0] = tempDstReservoir.F;
@@ -375,7 +375,7 @@ struct PathReusePass
                 prefix_approxPdf = PathReservoir::computeWeight(prefixIntegrand) * prefixJacobian;
 
                 canonicalWeight += 1;
-                if (prefix_approxPdf > 0.f) 
+                if (prefix_approxPdf > 0.f)
                     canonicalWeight -= prefix_approxPdf * neighborReservoir.M / (prefix_approxPdf * neighborReservoir.M + centralReservoir.M * PathReservoir::computeWeight(centralReservoir.F) / (neighborCount));
 
                 PathReservoir tempDstReservoir = dstReservoir;
@@ -477,7 +477,7 @@ struct PathReusePass
                         {
                             chosen_approxPdf = PathReservoir::computeWeight(chosenReservoir.F) / chosen_Jacobian;
                             sum_approxPdf += chosen_approxPdf * chosenReservoir.M;
-                            count += chosenReservoir.M; 
+                            count += chosenReservoir.M;
 
                             continue;
                         }
@@ -557,7 +557,7 @@ struct PathReusePass
                 float hitDist = 0.f;
                 float3 reflectance = 0.f;
                 float3 radiance = 0.f;
-                NRDPathType pathType = NRDPathType::Residual; 
+                NRDPathType pathType = NRDPathType::Residual;
 
                 //
                 if (ShiftMapping(kShiftStrategy) == ShiftMapping::Reconnection ||
@@ -648,6 +648,7 @@ struct PathReusePass
         printSetPixel(pixel);
         logSetPixel(pixel);
 
+        print("Enter SpatialReuse!", 0);
         ReSTIR(pixel);
     }
 };

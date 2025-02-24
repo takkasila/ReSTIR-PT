@@ -256,16 +256,16 @@ void PathVisualizePass::filterCopyPathData(DebugPathData* incomingDebugPathData)
 
     //      Finally copy if all conditions are met
     if (isCopyNewPathData)
-        mRunningPathData = *incomingDebugPathData;
+        mRunningCanonicalPathData = *incomingDebugPathData;
 }
 
 void PathVisualizePass::updatePathData()
 {
-    if (mRunningPathData.vertexCount < 1)
+    if (mRunningCanonicalPathData.vertexCount < 1)
         return;
 
     // Copy from temporary to current
-    mDebugPathData = mRunningPathData;
+    mCanonicalPathData = mRunningCanonicalPathData;
 
     mTemporalCentralPathData = mRunningTemporalCentralPathData;
     mTemporalTemporalPathData = mRunningTemporalTemporalPathData;
@@ -284,15 +284,15 @@ void PathVisualizePass::updatePathData()
     float4 color;
     glm::mat4 M;
 
-    for (uint i = 0; i < mDebugPathData.vertexCount - 1; i++)
+    for (uint i = 0; i < mCanonicalPathData.vertexCount - 1; i++)
     {
-        A = mDebugPathData.vertices[i].xyz;
-        B = mDebugPathData.vertices[i + 1].xyz;
+        A = mCanonicalPathData.vertices[i].xyz;
+        B = mCanonicalPathData.vertices[i + 1].xyz;
 
         // Construct change of basis mat
         M = computeTransformMatToLineSegment(A, B);
 
-		float t = i / float(mDebugPathData.vertexCount - 1);
+		float t = i / float(mCanonicalPathData.vertexCount - 1);
 		color = colorBegin + t * (colorEnd - colorBegin);
 
         // Vertex
@@ -304,7 +304,7 @@ void PathVisualizePass::updatePathData()
             verts[vertexOffset + j].texCoord = float2(0.5, 0.5);
 
             // If target vertex is an RC vertex, color code as red
-            if (i + 1 == mDebugPathData.rcVertexIndex)
+            if (i + 1 == mCanonicalPathData.rcVertexIndex)
             {
 				color = float4(1, 0, 0, 1);
             }
@@ -326,24 +326,24 @@ void PathVisualizePass::updatePathData()
     // Construct NEE segments geometry
     //
     bool hasAnNEE = std::any_of(
-        std::begin(mDebugPathData.isSampledLight),
-        std::begin(mDebugPathData.isSampledLight) + mDebugPathData.vertexCount,
+        std::begin(mCanonicalPathData.isSampledLight),
+        std::begin(mCanonicalPathData.isSampledLight) + mCanonicalPathData.vertexCount,
         [](bool b) {return b; }
     );
     if (hasAnNEE)
     {
         // Gather indices of vertex that has NEE
         std::vector<uint> neeVertexIndex;
-        for (uint i = 0; i < mDebugPathData.vertexCount; i++)
+        for (uint i = 0; i < mCanonicalPathData.vertexCount; i++)
         {
-            if (mDebugPathData.isSampledLight[i])
+            if (mCanonicalPathData.isSampledLight[i])
                 neeVertexIndex.emplace_back(i);
         }
 
         for (uint i : neeVertexIndex)
         {
-            A = mDebugPathData.vertices[i].xyz;
-            B = mDebugPathData.sampledLightPosition[i].xyz;
+            A = mCanonicalPathData.vertices[i].xyz;
+            B = mCanonicalPathData.sampledLightPosition[i].xyz;
 
             // Construct change of basis mat
             M = computeTransformMatToLineSegment(A, B);
@@ -521,6 +521,9 @@ void PathVisualizePass::execute(RenderContext* pRenderContext, const RenderData&
         // TODO: filter this
         mRunningTemporalCentralPathData = *incomingTemporalCentralPathData;
         mRunningTemporalTemporalPathData = *incomingTemporalTemporalPathData;
+
+        // testing
+        updatePathData();
     }
 
     // Create FBO

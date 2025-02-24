@@ -1687,11 +1687,28 @@ void ReSTIRPTPass::tracePass(RenderContext* pRenderContext, const RenderData& re
 
 void ReSTIRPTPass::PathReusePass(RenderContext* pRenderContext, uint32_t restir_i, const RenderData& renderData, bool isTemporalReuse, int spatialRoundId, bool isLastRound)
 {
+    // Usually spatialRoundId = 0
     bool isPathReuseMISWeightComputation = spatialRoundId == -1;
 
     PROFILE(isTemporalReuse ? "temporalReuse" : (isPathReuseMISWeightComputation ? "MISWeightComputation" : "spatialReuse"));
 
-    ComputePass::SharedPtr pass = isPathReuseMISWeightComputation ? mpComputePathReuseMISWeightsPass : (isTemporalReuse ? mpTemporalReusePass : mpSpatialReusePass);
+    ComputePass::SharedPtr pass;// = isPathReuseMISWeightComputation ? mpComputePathReuseMISWeightsPass : (isTemporalReuse ? mpTemporalReusePass : mpSpatialReusePass);
+
+    if (isPathReuseMISWeightComputation)
+    {
+        pass = mpComputePathReuseMISWeightsPass;
+    }
+    else
+    {
+        if (isTemporalReuse)
+        {
+            pass = mpTemporalReusePass;
+        }
+        else
+        {
+            pass = mpSpatialReusePass;
+        }
+    }
 
     if (isPathReuseMISWeightComputation)
     {

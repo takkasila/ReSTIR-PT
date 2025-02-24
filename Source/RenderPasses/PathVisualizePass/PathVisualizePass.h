@@ -76,8 +76,8 @@ private:
 
     std::vector<float3> mPathVertices;
 
-    DebugPathData mRunningPathData;     // Running path data that changes every frame.
-    DebugPathData mDebugPathData;       // Current path data that being visualized.
+    DebugPathData mRunningCanonicalPathData;        // Running path data that changes every frame.
+    DebugPathData mCanonicalPathData;               // Current path data that being visualized.
 
     DebugPathData mRunningTemporalCentralPathData;
     DebugPathData mTemporalCentralPathData;
@@ -94,6 +94,6 @@ private:
 
     uint mTotalIndices = 0;
 
-    bool mShowOnlyPathWithRCVertex = true;
-    bool mShowOnlyPathWithNEE = true;
+    bool mShowOnlyPathWithRCVertex = false;
+    bool mShowOnlyPathWithNEE = false;
 };
