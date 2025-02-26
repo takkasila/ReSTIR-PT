@@ -138,6 +138,8 @@ namespace Mogwai
         RenderGraph::SharedPtr getGraph(const std::string& graphName) const;
         void initGraph(const RenderGraph::SharedPtr& pGraph, GraphData* pData);
 
+        void loadRecentScriptAndScene();
+
         void removeActiveGraph();
         void loadSceneDialog();
         void loadScene(std::string filename, SceneBuilder::Flags buildFlags = SceneBuilder::Flags::Default,bool monochromeMode = false);

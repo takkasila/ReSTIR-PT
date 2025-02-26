@@ -38,6 +38,7 @@ namespace Mogwai
         {
             constexpr char help[] =
                 "F1 - Show the help message\n"
+                "F2 - Reload recent script and scene\n"
                 "F9 - Show/hide the time\n"
                 "F6 - Show/hide the graph UI\n"
                 "F10 - Show/hide the FPS\n"

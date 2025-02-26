@@ -390,6 +390,14 @@ namespace Mogwai
         for (auto& e : mpExtensions) e->addGraph(pGraph.get());
     }
 
+    void Renderer::loadRecentScriptAndScene()
+    {
+        std::string recentScene = mAppData.getRecentScenes().front();
+        std::string recentScript = mAppData.getRecentScripts().front();
+        loadScriptDeferred(recentScript);
+        loadScene(recentScene);
+    }
+
     void Renderer::loadScriptDialog()
     {
         std::string filename;
@@ -640,11 +648,29 @@ namespace Mogwai
 
     bool Renderer::onKeyEvent(const KeyboardEvent& keyEvent)
     {
+        if (keyEvent.type == KeyboardEvent::Type::KeyPressed)
+        {
+            // Regular keystrokes
+            if (!(keyEvent.mods.isAltDown || keyEvent.mods.isCtrlDown || keyEvent.mods.isShiftDown))
+            {
+                switch (keyEvent.key)
+                {
+                case KeyboardEvent::Key::F2:
+                    loadRecentScriptAndScene();
+                    break;
+                default:
+                    return false;
+                }
+                return true;
+            }
+        }
+
         for (auto& pe : mpExtensions)
         {
             if (pe->keyboardEvent(keyEvent)) return true;
         }
         if (mGraphs.size()) mGraphs[mActiveGraph].pGraph->onKeyEvent(keyEvent);
+
         return mpScene ? mpScene->onKeyEvent(keyEvent) : false;
     }
 
