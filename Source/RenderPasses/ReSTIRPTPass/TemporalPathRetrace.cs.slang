@@ -136,23 +136,6 @@ struct PathRetracePass
         debugPathData1.init();
         debugPathData2.init();
 
-        DebugPathData testData1;
-        testData1.init();
-        testData1.vertexCount = 3;
-
-        testData1.vertices[0] = float4(0, 0, 0, 1);
-        testData1.vertices[1] = float4(0, 0.2, 0, 1);
-        testData1.vertices[2] = float4(0, 0.4, 0, 1);
-
-        DebugPathData testData2;
-        testData2.init();
-        testData2.vertexCount = 3;
-
-        testData2.vertices[0] = float4(0.1, 0, 0, 1);
-        testData2.vertices[1] = float4(0.1, 0.2, 0, 1);
-        testData2.vertices[2] = float4(0.1, 0.4, 0, 1);
-
-
         bool isDebug = all(getSelctedPixelLog() == pixel);
 
         // write to memory
@@ -173,10 +156,6 @@ struct PathRetracePass
                 debugPathData1.vertexCount += 1;
 
                 print("- centralReservoirRCVertex", rcVertex.posW);
-
-                // debugCentralResevoirPathDataBuffer[0] = debugPathData1;
-                debugCentralResevoirPathDataBuffer[0] = testData1;
-
             }
         }
         if (temporalReservoir.pathFlags.rcVertexLength() > 1)
@@ -195,11 +174,13 @@ struct PathRetracePass
                 debugPathData2.vertexCount += 1;
 
                 print("- temporalReservoirRCVertex", rcVertex.posW);
-
-                // debugTemporalResevoirPathDataBuffer[0] = debugPathData2;
-                debugTemporalResevoirPathDataBuffer[0] = testData2;
-
             }
+        }
+
+        if (isDebug)
+        {
+            debugCentralResevoirPathDataBuffer[0] = debugPathData1;
+            debugTemporalResevoirPathDataBuffer[0] = debugPathData2;
         }
 
         print("TemporalPathRetrace.cs.slang: end", 0);

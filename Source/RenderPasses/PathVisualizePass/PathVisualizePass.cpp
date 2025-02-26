@@ -210,7 +210,7 @@ void PathVisualizePass::createRasterPass()
     // Rasterizer state
     RasterizerState::Desc rsState;
     rsState.setCullMode(RasterizerState::CullMode::Back);
-    rsState.setFillMode(RasterizerState::FillMode::Wireframe);
+    rsState.setFillMode(RasterizerState::FillMode::Solid);
     pRasterState->setRasterizerState(RasterizerState::create(rsState));
 
 
@@ -371,7 +371,7 @@ void PathVisualizePass::updatePathData()
     }
 
     //
-    //  Construct temporal central-resevoir retrace path geometry
+    //  Construct temporal central-reservoir retrace path geometry
     //
     colorBegin = float4(0, 0, 1, 0.5);
     for (int i = 0; i < int(mTemporalCentralPathData.vertexCount) - 1; i++)
@@ -455,8 +455,8 @@ glm::mat4 PathVisualizePass::computeTransformMatToLineSegment(float3 lineBegin, 
     float area = glm::length(crossProd);
     if (glm::epsilonEqual(area, 0.f, glm::epsilon<float>()))
     {
-        // Change from up vec to down vec;
-        crossProd = glm::cross(v_prime, -up);
+        // Cross with other vector instead. In this case +Z
+        crossProd = glm::cross(v_prime, float3(0, 0, 1));
     }
 
     float3 u_prime = glm::normalize(crossProd);
