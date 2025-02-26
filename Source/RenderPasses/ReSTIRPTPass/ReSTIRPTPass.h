@@ -231,4 +231,6 @@ private:
     DebugPathData                   mTemporalCentralPathData;
     Buffer::SharedPtr               mpTemporalTemporalPathDataBuffer;
     DebugPathData                   mTemporalTemporalPathData;
+
+    uint nFrameSinceLastRCVertex = 0;
 };

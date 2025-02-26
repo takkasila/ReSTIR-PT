@@ -202,7 +202,7 @@ void PathVisualizePass::createRasterPass()
 
     // create the depth-state
     DepthStencilState::Desc dsDesc;
-    dsDesc.setDepthEnabled(true);
+    dsDesc.setDepthEnabled(false);
 	dsDesc.setDepthFunc(ComparisonFunc::Less);
     pRasterState->setDepthStencilState(DepthStencilState::create(dsDesc));
 
@@ -210,7 +210,7 @@ void PathVisualizePass::createRasterPass()
     // Rasterizer state
     RasterizerState::Desc rsState;
     rsState.setCullMode(RasterizerState::CullMode::Back);
-    rsState.setFillMode(RasterizerState::FillMode::Solid);
+    rsState.setFillMode(RasterizerState::FillMode::Wireframe);
     pRasterState->setRasterizerState(RasterizerState::create(rsState));
 
 
@@ -373,7 +373,7 @@ void PathVisualizePass::updatePathData()
     //
     //  Construct temporal central-resevoir retrace path geometry
     //
-    colorBegin = float4(0, 0, 1, 1);
+    colorBegin = float4(0, 0, 1, 0.5);
     for (int i = 0; i < int(mTemporalCentralPathData.vertexCount) - 1; i++)
     {
         A = mTemporalCentralPathData.vertices[i].xyz;
@@ -408,7 +408,7 @@ void PathVisualizePass::updatePathData()
     //
     //  Construct temporal temporal-resevoir retrace path geometry
     //
-    colorBegin = float4(0, 1, 1, 1);
+    colorBegin = float4(1, 1, 0, 0.5);
     for (int i = 0; i < int(mTemporalTemporalPathData.vertexCount) - 1; i++)
     {
         A = mTemporalTemporalPathData.vertices[i].xyz;
