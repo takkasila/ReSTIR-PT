@@ -87,6 +87,18 @@ struct PathRetracePass
     {
         print("TemporalPathRetrace.cs.slang: begin", 0);
 
+        DebugPathData debugPathData1;
+        DebugPathData debugPathData2;
+        debugPathData1.init();
+        debugPathData2.init();
+
+        bool isDebug = all(getSelctedPixelLog() == pixel);
+        if (isDebug)
+        {
+            debugCentralResevoirPathDataBuffer[0] = debugPathData1;
+            debugTemporalResevoirPathDataBuffer[0] = debugPathData2;
+        }
+
         // TODO: How to seed efficiently?
         var sg = TinyUniformSampleGenerator(pixel, (kCandidateSamples + 1 + gNumSpatialRounds) * params.seed + kCandidateSamples);
 
@@ -131,13 +143,6 @@ struct PathRetracePass
         float3 Tp;
         float3 Tp2;
 
-        DebugPathData debugPathData1;
-        DebugPathData debugPathData2;
-        debugPathData1.init();
-        debugPathData2.init();
-
-        bool isDebug = all(getSelctedPixelLog() == pixel);
-
         // write to memory
         if (centralReservoir.pathFlags.rcVertexLength() > 1)
         {
@@ -154,6 +159,7 @@ struct PathRetracePass
                 VertexData rcVertex = gScene.getVertexData(centralReservoirRCVertexHit);
                 debugPathData1.vertices[debugPathData1.vertexCount] = float4(rcVertex.posW, 1);
                 debugPathData1.vertexCount += 1;
+                debugCentralResevoirPathDataBuffer[0] = debugPathData1;
 
                 print("- centralReservoirRCVertex", rcVertex.posW);
             }
@@ -172,15 +178,10 @@ struct PathRetracePass
                 VertexData rcVertex = gScene.getVertexData(temporalReservoirRCVertexHit);
                 debugPathData2.vertices[debugPathData2.vertexCount] = float4(rcVertex.posW, 1);
                 debugPathData2.vertexCount += 1;
+                debugTemporalResevoirPathDataBuffer[0] = debugPathData2;
 
                 print("- temporalReservoirRCVertex", rcVertex.posW);
             }
-        }
-
-        if (isDebug)
-        {
-            debugCentralResevoirPathDataBuffer[0] = debugPathData1;
-            debugTemporalResevoirPathDataBuffer[0] = debugPathData2;
         }
 
         print("TemporalPathRetrace.cs.slang: end", 0);
