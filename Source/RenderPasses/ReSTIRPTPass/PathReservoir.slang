@@ -21,6 +21,15 @@ static const int kRcAttrCount = 1;
 struct ReSTIRPathFlags
 {
     int flags = 0;
+    /*
+        - isDeltaEvent
+        - isTransmissionEvent
+        - isSpecularBoune
+        - pathLength
+        - RCVertexLength
+        - isLastVertexNEE
+        - lightType
+    */
 
     // this struct can store bounce type information for two vertices
     [mutating]
@@ -223,7 +232,7 @@ struct PathReuseMISWeight
 // 88/128 B
 struct PathReservoir
 {
-    float M = 0.f; // this is a float, because temporal history length is allowed to be a fraction. 
+    float M = 0.f; // this is a float, because temporal history length is allowed to be a fraction.
     float weight = 0.f; // during RIS and when used as a "RisState", this is w_sum; during RIS when used as an incoming reseroivr or after RIS, this is 1/p(y) * 1/M * w_sum
     ReSTIRPathFlags pathFlags; // this is a path type indicator, see the struct definition for details
     uint rcRandomSeed; // saved random seed after rcVertex (due to the need of blending half-vector reuse and random number replay)
@@ -236,7 +245,7 @@ struct PathReservoir
     float3 rcVertexIrradiance[kRcAttrCount]; // sampled irradiance on reconnection vertex
 
 #if BPR
-    float rcLightPdf; 
+    float rcLightPdf;
     float3 rcVertexBSDFLightSamplingIrradiance;
 
     uint rcLightType()

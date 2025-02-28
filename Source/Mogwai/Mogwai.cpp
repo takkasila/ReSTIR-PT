@@ -653,15 +653,11 @@ namespace Mogwai
             // Regular keystrokes
             if (!(keyEvent.mods.isAltDown || keyEvent.mods.isCtrlDown || keyEvent.mods.isShiftDown))
             {
-                switch (keyEvent.key)
+                if (keyEvent.key == KeyboardEvent::Key::F2)
                 {
-                case KeyboardEvent::Key::F2:
                     loadRecentScriptAndScene();
-                    break;
-                default:
-                    return false;
+                    return true;
                 }
-                return true;
             }
         }
 
