@@ -280,38 +280,6 @@ void PathVisualizePass::filterCopyPathData()
     {
         mReservedPathBundle.deepCopy(mBuildingPathBundle);
     }
-
-    /*
-    //  Filter and copy debug path data from ReSTIRPT pass
-    bool isCopyNewPathData = true;
-
-    //  Going through the conditions
-
-    //      Has atleast 2 vertices (1 path)
-    isCopyNewPathData &= incomingDebugPathData->vertexCount > 1;
-
-    //      Path with RC vertex
-    isCopyNewPathData &= !mShowOnlyPathWithRCVertex
-        || (mShowOnlyPathWithRCVertex && incomingDebugPathData->hasRCVertex);
-
-    //      Path with NEE
-    bool hasAnNEE = false;
-    if (mShowOnlyPathWithNEE)
-    {
-        hasAnNEE = std::any_of(
-            std::begin(incomingDebugPathData->isSampledLight),
-            std::begin(incomingDebugPathData->isSampledLight) + incomingDebugPathData->vertexCount,
-            [](bool b) {return b; }
-        );
-    }
-
-    isCopyNewPathData &= !mShowOnlyPathWithNEE
-        || (mShowOnlyPathWithNEE && hasAnNEE);
-
-    //      Finally copy if all conditions are met
-    if (isCopyNewPathData)
-        mRunningCanonicalPathData = *incomingDebugPathData;
-    */
 }
 
 void PathVisualizePass::updateRenderData()
@@ -333,69 +301,18 @@ void PathVisualizePass::updateRenderData()
     float4 color;
     glm::mat4 M;
 
-    for (uint i = 0; i < mRenderedPathBundle.canonicalPath.vertexCount - 1; i++)
+    if (mIsDisplayCanonicalPath)
     {
-        A = mRenderedPathBundle.canonicalPath.vertices[i].xyz;
-        B = mRenderedPathBundle.canonicalPath.vertices[i + 1].xyz;
-
-        // Construct change of basis mat
-        M = computeTransformMatToLineSegment(A, B);
-
-		float t = i / float(mRenderedPathBundle.canonicalPath.vertexCount - 1);
-		color = colorBegin + t * (colorEnd - colorBegin);
-
-        // Vertex
-        for (uint j = 0; j < kPyramidVertCount; j++)
-        {
-            verts[vertexOffset + j].pos = (M * float4(kPyramidVerts[j], 1)).xyz;
-
-			// TODO: use proper tex coord
-            verts[vertexOffset + j].texCoord = float2(0.5, 0.5);
-
-            // If target vertex is an RC vertex, color code as red
-            if (i + 1 == mRenderedPathBundle.canonicalPath.rcVertexIndex)
-            {
-				color = float4(1, 0, 0, 1);
-            }
-			verts[vertexOffset + j].color = color;
-        }
-
-        // Index
-        for (uint j = 0; j < kPyramidIndicesCount; j++)
-        {
-            indices[indexOffset + j] = kPyramidIndices[j] + vertexOffset;
-        }
-
-        vertexOffset += kPyramidVertCount;
-        indexOffset += kPyramidIndicesCount;
-    }
-
-
-    //
-    // Construct NEE segments geometry
-    //
-    bool hasAnNEE = std::any_of(
-        std::begin(mRenderedPathBundle.canonicalPath.isSampledLight),
-        std::begin(mRenderedPathBundle.canonicalPath.isSampledLight) + mRenderedPathBundle.canonicalPath.vertexCount,
-        [](bool b) {return b; }
-    );
-    if (hasAnNEE)
-    {
-        // Gather indices of vertex that has NEE
-        std::vector<uint> neeVertexIndex;
-        for (uint i = 0; i < mRenderedPathBundle.canonicalPath.vertexCount; i++)
-        {
-            if (mRenderedPathBundle.canonicalPath.isSampledLight[i])
-                neeVertexIndex.emplace_back(i);
-        }
-
-        for (uint i : neeVertexIndex)
+        for (uint i = 0; i < mRenderedPathBundle.canonicalPath.vertexCount - 1; i++)
         {
             A = mRenderedPathBundle.canonicalPath.vertices[i].xyz;
-            B = mRenderedPathBundle.canonicalPath.sampledLightPosition[i].xyz;
+            B = mRenderedPathBundle.canonicalPath.vertices[i + 1].xyz;
 
             // Construct change of basis mat
             M = computeTransformMatToLineSegment(A, B);
+
+            float t = i / float(mRenderedPathBundle.canonicalPath.vertexCount - 1);
+            color = colorBegin + t * (colorEnd - colorBegin);
 
             // Vertex
             for (uint j = 0; j < kPyramidVertCount; j++)
@@ -405,7 +322,12 @@ void PathVisualizePass::updateRenderData()
                 // TODO: use proper tex coord
                 verts[vertexOffset + j].texCoord = float2(0.5, 0.5);
 
-                verts[vertexOffset + j].color = float4(1, 1, 0, 1);
+                // If target vertex is an RC vertex, color code as red
+                if (i + 1 == mRenderedPathBundle.canonicalPath.rcVertexIndex)
+                {
+                    color = float4(1, 0, 0, 1);
+                }
+                verts[vertexOffset + j].color = color;
             }
 
             // Index
@@ -419,76 +341,130 @@ void PathVisualizePass::updateRenderData()
         }
     }
 
-    //
-    //  Construct temporal central-reservoir retrace path geometry
-    //
-    colorBegin = float4(0, 0, 1, 0.3);
-    colorEnd = float4(0, 0, 0, 0.3);
-    for (int i = 0; i < int(mRenderedPathBundle.temporalCentralPath.vertexCount) - 1; i++)
+
+    if (mIsDisplayNEESegments)
     {
-        A = mRenderedPathBundle.temporalCentralPath.vertices[i].xyz;
-        B = mRenderedPathBundle.temporalCentralPath.vertices[i + 1].xyz;
-
-        // Construct change of basis mat
-        M = computeTransformMatToLineSegment(A, B);
-
-        float t = i / float(mRenderedPathBundle.temporalCentralPath.vertexCount - 1);
-        color = colorBegin + t * (colorEnd - colorBegin);
-
-        // Vertex
-        for (uint j = 0; j < kPyramidVertCount; j++)
+        bool hasAnNEE = std::any_of(
+            std::begin(mRenderedPathBundle.canonicalPath.isSampledLight),
+            std::begin(mRenderedPathBundle.canonicalPath.isSampledLight) + mRenderedPathBundle.canonicalPath.vertexCount,
+            [](bool b) {return b; }
+        );
+        // Construct NEE segments geometry
+        if (hasAnNEE)
         {
-            verts[vertexOffset + j].pos = (M * float4(kPyramidVerts[j], 1)).xyz;
+            // Gather indices of vertex that has NEE
+            std::vector<uint> neeVertexIndex;
+            for (uint i = 0; i < mRenderedPathBundle.canonicalPath.vertexCount; i++)
+            {
+                if (mRenderedPathBundle.canonicalPath.isSampledLight[i])
+                    neeVertexIndex.emplace_back(i);
+            }
 
-            // TODO: use proper tex coord
-            verts[vertexOffset + j].texCoord = float2(0.5, 0.5);
-            verts[vertexOffset + j].color = color;
+            for (uint i : neeVertexIndex)
+            {
+                A = mRenderedPathBundle.canonicalPath.vertices[i].xyz;
+                B = mRenderedPathBundle.canonicalPath.sampledLightPosition[i].xyz;
+
+                // Construct change of basis mat
+                M = computeTransformMatToLineSegment(A, B);
+
+                // Vertex
+                for (uint j = 0; j < kPyramidVertCount; j++)
+                {
+                    verts[vertexOffset + j].pos = (M * float4(kPyramidVerts[j], 1)).xyz;
+
+                    // TODO: use proper tex coord
+                    verts[vertexOffset + j].texCoord = float2(0.5, 0.5);
+
+                    verts[vertexOffset + j].color = float4(1, 1, 0, 1);
+                }
+
+                // Index
+                for (uint j = 0; j < kPyramidIndicesCount; j++)
+                {
+                    indices[indexOffset + j] = kPyramidIndices[j] + vertexOffset;
+                }
+
+                vertexOffset += kPyramidVertCount;
+                indexOffset += kPyramidIndicesCount;
+            }
         }
-
-        // Index
-        for (uint j = 0; j < kPyramidIndicesCount; j++)
-        {
-            indices[indexOffset + j] = kPyramidIndices[j] + vertexOffset;
-        }
-
-        vertexOffset += kPyramidVertCount;
-        indexOffset += kPyramidIndicesCount;
     }
 
-    //
-    //  Construct temporal temporal-resevoir retrace path geometry
-    //
-    colorBegin = float4(1, 1, 0, 0.3);
-    colorEnd = float4(0, 0, 0, 0.3);
-    for (int i = 0; i < int(mRenderedPathBundle.temporalTemporalPath.vertexCount) - 1; i++)
+    if (mIsDisplayTemporalCentralPath)
     {
-        A = mRenderedPathBundle.temporalTemporalPath.vertices[i].xyz;
-        B = mRenderedPathBundle.temporalTemporalPath.vertices[i + 1].xyz;
-
-        // Construct change of basis mat
-        M = computeTransformMatToLineSegment(A, B);
-
-        float t = i / float(mRenderedPathBundle.temporalTemporalPath.vertexCount - 1);
-        color = colorBegin + t * (colorEnd - colorBegin);
-
-        // Vertex
-        for (uint j = 0; j < kPyramidVertCount; j++)
+        //  Construct central-reservoir temporal retrace path geometry
+        colorBegin = float4(0, 0, 1, 0.3);
+        colorEnd = float4(0, 0, 0, 0.3);
+        for (int i = 0; i < int(mRenderedPathBundle.temporalCentralPath.vertexCount) - 1; i++)
         {
-            verts[vertexOffset + j].pos = (M * float4(kPyramidVerts[j], 1)).xyz;
+            A = mRenderedPathBundle.temporalCentralPath.vertices[i].xyz;
+            B = mRenderedPathBundle.temporalCentralPath.vertices[i + 1].xyz;
 
-            // TODO: use proper tex coord
-            verts[vertexOffset + j].texCoord = float2(0.5, 0.5);
-            verts[vertexOffset + j].color = color;
+            // Construct change of basis mat
+            M = computeTransformMatToLineSegment(A, B);
+
+            float t = i / float(mRenderedPathBundle.temporalCentralPath.vertexCount - 1);
+            color = colorBegin + t * (colorEnd - colorBegin);
+
+            // Vertex
+            for (uint j = 0; j < kPyramidVertCount; j++)
+            {
+                verts[vertexOffset + j].pos = (M * float4(kPyramidVerts[j], 1)).xyz;
+
+                // TODO: use proper tex coord
+                verts[vertexOffset + j].texCoord = float2(0.5, 0.5);
+                verts[vertexOffset + j].color = color;
+            }
+
+            // Index
+            for (uint j = 0; j < kPyramidIndicesCount; j++)
+            {
+                indices[indexOffset + j] = kPyramidIndices[j] + vertexOffset;
+            }
+
+            vertexOffset += kPyramidVertCount;
+            indexOffset += kPyramidIndicesCount;
         }
+    }
 
-        // Index
-        for (uint j = 0; j < kPyramidIndicesCount; j++)
+
+
+    if (mIsDisplayTemporalTemporalPath)
+    {
+        //  Construct temporal-resevoir temporal retrace path geometry
+        colorBegin = float4(1, 1, 1, 0.3);
+        colorEnd = float4(0, 0, 0, 0.3);
+        for (int i = 0; i < int(mRenderedPathBundle.temporalTemporalPath.vertexCount) - 1; i++)
         {
-            indices[indexOffset + j] = kPyramidIndices[j] + vertexOffset;
-        }
+            A = mRenderedPathBundle.temporalTemporalPath.vertices[i].xyz;
+            B = mRenderedPathBundle.temporalTemporalPath.vertices[i + 1].xyz;
 
-        vertexOffset += kPyramidVertCount;
-        indexOffset += kPyramidIndicesCount;
+            // Construct change of basis mat
+            M = computeTransformMatToLineSegment(A, B);
+
+            float t = i / float(mRenderedPathBundle.temporalTemporalPath.vertexCount - 1);
+            color = colorBegin + t * (colorEnd - colorBegin);
+
+            // Vertex
+            for (uint j = 0; j < kPyramidVertCount; j++)
+            {
+                verts[vertexOffset + j].pos = (M * float4(kPyramidVerts[j], 1)).xyz;
+
+                // TODO: use proper tex coord
+                verts[vertexOffset + j].texCoord = float2(0.5, 0.5);
+                verts[vertexOffset + j].color = color;
+            }
+
+            // Index
+            for (uint j = 0; j < kPyramidIndicesCount; j++)
+            {
+                indices[indexOffset + j] = kPyramidIndices[j] + vertexOffset;
+            }
+
+            vertexOffset += kPyramidVertCount;
+            indexOffset += kPyramidIndicesCount;
+        }
     }
 
     mTotalIndices = indexOffset;
@@ -616,18 +592,24 @@ void PathVisualizePass::execute(RenderContext* pRenderContext, const RenderData&
 
 void PathVisualizePass::renderUI(Gui::Widgets& widget)
 {
-    widget.checkbox("Show only path with Reconnection Vertex", mShowOnlyPathWithRCVertex);
-    widget.checkbox("Show only path with NEE", mShowOnlyPathWithNEE);
+    bool isUpdateRenderData = false;
+    isUpdateRenderData |= widget.checkbox("Display canonical path", mIsDisplayCanonicalPath);
+    isUpdateRenderData |= widget.checkbox("Display NEE segments", mIsDisplayNEESegments);
+    isUpdateRenderData |= widget.checkbox("Display central-reservoir temporal retrace path", mIsDisplayTemporalCentralPath);
+    isUpdateRenderData |= widget.checkbox("Display temporal-reservoir temporal retrace path", mIsDisplayTemporalTemporalPath);
 
     if (auto group = widget.group("Debugging", true))
     {
         if (group.button("Update Path value", false))
         {
-            updateRenderData();
+            isUpdateRenderData = true;
         }
 
         mpPixelDebug->renderUI(group);
     }
+
+    if (isUpdateRenderData)
+        updateRenderData();
 }
 
 void PathVisualizePass::setScene(RenderContext* pRenderContext, const Scene::SharedPtr& pScene)

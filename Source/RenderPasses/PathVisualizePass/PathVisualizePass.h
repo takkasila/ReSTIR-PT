@@ -131,6 +131,8 @@ private:
 
     //  Options
 
-    bool mShowOnlyPathWithRCVertex = false;
-    bool mShowOnlyPathWithNEE = false;
+    bool mIsDisplayCanonicalPath = true;
+    bool mIsDisplayNEESegments = true;
+    bool mIsDisplayTemporalCentralPath = true;
+    bool mIsDisplayTemporalTemporalPath = true;
 };
