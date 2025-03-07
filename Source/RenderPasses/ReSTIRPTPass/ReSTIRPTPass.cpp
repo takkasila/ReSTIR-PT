@@ -1616,17 +1616,6 @@ void ReSTIRPTPass::endFrame(RenderContext* pRenderContext, const RenderData& ren
     renderData.getDictionary()["temporalCentralPathData"] = &mTemporalCentralPathData;
     mpTemporalCentralPathDataBuffer->unmap();
 
-    if (mDebugPathData.hasRCVertex)
-    {
-        std::cout << "Found new RC vertex!" << std::endl;
-        nFrameSinceLastRCVertex = 0;
-    }
-    else
-    {
-        nFrameSinceLastRCVertex += 1;
-        std::cout << "nFrameSinceLastRCVertex " << nFrameSinceLastRCVertex << std::endl;
-    }
-
     DebugPathData* temporalTemporalPathData = static_cast<DebugPathData*>(mpTemporalTemporalPathDataBuffer->map(Buffer::MapType::Read));
     mTemporalTemporalPathData = *temporalTemporalPathData;
     renderData.getDictionary()["temporalTemporalPathData"] = &mTemporalTemporalPathData;
