@@ -59,8 +59,8 @@ private:
     PathVisualizePass(const Dictionary& dict);
 
     void createRasterPass();
-    void filterCopyPathData(DebugPathData* incomingDebugPathData);
-    void updatePathData();
+    void filterCopyPathData();
+    void updateRenderData();
 
     static glm::mat4 computeTransformMatToLineSegment(float3 lineBegin, float3 lineEnd);
 
@@ -74,16 +74,51 @@ private:
 
     uint2 mSelectedCursorPosition = uint2(0);
 
-    std::vector<float3> mPathVertices;
+    //  Path data
 
-    DebugPathData mRunningCanonicalPathData;        // Running path data that changes every frame.
-    DebugPathData mCanonicalPathData;               // Current path data that being visualized.
+    struct PathDataBundle
+    {
+        DebugPathData canonicalPath;
+        DebugPathData temporalCentralPath;
+        DebugPathData temporalTemporalPath;
+        bool isFullyCompleted = false;   // signify that the bundle is a "complete" package that satisfies all condition
+        bool isPartiallyCompleted = false;  // have a canonical path with atleast one of the retrace path
 
-    DebugPathData mRunningTemporalCentralPathData;
-    DebugPathData mTemporalCentralPathData;
-    DebugPathData mRunningTemporalTemporalPathData;
-    DebugPathData mTemporalTemporalPathData;
+        void init()
+        {
+            canonicalPath.init();
+            temporalCentralPath.init();
+            temporalTemporalPath.init();
+            isFullyCompleted = false;
+            isPartiallyCompleted = false;
+        }
 
+        void clear()
+        {
+            canonicalPath.vertexCount = 0;
+            temporalCentralPath.vertexCount = 0;
+            temporalTemporalPath.vertexCount = 0;
+            isFullyCompleted = false;
+            isPartiallyCompleted = false;
+        }
+
+        void deepCopy(PathDataBundle srcPathDataBundle)
+        {
+            canonicalPath.deepCopy(srcPathDataBundle.canonicalPath);
+            temporalCentralPath.deepCopy(srcPathDataBundle.temporalCentralPath);
+            temporalTemporalPath.deepCopy(srcPathDataBundle.temporalTemporalPath);
+            isFullyCompleted = srcPathDataBundle.isFullyCompleted;
+            isPartiallyCompleted = srcPathDataBundle.isPartiallyCompleted;
+        }
+
+    };
+
+    PathDataBundle mCurrentFramePathBundle;
+    PathDataBundle mBuildingPathBundle;
+    PathDataBundle mReservedPathBundle;
+    PathDataBundle mRenderedPathBundle;
+
+    //  Rendering
 
     RasterPass::SharedPtr mpRasterPass;
 
@@ -94,6 +129,10 @@ private:
 
     uint mTotalIndices = 0;
 
-    bool mShowOnlyPathWithRCVertex = false;
-    bool mShowOnlyPathWithNEE = false;
+    //  Options
+
+    bool mIsDisplayCanonicalPath = true;
+    bool mIsDisplayNEESegments = true;
+    bool mIsDisplayTemporalCentralPath = true;
+    bool mIsDisplayTemporalTemporalPath = true;
 };
