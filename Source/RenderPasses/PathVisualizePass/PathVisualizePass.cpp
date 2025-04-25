@@ -48,18 +48,7 @@ namespace
         float4 color;
     };
 
-    const float kPyramidHeight = 1;     // Should always be 1 because it'll be normalized to fit new space.
-    const float kPyramidHalfWidth = 0.007;  // In world space. This value will not be normalized to fit new space.
-
     const uint kPyramidVertCount = 5;
-
-    float3 kPyramidVerts[kPyramidVertCount] = {
-        {-kPyramidHalfWidth, 0, kPyramidHalfWidth},
-        {kPyramidHalfWidth, 0, kPyramidHalfWidth},
-        {kPyramidHalfWidth, 0, -kPyramidHalfWidth},
-        {-kPyramidHalfWidth, 0, -kPyramidHalfWidth},
-        {0, kPyramidHeight, 0},
-    };
 
     //  Total number of debug paths.
     //      - canonical path
@@ -97,11 +86,168 @@ extern "C" __declspec(dllexport) void getPasses(Falcor::RenderPassLibrary& lib)
     lib.registerClass("PathVisualizePass", kDesc, PathVisualizePass::create);
 }
 
+//
+//  PUBLIC
+//
+
 PathVisualizePass::SharedPtr PathVisualizePass::create(RenderContext* pRenderContext, const Dictionary& dict)
 {
     SharedPtr pPass = SharedPtr(new PathVisualizePass(dict));
     return pPass;
 }
+
+std::string PathVisualizePass::getDesc() { return kDesc; }
+
+Dictionary PathVisualizePass::getScriptingDictionary()
+{
+    return Dictionary();
+}
+
+RenderPassReflection PathVisualizePass::reflect(const CompileData& compileData)
+{
+    // Define the required resources here
+    RenderPassReflection reflector;
+
+    reflector.addInput(kInputImg, "Input image");
+
+    reflector.addInput(kDepth, "Depth buffer");
+
+    reflector.addInput(kInputVBuffer, "Vertex buffer");
+
+    reflector.addOutput(kOutputImg, "Output image");
+
+    return reflector;
+}
+
+
+void PathVisualizePass::execute(RenderContext* pRenderContext, const RenderData& renderData)
+{
+    if (!mpScene)
+    {
+        return;
+    }
+
+    Texture::SharedPtr pInputImg = renderData[kInputImg]->asTexture();
+    Texture::SharedPtr pDepth = renderData[kDepth]->asTexture();
+    Texture::SharedPtr pOutputImg = renderData[kOutputImg]->asTexture();
+
+    assert(pInputImg && pDepth && pOutputImg);
+
+    //  Store running path data
+    {
+        InternalDictionary& renderDataDict = renderData.getDictionary();
+
+        //      Get current frame debug path data from ReSTIRPTPass
+        mCurrentFramePathBundle.canonicalPath = *renderDataDict.getValue<DebugPathData*>("debugPathData");
+        mCurrentFramePathBundle.temporalCentralPath = *renderDataDict.getValue<DebugPathData*>("temporalCentralPathData");
+        mCurrentFramePathBundle.temporalTemporalPath = *renderDataDict.getValue<DebugPathData*>("temporalTemporalPathData");
+
+        filterCopyPathData();
+    }
+
+    // Create FBO
+    Fbo::SharedPtr pFbo = Fbo::create();
+
+    //  Render on top of input image by copying from input to the render target
+    pRenderContext->blit(pInputImg->getSRV(), pOutputImg->getRTV());
+
+    //  Bind render target
+    pFbo->attachColorTarget(pOutputImg, 0);
+
+    if (mRecreateRasterPass)
+    {
+        createRasterPass();
+        mRecreateRasterPass = false;
+    }
+
+    //	Bind data
+    GraphicsState::SharedPtr pRasterState = mpRasterPass->getState();
+
+    //		FBO
+    pRasterState->setFbo(pFbo);
+
+    //		Scene
+    mpRasterPass["gScene"] = mpScene->getParameterBlock();
+
+    //		Camera
+    const Camera::SharedPtr& pCamera = mpScene->getCamera();
+    pCamera->setShaderData(mpRasterPass["PerFrameCB"]["gCamera"]);
+
+    //		PixelDebug
+    mpRasterPass["PerFrameCB"]["gSelectedPixel"] = mSelectedCursorPosition;
+
+
+    // Enable pixel debug
+    const uint2 resolution = renderData.getDefaultTextureDims();
+    mpPixelDebug->beginFrame(pRenderContext, resolution);
+    mpPixelDebug->prepareProgram(mpRasterPass->getProgram(), mpRasterPass->getRootVar());
+
+    // Run the raster pass
+    mpRasterPass->drawIndexed(pRenderContext, mTotalIndices, 0, 0);
+
+    mpPixelDebug->endFrame(pRenderContext);
+
+}
+
+void PathVisualizePass::renderUI(Gui::Widgets& widget)
+{
+    bool isUpdateRenderData = false;
+    isUpdateRenderData |= widget.checkbox("Display canonical path", mIsDisplayCanonicalPath);
+    isUpdateRenderData |= widget.checkbox("Display NEE segments", mIsDisplayNEESegments);
+    isUpdateRenderData |= widget.checkbox("Display central-reservoir temporal retrace path", mIsDisplayTemporalCentralPath);
+    isUpdateRenderData |= widget.checkbox("Display temporal-reservoir temporal retrace path", mIsDisplayTemporalTemporalPath);
+
+    isUpdateRenderData |= widget.var("Ray width", mRayWidth, 0.001f, 0.04f);
+
+    if (auto group = widget.group("Debugging", true))
+    {
+        if (group.button("Update Path value", false))
+        {
+            isUpdateRenderData = true;
+        }
+
+        mpPixelDebug->renderUI(group);
+    }
+
+    if (isUpdateRenderData)
+        updateRenderData();
+}
+
+void PathVisualizePass::setScene(RenderContext* pRenderContext, const Scene::SharedPtr& pScene)
+{
+    mpScene = pScene;
+}
+
+bool PathVisualizePass::onMouseEvent(const MouseEvent& mouseEvent)
+{
+    mSelectedCursorPosition = uint2(mouseEvent.screenPos);
+
+    return mpPixelDebug->onMouseEvent(mouseEvent);
+}
+
+bool PathVisualizePass::onKeyEvent(const KeyboardEvent& keyEvent)
+{
+    // shortcut key "u" to call updatePath,
+    if (keyEvent.key == KeyboardEvent::Key::U
+        && keyEvent.type == KeyboardEvent::Type::KeyReleased
+        && keyEvent.mods.isAltDown == false
+        && keyEvent.mods.isCtrlDown == false
+        && keyEvent.mods.isShiftDown == false)
+    {
+        //  If the reserved bundle is partially completed, then copy it to rendering
+        if (mReservedPathBundle.isPartiallyCompleted)
+        {
+            mRenderedPathBundle.deepCopy(mReservedPathBundle);
+            updateRenderData();
+        }
+    }
+
+    return false;
+}
+
+//
+//  PRIVATE
+//
 
 PathVisualizePass::PathVisualizePass(const Dictionary& dict)
 {
@@ -132,35 +278,7 @@ void PathVisualizePass::createRasterPass()
 
     mpRasterPass = RasterPass::create(kRasterPassShaderFile, "vs", "ps", defines);
 
-    // Test
-    Vertex verts[1 * kPyramidVertCount];
-    uint indices[1 * kPyramidIndicesCount];
-    {
-
-        float3 A(0, 0, 0), B(0.1, 0, 0);
-
-        uint vertexOffset = 0;
-        uint indexOffset = 0;
-
-        // Construct change of basis mat
-        glm::mat4 M = computeTransformMatToLineSegment(A, B);
-
-        for (uint j = 0; j < kPyramidVertCount; j++)
-        {
-            verts[vertexOffset + j].pos = (M * float4(kPyramidVerts[j], 1)).xyz;
-            verts[vertexOffset + j].texCoord = float2(0.5, 0.5);
-            verts[vertexOffset + j].color = float4(1, 0, 0.5, 1);
-        }
-
-        for (uint j = 0; j < kPyramidIndicesCount; j++)
-        {
-            indices[indexOffset + j] = kPyramidIndices[j] + vertexOffset;
-        }
-
-        vertexOffset += kPyramidVertCount;
-        indexOffset += kPyramidIndicesCount;
-    }
-
+    // Allocate vertex buffer
     mpVertexBuffer = Buffer::create(
         kMaxVertexBufferSize,
         //sizeof(verts),
@@ -170,7 +288,7 @@ void PathVisualizePass::createRasterPass()
         //(void*)verts
     );
 
-    //  Create sample index buffer
+    //  Create index buffer
     mpIndexBuffer = Buffer::create(
         kMaxIndicesBufferSize,
         //sizeof(indices),
@@ -287,6 +405,18 @@ void PathVisualizePass::updateRenderData()
     if (!mRenderedPathBundle.isPartiallyCompleted)
         return;
 
+    // Compute path geometry (pyramid)
+    float pyramidHeight = 1;     // Should always be 1 because it'll be normalized to fit new space.
+    float pyramidHalfWidth = mRayWidth / 2;  // In world space. This value will not be normalized to fit new space.
+
+    float3 pyramidVerts[kPyramidVertCount] = {
+        {-pyramidHalfWidth, 0, pyramidHalfWidth},
+        {pyramidHalfWidth, 0, pyramidHalfWidth},
+        {pyramidHalfWidth, 0, -pyramidHalfWidth},
+        {-pyramidHalfWidth, 0, -pyramidHalfWidth},
+        {0, pyramidHeight, 0},
+    };
+
     //
     // Construct path geometry
     //
@@ -317,7 +447,7 @@ void PathVisualizePass::updateRenderData()
             // Vertex
             for (uint j = 0; j < kPyramidVertCount; j++)
             {
-                verts[vertexOffset + j].pos = (M * float4(kPyramidVerts[j], 1)).xyz;
+                verts[vertexOffset + j].pos = (M * float4(pyramidVerts[j], 1)).xyz;
 
                 // TODO: use proper tex coord
                 verts[vertexOffset + j].texCoord = float2(0.5, 0.5);
@@ -371,7 +501,7 @@ void PathVisualizePass::updateRenderData()
                 // Vertex
                 for (uint j = 0; j < kPyramidVertCount; j++)
                 {
-                    verts[vertexOffset + j].pos = (M * float4(kPyramidVerts[j], 1)).xyz;
+                    verts[vertexOffset + j].pos = (M * float4(pyramidVerts[j], 1)).xyz;
 
                     // TODO: use proper tex coord
                     verts[vertexOffset + j].texCoord = float2(0.5, 0.5);
@@ -410,7 +540,7 @@ void PathVisualizePass::updateRenderData()
             // Vertex
             for (uint j = 0; j < kPyramidVertCount; j++)
             {
-                verts[vertexOffset + j].pos = (M * float4(kPyramidVerts[j], 1)).xyz;
+                verts[vertexOffset + j].pos = (M * float4(pyramidVerts[j], 1)).xyz;
 
                 // TODO: use proper tex coord
                 verts[vertexOffset + j].texCoord = float2(0.5, 0.5);
@@ -449,7 +579,7 @@ void PathVisualizePass::updateRenderData()
             // Vertex
             for (uint j = 0; j < kPyramidVertCount; j++)
             {
-                verts[vertexOffset + j].pos = (M * float4(kPyramidVerts[j], 1)).xyz;
+                verts[vertexOffset + j].pos = (M * float4(pyramidVerts[j], 1)).xyz;
 
                 // TODO: use proper tex coord
                 verts[vertexOffset + j].texCoord = float2(0.5, 0.5);
@@ -498,148 +628,3 @@ glm::mat4 PathVisualizePass::computeTransformMatToLineSegment(float3 lineBegin, 
     return M;
 }
 
-std::string PathVisualizePass::getDesc() { return kDesc; }
-
-Dictionary PathVisualizePass::getScriptingDictionary()
-{
-    return Dictionary();
-}
-
-RenderPassReflection PathVisualizePass::reflect(const CompileData& compileData)
-{
-    // Define the required resources here
-    RenderPassReflection reflector;
-
-    reflector.addInput(kInputImg, "Input image");
-
-    reflector.addInput(kDepth, "Depth buffer");
-
-    reflector.addInput(kInputVBuffer, "Vertex buffer");
-
-    reflector.addOutput(kOutputImg, "Output image");
-
-    return reflector;
-}
-
-void PathVisualizePass::execute(RenderContext* pRenderContext, const RenderData& renderData)
-{
-    if (!mpScene)
-    {
-        return;
-    }
-
-    Texture::SharedPtr pInputImg = renderData[kInputImg]->asTexture();
-    Texture::SharedPtr pDepth = renderData[kDepth]->asTexture();
-    Texture::SharedPtr pOutputImg = renderData[kOutputImg]->asTexture();
-
-    assert(pInputImg && pDepth && pOutputImg);
-
-    //  Store running path data
-    {
-        InternalDictionary& renderDataDict = renderData.getDictionary();
-
-        //      Get current frame debug path data from ReSTIRPTPass
-        mCurrentFramePathBundle.canonicalPath = *renderDataDict.getValue<DebugPathData*>("debugPathData");
-        mCurrentFramePathBundle.temporalCentralPath = *renderDataDict.getValue<DebugPathData*>("temporalCentralPathData");
-        mCurrentFramePathBundle.temporalTemporalPath = *renderDataDict.getValue<DebugPathData*>("temporalTemporalPathData");
-
-        filterCopyPathData();
-    }
-
-    // Create FBO
-    Fbo::SharedPtr pFbo = Fbo::create();
-
-    //  Render on top of input image by copying from input to the render target
-    pRenderContext->blit(pInputImg->getSRV(), pOutputImg->getRTV());
-
-    //  Bind render target
-    pFbo->attachColorTarget(pOutputImg, 0);
-
-	if (mRecreateRasterPass)
-	{
-		createRasterPass();
-		mRecreateRasterPass = false;
-	}
-
-	//	Bind data
-	GraphicsState::SharedPtr pRasterState = mpRasterPass->getState();
-
-	//		FBO
-	pRasterState->setFbo(pFbo);
-
-	//		Scene
-	mpRasterPass["gScene"] = mpScene->getParameterBlock();
-
-	//		Camera
-	const Camera::SharedPtr& pCamera = mpScene->getCamera();
-	pCamera->setShaderData(mpRasterPass["PerFrameCB"]["gCamera"]);
-
-	//		PixelDebug
-	mpRasterPass["PerFrameCB"]["gSelectedPixel"] = mSelectedCursorPosition;
-
-
-	// Enable pixel debug
-	const uint2 resolution = renderData.getDefaultTextureDims();
-	mpPixelDebug->beginFrame(pRenderContext, resolution);
-	mpPixelDebug->prepareProgram(mpRasterPass->getProgram(), mpRasterPass->getRootVar());
-
-	// Run the raster pass
-    mpRasterPass->drawIndexed(pRenderContext, mTotalIndices, 0, 0);
-
-	mpPixelDebug->endFrame(pRenderContext);
-
-}
-
-void PathVisualizePass::renderUI(Gui::Widgets& widget)
-{
-    bool isUpdateRenderData = false;
-    isUpdateRenderData |= widget.checkbox("Display canonical path", mIsDisplayCanonicalPath);
-    isUpdateRenderData |= widget.checkbox("Display NEE segments", mIsDisplayNEESegments);
-    isUpdateRenderData |= widget.checkbox("Display central-reservoir temporal retrace path", mIsDisplayTemporalCentralPath);
-    isUpdateRenderData |= widget.checkbox("Display temporal-reservoir temporal retrace path", mIsDisplayTemporalTemporalPath);
-
-    if (auto group = widget.group("Debugging", true))
-    {
-        if (group.button("Update Path value", false))
-        {
-            isUpdateRenderData = true;
-        }
-
-        mpPixelDebug->renderUI(group);
-    }
-
-    if (isUpdateRenderData)
-        updateRenderData();
-}
-
-void PathVisualizePass::setScene(RenderContext* pRenderContext, const Scene::SharedPtr& pScene)
-{
-	mpScene = pScene;
-}
-
-bool PathVisualizePass::onMouseEvent(const MouseEvent& mouseEvent)
-{
-    mSelectedCursorPosition = uint2(mouseEvent.screenPos);
-
-	return mpPixelDebug->onMouseEvent(mouseEvent);
-}
-
-bool PathVisualizePass::onKeyEvent(const KeyboardEvent& keyEvent)
-{
-    // shortcut key "u" to call updatePath,
-    if (keyEvent.key == KeyboardEvent::Key::U
-        && keyEvent.type == KeyboardEvent::Type::KeyReleased
-        && keyEvent.mods.isAltDown == false
-        && keyEvent.mods.isCtrlDown == false
-        && keyEvent.mods.isShiftDown == false)
-    {
-        //  If the reserved bundle is partially completed, then copy it to rendering
-        if (mReservedPathBundle.isPartiallyCompleted)
-        {
-            mRenderedPathBundle.deepCopy(mReservedPathBundle);
-            updateRenderData();
-        }
-    }
-
-    return false;
-}

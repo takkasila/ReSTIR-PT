@@ -135,4 +135,5 @@ private:
     bool mIsDisplayNEESegments = true;
     bool mIsDisplayTemporalCentralPath = true;
     bool mIsDisplayTemporalTemporalPath = true;
+    float mRayWidth = 0.014;
 };
