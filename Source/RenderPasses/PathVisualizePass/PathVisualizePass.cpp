@@ -524,8 +524,8 @@ void PathVisualizePass::updateRenderData()
     if (mIsDisplayTemporalCentralPath)
     {
         //  Construct central-reservoir temporal retrace path geometry
-        colorBegin = float4(0, 0, 1, 0.3);
-        colorEnd = float4(0, 0, 0, 0.3);
+        colorBegin = float4(152/255.0f, 78/255.0f, 163/255.0f, 0.5);
+        colorEnd = float4(0, 0, 0, 0.5);
         for (int i = 0; i < int(mRenderedPathBundle.temporalCentralPath.vertexCount) - 1; i++)
         {
             A = mRenderedPathBundle.temporalCentralPath.vertices[i].xyz;
@@ -563,8 +563,8 @@ void PathVisualizePass::updateRenderData()
     if (mIsDisplayTemporalTemporalPath)
     {
         //  Construct temporal-resevoir temporal retrace path geometry
-        colorBegin = float4(1, 1, 1, 0.3);
-        colorEnd = float4(0, 0, 0, 0.3);
+        colorBegin = float4(255/255.0f, 127/255.0f, 0, 0.5);
+        colorEnd = float4(0, 0, 0, 0.5);
         for (int i = 0; i < int(mRenderedPathBundle.temporalTemporalPath.vertexCount) - 1; i++)
         {
             A = mRenderedPathBundle.temporalTemporalPath.vertices[i].xyz;
