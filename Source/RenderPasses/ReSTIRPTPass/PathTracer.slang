@@ -1097,7 +1097,11 @@ struct PathTracer
             }
 
             // daqi: here we are adding the path terminated with an escaped vertex
-            if ((!path.enableRandomReplay || terminateRandomReplayForEscape) && PathSamplingMode(kPathSamplingMode) != PathSamplingMode::PathTracing)
+            //  Eiter:
+            //      1. Not doing random replay (base path)
+            //      2. Doing random replay and terminating
+            if ((!path.enableRandomReplay || terminateRandomReplayForEscape)
+                && PathSamplingMode(kPathSamplingMode) != PathSamplingMode::PathTracing)
             {
 #if BPR
                 if (path.length - 1 > path.pathBuilder.rcVertexLength)
@@ -1108,26 +1112,30 @@ struct PathTracer
                     path.length - 1 == path.pathBuilder.rcVertexLength ? path.thp * sd.emissive * misWeight : path.rcVertexPathTreeIrradiance,
                     path.useHybridShift, path.russianRoulettePdf, misWeight, lightPdf, (uint)LightSampleType::Emissive, path.pathReservoir, path.enableRandomReplay);
 #else
-                bool selectedCurrentPath = path.pathBuilder.addEscapeVertex(params, max(0, path.length - 1), path.dir, Lr, path.thp * sd.emissive * misWeight,
-                    path.useHybridShift, path.russianRoulettePdf, misWeight, lightPdf, (uint)LightSampleType::Emissive, path.pathReservoir, path.enableRandomReplay);
+                //  Doing russian roulette. \varepsilon < (Lr / russianRoulettePdf)
+                //  
+                bool selectedCurrentPath = path.pathBuilder.addEscapeVertex(
+                    params,
+                    max(0, path.length - 1),
+                    path.dir,
+                    Lr,
+                    path.thp * sd.emissive * misWeight,
+                    path.useHybridShift,
+                    path.russianRoulettePdf, misWeight, lightPdf,
+                    (uint)LightSampleType::Emissive,
+                    path.pathReservoir, path.enableRandomReplay
+                );
 #endif
 
-                if(gIsDebug)
-                {
-                    if(selectedCurrentPath)
-                    {
-                        print("-- selectedCurrentPath", 0);
-                    }
-                    print("-- Compute emissive", 3);
-                }
+                if (gIsDebug && selectedCurrentPath) print("-- added current path into reservoir", 0);
 
                 // daqi: if current escaped vertex has path.length >= 2, then it can be used as a rcVertex
-                if (selectedCurrentPath&& path.useHybridShift&& path.length >= 2 && path.length < path.pathBuilder.rcVertexLength)
+                if (selectedCurrentPath
+                    && path.useHybridShift
+                    && path.length >= 2
+                    && path.length < path.pathBuilder.rcVertexLength
+                )
                 {
-                    // TracePass doesn't come here
-
-                    if(gIsDebug) print("-- Compute emissive", 4);
-
                     // insert path flags
 
                     // daqi: ideally, this should use a smaller nearFieldDistance than the default threshold
@@ -1137,15 +1145,22 @@ struct PathTracer
                     // not localStrategy::DistanceCondition
                     //     or	(isfarFiled and not LocalStrategy::RoughnessCondition)
                     //     or	path.isLastVertexClassifiedAsRough
+
+                    //  Isn't this essentially means if(distanceConditionPass && roughnessConditionPass) ?
+                    // Or is it actually
+                    // if(distanceConditionPass && roughnessConditionPass)
                     if (!(params.localStrategyType & (uint)LocalStrategy::DistanceCondition && !isFarField || params.localStrategyType & (uint)LocalStrategy::RoughnessCondition && !isLastVertexAcceptableForRcPrev))
                     {
                         if (path.isReplayForHybridShift) // non-invertible case
                         {
+                            // If currently doing random number replay for HybridShift and found that the current escape vertex is suitable for an RCVertex then remove the path contribution.
+                            //  Why???
                             path.L = 0.f;
                         }
                         else
                         {
-                            print("-- Compute emissive, found RC vertex", 5);
+
+                            if (gIsDebug) print("--- the escaped vertex is also a RC", 0);
 
                             // we found an RC vertex!
                             // set rcVertexLength to current length (this will make rcVertexLength = reseroivr.pathLength + 1)
@@ -1155,6 +1170,12 @@ struct PathTracer
                             path.pathBuilder.markEscapeVertexAsRcVertex(params, path.length, path.pathReservoir, path.hit, path.isDelta(), path.isTransmission(), path.isSpecularBounce(), lightPdf, (uint)LightSampleType::Emissive, sd.emissive, float3(0.f), path.prevScatterPdf, geometryFactor);
                         }
                     }
+
+                    // TODO: Add support for HybridShiftSMS
+                    // Conditions:
+                    //  1. ShiftMapping::HybridShiftSMS
+                    //  2. path.isLastLastVertexClassifiedAsRough 
+                    
                 }
             }
 

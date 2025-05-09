@@ -84,6 +84,9 @@ struct PathBuilder
             pathReservoir.pathFlags.insertPathLength(pathLength); // excluding the NEE vertex
             pathReservoir.pathFlags.insertRcVertexLength(rcVertexLength);
 #else
+            // Try to add the current path in to the reservoir.
+            //  If accepted as a current reservoir value,
+            //  then copy the reset of path data.
             if (forceAdd || pathReservoir.add(pathWeight, russianroulettePDF, sg))
             {
                 selected = true;

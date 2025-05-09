@@ -32,7 +32,7 @@ void tracePath(uint pathID, inout PathReservoir giReservoir, uint sampleIdx)
 
     print("pixel", path.getPixel());
     print("pathID", pathID);
-    print("", 0);
+    print("path.useHybridShift", path.useHybridShift);
 
     while (path.isActive())
     {

@@ -1211,7 +1211,7 @@ void ReSTIRPTPass::prepareResources(RenderContext* pRenderContext, const RenderD
         if (mStaticParams.shiftStrategy != ShiftMapping::Hybrid)
             mReconnectionDataBuffer = nullptr;
 
-        uint32_t baseReservoirSize = 88;
+        uint32_t baseReservoirSize = 92;
         uint32_t pathTreeReservoirSize = 128;
 
         if (mpOutputReservoirs &&

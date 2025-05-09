@@ -74,6 +74,7 @@ enum class ShiftMapping
     Reconnection = 0,
     RandomReplay = 1,
     Hybrid = 2,
+    HybridShiftSMS = 3,
 };
 
 enum class LocalStrategy
