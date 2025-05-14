@@ -1311,6 +1311,30 @@ struct PathTracer
             )
             {
                 print("-- HybridShiftSMS setting is_rcVertex = true", 0);
+
+                is_rcVertex = true;
+                path.pathBuilder.rcVertexHit.initFromHitInfo(path.hit);
+
+                // Should this be prevPrevSccatterPdf?
+                //      Or might as well create path.pathBuilder.prevCachedJacobian.x
+                path.pathBuilder.cachedJacobian.x = path.prevScatterPdf;
+
+                float3 disp = path.prevOrigin - sd.posW;
+
+                // daqi: save geometry term as part of cachedJacobian
+                path.pathBuilder.cachedJacobian.z = abs(dot(sd.faceN, sd.V)) / dot(disp, disp);
+
+                //  Need to store these followings info for prevPrev vertex instead?
+                path.pathBuilder.pathFlags.insertIsDeltaEvent(path.isDelta(), true);
+                path.pathBuilder.pathFlags.insertIsTransmissionEvent(path.isTransmission(), true);
+                if (kSeparatePathBSDF)
+                    path.pathBuilder.pathFlags.insertIsSpecularBounce(path.isSpecularBounce(), true);
+
+                
+                print("-- save the current path length as the rcVertex length", 0);
+
+                path.pathBuilder.rcVertexLength = path.length;
+
             }
 
             // If either
@@ -1606,6 +1630,7 @@ struct PathTracer
         bool valid = generateScatterRay(sd, path);
 
         // forbid current vertex being rcVertex
+        //      kSeparatePathBSDF is true when not PathSamplingMode::PathReuse
         if (kSeparatePathBSDF && params.localStrategyType & (uint)LocalStrategy::RoughnessCondition)
         {
             bool seenAsConnectible = !path.isSpecularBounce() || sd.linearRoughness > params.specularRoughnessThreshold;
@@ -1615,14 +1640,22 @@ struct PathTracer
                 // check if near field rejection is satisfied
                 if (isFarField || !(params.localStrategyType & (uint)LocalStrategy::DistanceCondition))
                 {
+
+                    // Basically, if we're doing random number replay for
+                    //  hybrid shift, and found that the current vertex is suitable to be a RC, then terminate the path.
+                    
                     // non-invertible
+                    //      why is it non-vertible??
+                    //         Because it has found a suitable RC earlier than the base path?
                     invalidateAndTerminateReplayPath(path);
                 }
             }
             else if (!path.isReplayForHybridShift && path.useHybridShift && !seenAsConnectible)
             {
+                // Tracing base path in HybridShift mapping mode and is not connectible.
                 if (is_rcVertex)
                 {
+                    // Why would this ever happen??? How??
                     is_rcVertex = false;
                     path.pathBuilder.rcVertexLength = kMaximumPathLength; // reset
                 }
