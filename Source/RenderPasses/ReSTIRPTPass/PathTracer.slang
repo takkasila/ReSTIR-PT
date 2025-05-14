@@ -1295,7 +1295,12 @@ struct PathTracer
                 print("-- passDistanceCondDSD", passDistanceCondDSD);
                 print("-- canConnectSMS", canConnectSMS);
 
-                print("")
+                print("-- pathPrevPrevOrigin", pathPrevPrevOrigin);
+                print("-- path.prevOrigin", path.prevOrigin);
+                print("-- path.origin", path.origin);
+
+                // Compute origin for rays traced from this path vertex.
+                path.origin = sd.computeNewRayOrigin();
             }
 
 
