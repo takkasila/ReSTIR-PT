@@ -198,6 +198,7 @@ struct PathTracer
         path.enableRandomReplay = false;
         path.useHybridShift = ShiftMapping(kShiftStrategy) == ShiftMapping::Hybrid;
         path.isLastVertexClassifiedAsRough = true;
+        path.isLastLastVertexClassifiedAsRough = false;
         path.isReplayForHybridShift = false;
 
         // Load the primary hit info from the V-buffer.
@@ -1113,7 +1114,9 @@ struct PathTracer
                     path.useHybridShift, path.russianRoulettePdf, misWeight, lightPdf, (uint)LightSampleType::Emissive, path.pathReservoir, path.enableRandomReplay);
 #else
                 //  Doing russian roulette. \varepsilon < (Lr / russianRoulettePdf)
-                //  
+                //
+                // addEscapeVertex is not actually escaping and should be rename like selected as reservoir candidate
+                // addBSDFSampledLightVertex
                 bool selectedCurrentPath = path.pathBuilder.addEscapeVertex(
                     params,
                     max(0, path.length - 1),
@@ -1125,6 +1128,9 @@ struct PathTracer
                     (uint)LightSampleType::Emissive,
                     path.pathReservoir, path.enableRandomReplay
                 );
+
+                // Should be call "this is an emissive vertex that reached via BSDF <<normal path tracing>>""
+
 #endif
 
                 if (gIsDebug && selectedCurrentPath) print("-- added current path into reservoir", 0);
@@ -1142,13 +1148,7 @@ struct PathTracer
                     bool isFarField = length(sd.posW - path.origin) >= params.nearFieldDistance;
                     bool isLastVertexAcceptableForRcPrev = path.isLastVertexClassifiedAsRough;
 
-                    // not localStrategy::DistanceCondition
-                    //     or	(isfarFiled and not LocalStrategy::RoughnessCondition)
-                    //     or	path.isLastVertexClassifiedAsRough
-
-                    //  Isn't this essentially means if(distanceConditionPass && roughnessConditionPass) ?
-                    // Or is it actually
-                    // if(distanceConditionPass && roughnessConditionPass)
+                    //  This essentially means if(distanceConditionPass && roughnessConditionPass)
                     if (!(params.localStrategyType & (uint)LocalStrategy::DistanceCondition && !isFarField || params.localStrategyType & (uint)LocalStrategy::RoughnessCondition && !isLastVertexAcceptableForRcPrev))
                     {
                         if (path.isReplayForHybridShift) // non-invertible case
@@ -1167,6 +1167,7 @@ struct PathTracer
                             float3 disp = path.origin - sd.posW;
                             float geometryFactor = abs(dot(sd.faceN, sd.V)) / dot(disp, disp);
 
+                            // markBsdfSampledLightVertexAsRc
                             path.pathBuilder.markEscapeVertexAsRcVertex(params, path.length, path.pathReservoir, path.hit, path.isDelta(), path.isTransmission(), path.isSpecularBounce(), lightPdf, (uint)LightSampleType::Emissive, sd.emissive, float3(0.f), path.prevScatterPdf, geometryFactor);
                         }
                     }
@@ -1174,8 +1175,7 @@ struct PathTracer
                     // TODO: Add support for HybridShiftSMS
                     // Conditions:
                     //  1. ShiftMapping::HybridShiftSMS
-                    //  2. path.isLastLastVertexClassifiedAsRough 
-                    
+                    //  2. path.isLastLastVertexClassifiedAsRough
                 }
             }
 
@@ -1205,7 +1205,9 @@ struct PathTracer
         if(gIsDebug) print("prepare to scatter ray", 0);
 
         // daqi: save as previous path origin to compute distance between vertices
-        float3 prevPathOrigin = path.origin;
+        float3 pathPrevPrevOrigin = path.length > 1 ? path.prevOrigin : path.origin;
+
+        path.prevOrigin = path.origin;
 
         // Compute origin for rays traced from this path vertex.
         path.origin = sd.computeNewRayOrigin();
@@ -1234,15 +1236,16 @@ struct PathTracer
 
         bool is_rcVertex = false;
 
-        bool isFarField = length(path.origin - prevPathOrigin) >= params.nearFieldDistance;
+        bool isFarField = length(path.origin - path.prevOrigin) >= params.nearFieldDistance;
         bool isCurrentVertexClassifiedAsRough =
             kSeparatePathBSDF ? hasRoughComponent(sd, params.specularRoughnessThreshold) : classifyAsRough(sd, params.specularRoughnessThreshold);
         bool isLastVertexAcceptableForRcPrev = path.isLastVertexClassifiedAsRough;
 
         // daqi: if we are not doing a hybrid shift replay, we should check if current vertex satisfy the condition to be used as a rcVertex
+
         if (!path.isReplayForHybridShift && PathSamplingMode(kPathSamplingMode) != PathSamplingMode::PathTracing)
         {
-            if(gIsDebug) print("- Not doing replay for hybrid shift", 0);
+            if(gIsDebug) print("- Considering if current vertex can be a RC", 0);
 
             bool isNearField = !isFarField;
             bool atLeastOneSpecularVertex = !(isCurrentVertexClassifiedAsRough && isLastVertexAcceptableForRcPrev);
@@ -1254,9 +1257,61 @@ struct PathTracer
                     params.localStrategyType & (uint)LocalStrategy::RoughnessCondition &&
                         atLeastOneSpecularVertex)));
 
-            bool condition = (path.useHybridShift ? canConnect : path.length == 1);
 
-            if ((!path.useHybridShift && path.length == 1) || (path.useHybridShift && canConnect))
+            //  Checking condition for HybridShiftSMS
+            bool isDSDPath = (isCurrentVertexClassifiedAsRough
+                && !path.isLastVertexClassifiedAsRough
+                && path.isLastLastVertexClassifiedAsRough
+            );
+
+            print("-- isDSDPath", isDSDPath);
+
+            bool canConnectSMS = false;
+
+            if (isDSDPath
+                //&& ShiftMapping(kShiftStrategy) == ShiftMapping::HybridShiftSMS
+            )
+            {
+
+                bool isFarFieldDS = length(path.prevOrigin - pathPrevPrevOrigin) >= params.nearFieldDistance;
+                bool isFarFieldSD = length(path.origin - path.prevOrigin) >= params.nearFieldDistance;
+                bool isFarFieldDD = length(path.origin - pathPrevPrevOrigin) >= params.nearFieldDistance;
+
+                bool passDistanceCondDSD = isFarFieldDS && isFarFieldSD && isFarFieldDD;
+
+                canConnectSMS = (
+                    path.length > 1
+                    && path.length < path.pathBuilder.rcVertexLength
+                    && isDSDPath
+                    && (
+                        !(params.localStrategyType & (uint)LocalStrategy::DistanceCondition)
+                        ||
+                        passDistanceCondDSD
+                    )
+                );
+
+                print("-- path.length > 1", path.length > 1);
+                print("-- path.length < path.pathBuilder.rcVertexLength", path.length < path.pathBuilder.rcVertexLength);
+                print("-- passDistanceCondDSD", passDistanceCondDSD);
+                print("-- canConnectSMS", canConnectSMS);
+
+                print("")
+            }
+
+
+            bool isReconnectOrRandomReplayShiftMapping = (ShiftMapping(kShiftStrategy) == ShiftMapping::Reconnection) || (ShiftMapping(kShiftStrategy) == ShiftMapping::RandomReplay);
+
+            if (canConnectSMS
+                && ShiftMapping(kShiftStrategy) == ShiftMapping::HybridShiftSMS
+            )
+            {
+                print("-- HybridShiftSMS setting is_rcVertex = true", 0);
+            }
+
+            // If either
+            //  - not useHybridShift (other shift mapping modes) and at primary hit
+            //  - or useHybridShift and canConnect
+            else if ((isReconnectOrRandomReplayShiftMapping && path.length == 1) || (path.useHybridShift && canConnect))
             {
                 if(gIsDebug) print("-- setting is_rcVertex = true", 0);
 
@@ -1269,7 +1324,7 @@ struct PathTracer
                 if (kSeparatePathBSDF)
                     path.pathBuilder.pathFlags.insertIsSpecularBounce(path.isSpecularBounce(), true);
 
-                float3 disp = prevPathOrigin - sd.posW;
+                float3 disp = path.prevOrigin - sd.posW;
 
                 // daqi: save geometry term as part of cachedJacobian
                 path.pathBuilder.cachedJacobian.z = abs(dot(sd.faceN, sd.V)) / dot(disp, disp);
@@ -1283,9 +1338,11 @@ struct PathTracer
                 }
             }
         }
-        else if (PathSamplingMode(kPathSamplingMode) != PathSamplingMode::PathTracing)
+        //else if (PathSamplingMode(kPathSamplingMode) != PathSamplingMode::PathTracing)
+        else if (PathSamplingMode(kPathSamplingMode) != PathSamplingMode::PathTracing
+             && path.isReplayForHybridShift )
         {
-            //  TracePass doesn't enter here
+            // Currently tracing random number replay path for hybrid shift
             if(gIsDebug) print("- Doing replay for hybrid shift", 0);
 
             bool invertible = true;
@@ -1362,6 +1419,11 @@ struct PathTracer
 
                 return;
             }
+        }
+        else if (PathSamplingMode(kPathSamplingMode) != PathSamplingMode::PathTracing
+            && path.isReplayForHybridShiftSMS)
+        {
+            // TODO: Currently tracing random replay for Hybrid shift with Specular Manifold Sampling
         }
 
         path.setLightSampled(false, false);
@@ -1575,6 +1637,12 @@ struct PathTracer
             if(gIsDebug) print("- update rcVertexWi ", 0);
 
             path.pathBuilder.rcVertexWi[0] = path.dir;
+        }
+
+        // Update "last" properties
+        if (path.length > 1)
+        {
+            path.isLastLastVertexClassifiedAsRough = path.isLastVertexClassifiedAsRough;
         }
 
         path.isLastVertexClassifiedAsRough = isCurrentVertexClassifiedAsRough;

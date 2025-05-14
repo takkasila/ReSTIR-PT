@@ -54,6 +54,7 @@ struct PathBuilder
         pathReservoir.M = 1;
     }
 
+    // addBsdfSampledLightVertex
     [mutating]
     bool addEscapeVertex(RestirPathTracerParams params, uint pathLength, float3 wi, float3 pathWeight, float3 postfixWeight, bool useHybridShift,
         float russianroulettePDF, float misWeight, float lightPdf, int lightType, inout PathReservoir pathReservoir, bool forceAdd = false)
@@ -117,6 +118,7 @@ struct PathBuilder
         return selected;
     }
 
+    // addNeeSampledLightVertex
     [mutating]
     bool addNeeVertex(RestirPathTracerParams params, uint pathLength, float3 wi, float3 pathWeight, float3 postfixWeight, bool useHybridShift,
         float russianroulettePDF, float misWeight, float lightPdf, int lightType, inout PathReservoir pathReservoir, bool forceAdd = false)

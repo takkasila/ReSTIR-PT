@@ -90,6 +90,7 @@ namespace
         { (uint32_t)ShiftMapping::Reconnection, "Reconnection" },
         { (uint32_t)ShiftMapping::RandomReplay, "Random Replay" },
         { (uint32_t)ShiftMapping::Hybrid, "Hybrid" },
+        { (uint32_t)ShiftMapping::HybridShiftSMS, "Hybrid with Specular Manifold Sampling" },
     };
 
     const Gui::DropdownList kReSTIRMISList =
