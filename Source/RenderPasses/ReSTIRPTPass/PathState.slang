@@ -93,9 +93,6 @@ struct PathState
     HitInfo rcPrevVertexHit;   // daqi: save the previous vertex of rcVertex, used in hybrid shift replay, for later reconnection
     float3 rcPrevVertexWo; // daqi: save the outgoing direction at the previous vertex of rcVertex, used in hybrid shift replay, for later reconnection
 
-    HitInfo rcPrevPrevVertexHit;
-    float3 rcPrevPrevVertexWo;
-
     float hitDist; // for NRD
 
     InteriorList interiorList;      ///< Interior list. Keeping track of a stack of materials with medium properties.
@@ -113,11 +110,23 @@ struct PathState
     bool     isReplayForHybridShift; // daqi: indicate that a random number replay is done with the hybrid shift in mind (invalidated if invertibility is violated)
     bool     isLastVertexClassifiedAsRough; // daqi: remembers if last vertex is classified as a diffuse vertex (used for specularskip in hybrid shift)
 
-    bool isUseHybridShiftSMS;
+    //bool isUseHybridShiftSMS;
     bool isReplayForHybridShiftSMS;
     bool isLastLastVertexClassifiedAsRough;
 
+    //  HybridSMS
     float3 prevOrigin;
+
+    float3 wo;
+
+    HitInfo prevHit;
+    float3 prevWo;
+
+    HitInfo prevPrevHit;
+    float3 prevPrevWo;
+
+    HitInfo rcPrevPrevVertexHit;
+    float3 rcPrevPrevVertexWo;
 
     // Accessors
     float3 getCurrentThp() { return thp * prefixThp; }

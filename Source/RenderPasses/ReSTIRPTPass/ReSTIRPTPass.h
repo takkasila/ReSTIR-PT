@@ -106,7 +106,9 @@ private:
         ReSTIRMISKind    spatialMisKind = ReSTIRMISKind::Pairwise;
         ReSTIRMISKind    temporalMisKind = ReSTIRMISKind::Talbot;
 
-        ShiftMapping    shiftStrategy = ShiftMapping::Hybrid;
+        //ShiftMapping    shiftStrategy = ShiftMapping::Hybrid;
+        ShiftMapping    shiftStrategy = ShiftMapping::HybridShiftSMS;
+
         bool            temporalUpdateForDynamicScene = false;
 
         PathSamplingMode pathSamplingMode = PathSamplingMode::ReSTIR;

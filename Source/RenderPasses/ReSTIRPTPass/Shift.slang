@@ -81,6 +81,8 @@ float3 computeShiftedIntegrand_(const RestirPathTracerParams params, inout float
     }
     else if (ShiftMapping(kShiftStrategy) == ShiftMapping::Hybrid)
     {
+        //  dst: dst
+        //  src: src
         return computeShiftedIntegrandHybrid(params, usePrev, temporalUpdateForDynamicScene, dstJacobian, dstPrimaryHitPacked, dstPrimarySd, srcPrimarySd, srcReservoir, rcData, evalVisibility);
     }
 
@@ -582,6 +584,8 @@ bool shiftAndMergeReservoir(const RestirPathTracerParams params, bool temporalUp
                                     const ShadingData srcPrimarySd, const PathReservoir srcReservoir, ReconnectionData rcData, bool evalVisibility, inout SampleGenerator sg, bool isSpatialReuse, float misWeight = 1.f, bool forceMerge = false)
 {
     PathReservoir tempPathReservoir = srcReservoir;
+    // dst: dst
+    // src: src
     float3 dstIntegrand = computeShiftedIntegrand_(params, dstJacobian, dstPrimaryHitPacked, dstPrimarySd, srcPrimarySd,
                                                             tempPathReservoir, rcData, evalVisibility, false, temporalUpdateForDynamicScene);
 

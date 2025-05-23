@@ -229,7 +229,7 @@ struct PathReuseMISWeight
     float rcNEEMISWeight;
 }
 
-// 92/128 B, originaly 88/128
+// 124/128 B, originaly 88/128
 struct PathReservoir
 {
     float M = 0.f; // this is a float, because temporal history length is allowed to be a fraction.
@@ -244,7 +244,11 @@ struct PathReservoir
     float3 rcVertexWi[kRcAttrCount]; // incident direction on reconnection vertex
     float3 rcVertexIrradiance[kRcAttrCount]; // sampled irradiance on reconnection vertex
 
-    bool isLastVertexClassifiedAsRough; // HybridShiftSMS
+    bool isLastVertexClassifiedAsRough;
+    // HybridShiftSMS
+    TriMeshHitInfo rcPrevVertexHit;
+    TriMeshHitInfo rcPrevPrevVertexHit;
+    // Do we need rcPrevPrevVertexWo ?
 
 #if BPR
     float rcLightPdf;

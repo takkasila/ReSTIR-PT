@@ -37,6 +37,7 @@ void tracePath(uint pathID, inout PathReservoir giReservoir, uint sampleIdx)
     while (path.isActive())
     {
         print("vertex", path.origin);
+        print("path.length", path.length);
 
         if (all(selectedPixel == path.getPixel()))
         {
@@ -90,6 +91,10 @@ void tracePath(uint pathID, inout PathReservoir giReservoir, uint sampleIdx)
             print("Have RC vertex", 0);
             pixelDebugPathDataBuffer[0].hasRCVertex = true;
             pixelDebugPathDataBuffer[0].rcVertexIndex = path.pathBuilder.rcVertexLength + 1;
+
+            bool isSpecularBeforeRc = path.pathBuilder.pathFlags.decodeIsSpecularBounce(true);
+
+            print("isSpecularBeforeRc", isSpecularBeforeRc);
         }
 
         pixelDebugPathDataBuffer[0].vertexCount = path.length + 1;
