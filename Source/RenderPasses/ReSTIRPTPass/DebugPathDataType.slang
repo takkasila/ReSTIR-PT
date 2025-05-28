@@ -90,6 +90,7 @@ struct DebugPathData
 
 struct DebugVertexState
 {
+    float3 pos = float3(0, 0, 0);
     bool isSampledLight = false;
     float3 sampledLightPosition = float3(0, 0, 0);
     float3 sampledLightRadiance = float3(0, 0, 0);

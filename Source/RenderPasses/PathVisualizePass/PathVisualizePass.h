@@ -81,16 +81,16 @@ private:
         DebugPathData basePath;
         DebugPathData temporalCentralPath;
         DebugPathData temporalTemporalPath;
-        bool isFullyCompleted = false;   // signify that the bundle is a "complete" package that satisfies all condition
-        bool isPartiallyCompleted = false;  // have a canonical path with atleast one of the retrace path
+        bool isFullyComplete = false;   // signify that the bundle is a "complete" package that satisfies all conditions
+        bool isPartiallyComplete = false;  // have atleast a base path
 
         void init()
         {
             basePath.init();
             temporalCentralPath.init();
             temporalTemporalPath.init();
-            isFullyCompleted = false;
-            isPartiallyCompleted = false;
+            isFullyComplete = false;
+            isPartiallyComplete = false;
         }
 
         void clear()
@@ -98,8 +98,8 @@ private:
             basePath.vertexCount = 0;
             temporalCentralPath.vertexCount = 0;
             temporalTemporalPath.vertexCount = 0;
-            isFullyCompleted = false;
-            isPartiallyCompleted = false;
+            isFullyComplete = false;
+            isPartiallyComplete = false;
         }
 
         void deepCopy(PathDataBundle srcPathDataBundle)
@@ -107,8 +107,8 @@ private:
             basePath.deepCopy(srcPathDataBundle.basePath);
             temporalCentralPath.deepCopy(srcPathDataBundle.temporalCentralPath);
             temporalTemporalPath.deepCopy(srcPathDataBundle.temporalTemporalPath);
-            isFullyCompleted = srcPathDataBundle.isFullyCompleted;
-            isPartiallyCompleted = srcPathDataBundle.isPartiallyCompleted;
+            isFullyComplete = srcPathDataBundle.isFullyComplete;
+            isPartiallyComplete = srcPathDataBundle.isPartiallyComplete;
         }
 
     };

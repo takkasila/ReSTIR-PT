@@ -235,7 +235,7 @@ bool PathVisualizePass::onKeyEvent(const KeyboardEvent& keyEvent)
         && keyEvent.mods.isShiftDown == false)
     {
         //  If the reserved bundle is partially completed, then copy it to rendering
-        if (mReservedPathBundle.isPartiallyCompleted)
+        if (mReservedPathBundle.isPartiallyComplete)
         {
             mRenderedPathBundle.deepCopy(mReservedPathBundle);
             updateRenderData();
@@ -351,37 +351,42 @@ void PathVisualizePass::createRasterPass()
 
 void PathVisualizePass::filterCopyPathData()
 {
-    bool isNewRCVertex = mCurrentFramePathBundle.basePath.hasRcVertex;
-
-    if (isNewRCVertex)
-    {
-        mBuildingPathBundle.clear();
-        mBuildingPathBundle.basePath.deepCopy(mCurrentFramePathBundle.basePath);
-    }
+    bool isNewRcVertex = mCurrentFramePathBundle.basePath.hasRcVertex;
 
     bool isUpdateReservedPath = false;
 
+    //  If there is a new reconnection vertex found then we reset currnetly
+    //      building bundle and start fresh.
+    if (isNewRcVertex)
+    {
+        mBuildingPathBundle.clear();
+        mBuildingPathBundle.basePath.deepCopy(mCurrentFramePathBundle.basePath);
+        mBuildingPathBundle.isPartiallyComplete = true;
+        isUpdateReservedPath = true;
+    }
+
     //  If mBuildingPathBundle is accepting retrace paths
-    if (!mBuildingPathBundle.isFullyCompleted)
+    if (!mBuildingPathBundle.isFullyComplete)
     {
         //  Temporal-Central
-        //      If Temporal-Central is still empyty and valid new path
+        //      If Temporal-Central is still empyty and valid new offset path is found
         if (mBuildingPathBundle.temporalCentralPath.vertexCount == 0
             && mCurrentFramePathBundle.temporalCentralPath.vertexCount > 0
             )
         {
             mBuildingPathBundle.temporalCentralPath.deepCopy(mCurrentFramePathBundle.temporalCentralPath);
-            mBuildingPathBundle.isPartiallyCompleted = true;
+            mBuildingPathBundle.isPartiallyComplete = true;
             isUpdateReservedPath = true;
         }
 
         //  Temporal-Temporal
+        //      If Temporal-Temporal is still empyty and valid new offset path is found
         if (mBuildingPathBundle.temporalTemporalPath.vertexCount == 0
             && mCurrentFramePathBundle.temporalTemporalPath.vertexCount > 0
             )
         {
             mBuildingPathBundle.temporalTemporalPath.deepCopy(mCurrentFramePathBundle.temporalTemporalPath);
-            mBuildingPathBundle.isPartiallyCompleted = true;
+            mBuildingPathBundle.isPartiallyComplete = true;
             isUpdateReservedPath = true;
         }
 
@@ -390,7 +395,7 @@ void PathVisualizePass::filterCopyPathData()
             && mBuildingPathBundle.temporalTemporalPath.vertexCount > 0
             )
         {
-            mReservedPathBundle.isFullyCompleted = true;
+            mReservedPathBundle.isFullyComplete = true;
         }
     }
 
@@ -402,7 +407,7 @@ void PathVisualizePass::filterCopyPathData()
 
 void PathVisualizePass::updateRenderData()
 {
-    if (!mRenderedPathBundle.isPartiallyCompleted)
+    if (!mRenderedPathBundle.isPartiallyComplete)
         return;
 
     // Compute path geometry (pyramid)
@@ -452,12 +457,27 @@ void PathVisualizePass::updateRenderData()
                 // TODO: use proper tex coord
                 verts[vertexOffset + j].texCoord = float2(0.5, 0.5);
 
-                // If target vertex is an RC vertex, color code as red
-                if (i + 1 == mRenderedPathBundle.basePath.rcVertexIndex)
+                //  Coloring
+                if (mRenderedPathBundle.basePath.isRcDSD)
                 {
-                    color = float4(1, 0, 0, 1);
+                    //  Check if this vertex is part of the DSD Rc chain
+                    if (i == mRenderedPathBundle.basePath.rcVertexIndex - 1
+                        || i == mRenderedPathBundle.basePath.rcVertexIndex - 2)
+                    {
+                        color = float4(1, 0, 0, 1);
+                    }
+
+                }
+                else
+                {
+                    // If target vertex is an RC vertex, color code as red
+                    if (i == mRenderedPathBundle.basePath.rcVertexIndex - 1)
+                    {
+                        color = float4(1, 0, 0, 1);
+                    }
                 }
                 verts[vertexOffset + j].color = color;
+
             }
 
             // Index

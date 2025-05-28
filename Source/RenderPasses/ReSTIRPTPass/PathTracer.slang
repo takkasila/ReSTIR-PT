@@ -1011,6 +1011,10 @@ struct PathTracer
 
         logPathVertex();
 
+        // Compute origin for rays traced from this path vertex.
+        float3 sdPosW = sd.computeNewRayOrigin();
+        //  Store to debugVertex
+        debugVertexState.pos = sdPosW;
 
         // Optionally disable emissive lights inside volumes.
         if (!kUseLightsInDielectricVolumes && path.isInsideDielectricVolume()) sd.emissive = float3(0.f);
@@ -1186,16 +1190,13 @@ struct PathTracer
         // Terminate after scatter ray on last vertex has been processed.
         if (hasFinishedSurfaceBounces(path) || terminateRandomReplayForEscape)
         {
-            if(gIsDebug)
+            if(hasFinishedSurfaceBounces(path))
             {
-                if(hasFinishedSurfaceBounces(path))
-                {
-                    print("Terminate because hasFinishedSurfaceBounces", 0);
-                }
-                else
-                {
-                    print("Terminate because terminateRandomReplayForEscape", 0);
-                }
+                print("Terminate because hasFinishedSurfaceBounces", 0);
+            }
+            else
+            {
+                print("Terminate because terminateRandomReplayForEscape", 0);
             }
 
             path.terminate();
@@ -1209,8 +1210,8 @@ struct PathTracer
 
         path.prevOrigin = path.origin;
 
-        // Compute origin for rays traced from this path vertex.
-        path.origin = sd.computeNewRayOrigin();
+        // Update path origin for rays traced from this path vertex.
+        path.origin = sdPosW;
 
         // Determine if BSDF supports sampling with next-event estimation.
         // The available lobes depend on the material.
@@ -1266,8 +1267,6 @@ struct PathTracer
                     params.localStrategyType & (uint)LocalStrategy::RoughnessCondition &&
                         atLeastOneSpecularVertex)));
 
-
-            //  Checking condition for HybridShiftSMS
             bool isDSDPath = (isCurrentVertexClassifiedAsRough
                 && !path.isLastVertexClassifiedAsRough
                 && path.isLastLastVertexClassifiedAsRough
@@ -1667,11 +1666,9 @@ struct PathTracer
         // Update path history for HybridSMS
         if (ShiftMapping(kShiftStrategy) == ShiftMapping::HybridShiftSMS)
         {
-            path.isLastLastVertexClassifiedAsRough = path.length > 1 ? path.isLastVertexClassifiedAsRough : isCurrentVertexClassifiedAsRough;
-            path.wo = sd.V;
-
             if(path.length >= 2)
             {
+                path.isLastLastVertexClassifiedAsRough = path.isLastVertexClassifiedAsRough;
                 path.prevPrevHit = path.prevHit;
                 path.prevPrevWo = path.prevWo;
             }
@@ -1681,6 +1678,8 @@ struct PathTracer
                 path.prevHit = path.hit;
                 path.prevWo = path.wo;
             }
+
+            path.wo = sd.V;
         }
 
         path.isLastVertexClassifiedAsRough = isCurrentVertexClassifiedAsRough;
