@@ -84,17 +84,22 @@ void tracePath(uint pathID, inout PathReservoir giReservoir, uint sampleIdx)
         if (path.pathBuilder.rcVertexHit.instanceID == 0xffffffff)
         {
             print("Doesn't have RC vertex", 0);
-            pixelDebugPathDataBuffer[0].hasRCVertex = false;
+            pixelDebugPathDataBuffer[0].hasRcVertex = false;
         }
         else
         {
             print("Have RC vertex", 0);
-            pixelDebugPathDataBuffer[0].hasRCVertex = true;
+            pixelDebugPathDataBuffer[0].hasRcVertex = true;
             pixelDebugPathDataBuffer[0].rcVertexIndex = path.pathBuilder.rcVertexLength + 1;
 
-            bool isSpecularBeforeRc = path.pathBuilder.pathFlags.decodeIsSpecularBounce(true);
+            bool isPrevRcVertexSpecular = path.pathBuilder.pathFlags.decodeIsSpecularBounce(true);
 
-            print("isSpecularBeforeRc", isSpecularBeforeRc);
+            if (isPrevRcVertexSpecular)
+            {
+                // We have RC for HybridShiftSMS
+                print("- RC is DSD for HybridShift", 0);
+                pixelDebugPathDataBuffer[0].isRcDSD = true;
+            }
         }
 
         pixelDebugPathDataBuffer[0].vertexCount = path.length + 1;

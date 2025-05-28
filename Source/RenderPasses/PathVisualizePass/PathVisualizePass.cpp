@@ -138,7 +138,7 @@ void PathVisualizePass::execute(RenderContext* pRenderContext, const RenderData&
         InternalDictionary& renderDataDict = renderData.getDictionary();
 
         //      Get current frame debug path data from ReSTIRPTPass
-        mCurrentFramePathBundle.canonicalPath = *renderDataDict.getValue<DebugPathData*>("debugPathData");
+        mCurrentFramePathBundle.basePath = *renderDataDict.getValue<DebugPathData*>("debugPathData");
         mCurrentFramePathBundle.temporalCentralPath = *renderDataDict.getValue<DebugPathData*>("temporalCentralPathData");
         mCurrentFramePathBundle.temporalTemporalPath = *renderDataDict.getValue<DebugPathData*>("temporalTemporalPathData");
 
@@ -192,7 +192,7 @@ void PathVisualizePass::execute(RenderContext* pRenderContext, const RenderData&
 void PathVisualizePass::renderUI(Gui::Widgets& widget)
 {
     bool isUpdateRenderData = false;
-    isUpdateRenderData |= widget.checkbox("Display canonical path", mIsDisplayCanonicalPath);
+    isUpdateRenderData |= widget.checkbox("Display canonical path", mIsDisplayBasePath);
     isUpdateRenderData |= widget.checkbox("Display NEE segments", mIsDisplayNEESegments);
     isUpdateRenderData |= widget.checkbox("Display central-reservoir temporal retrace path", mIsDisplayTemporalCentralPath);
     isUpdateRenderData |= widget.checkbox("Display temporal-reservoir temporal retrace path", mIsDisplayTemporalTemporalPath);
@@ -351,12 +351,12 @@ void PathVisualizePass::createRasterPass()
 
 void PathVisualizePass::filterCopyPathData()
 {
-    bool isNewRCVertex = mCurrentFramePathBundle.canonicalPath.hasRCVertex;
+    bool isNewRCVertex = mCurrentFramePathBundle.basePath.hasRcVertex;
 
     if (isNewRCVertex)
     {
         mBuildingPathBundle.clear();
-        mBuildingPathBundle.canonicalPath.deepCopy(mCurrentFramePathBundle.canonicalPath);
+        mBuildingPathBundle.basePath.deepCopy(mCurrentFramePathBundle.basePath);
     }
 
     bool isUpdateReservedPath = false;
@@ -431,17 +431,17 @@ void PathVisualizePass::updateRenderData()
     float4 color;
     glm::mat4 M;
 
-    if (mIsDisplayCanonicalPath)
+    if (mIsDisplayBasePath)
     {
-        for (uint i = 0; i < mRenderedPathBundle.canonicalPath.vertexCount - 1; i++)
+        for (uint i = 0; i < mRenderedPathBundle.basePath.vertexCount - 1; i++)
         {
-            A = mRenderedPathBundle.canonicalPath.vertices[i].xyz;
-            B = mRenderedPathBundle.canonicalPath.vertices[i + 1].xyz;
+            A = mRenderedPathBundle.basePath.vertices[i].xyz;
+            B = mRenderedPathBundle.basePath.vertices[i + 1].xyz;
 
             // Construct change of basis mat
             M = computeTransformMatToLineSegment(A, B);
 
-            float t = i / float(mRenderedPathBundle.canonicalPath.vertexCount - 1);
+            float t = i / float(mRenderedPathBundle.basePath.vertexCount - 1);
             color = colorBegin + t * (colorEnd - colorBegin);
 
             // Vertex
@@ -453,7 +453,7 @@ void PathVisualizePass::updateRenderData()
                 verts[vertexOffset + j].texCoord = float2(0.5, 0.5);
 
                 // If target vertex is an RC vertex, color code as red
-                if (i + 1 == mRenderedPathBundle.canonicalPath.rcVertexIndex)
+                if (i + 1 == mRenderedPathBundle.basePath.rcVertexIndex)
                 {
                     color = float4(1, 0, 0, 1);
                 }
@@ -475,8 +475,8 @@ void PathVisualizePass::updateRenderData()
     if (mIsDisplayNEESegments)
     {
         bool hasAnNEE = std::any_of(
-            std::begin(mRenderedPathBundle.canonicalPath.isSampledLight),
-            std::begin(mRenderedPathBundle.canonicalPath.isSampledLight) + mRenderedPathBundle.canonicalPath.vertexCount,
+            std::begin(mRenderedPathBundle.basePath.isSampledLight),
+            std::begin(mRenderedPathBundle.basePath.isSampledLight) + mRenderedPathBundle.basePath.vertexCount,
             [](bool b) {return b; }
         );
         // Construct NEE segments geometry
@@ -484,16 +484,16 @@ void PathVisualizePass::updateRenderData()
         {
             // Gather indices of vertex that has NEE
             std::vector<uint> neeVertexIndex;
-            for (uint i = 0; i < mRenderedPathBundle.canonicalPath.vertexCount; i++)
+            for (uint i = 0; i < mRenderedPathBundle.basePath.vertexCount; i++)
             {
-                if (mRenderedPathBundle.canonicalPath.isSampledLight[i])
+                if (mRenderedPathBundle.basePath.isSampledLight[i])
                     neeVertexIndex.emplace_back(i);
             }
 
             for (uint i : neeVertexIndex)
             {
-                A = mRenderedPathBundle.canonicalPath.vertices[i].xyz;
-                B = mRenderedPathBundle.canonicalPath.sampledLightPosition[i].xyz;
+                A = mRenderedPathBundle.basePath.vertices[i].xyz;
+                B = mRenderedPathBundle.basePath.sampledLightPosition[i].xyz;
 
                 // Construct change of basis mat
                 M = computeTransformMatToLineSegment(A, B);

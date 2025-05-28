@@ -1439,6 +1439,7 @@ struct PathTracer
         {
             // TODO: Currently tracing random replay for Hybrid shift with Specular Manifold Sampling
             print("- hello from replaying hybrid shift!", 0);
+
         }
 
         path.setLightSampled(false, false);

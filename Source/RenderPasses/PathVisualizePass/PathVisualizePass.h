@@ -78,7 +78,7 @@ private:
 
     struct PathDataBundle
     {
-        DebugPathData canonicalPath;
+        DebugPathData basePath;
         DebugPathData temporalCentralPath;
         DebugPathData temporalTemporalPath;
         bool isFullyCompleted = false;   // signify that the bundle is a "complete" package that satisfies all condition
@@ -86,7 +86,7 @@ private:
 
         void init()
         {
-            canonicalPath.init();
+            basePath.init();
             temporalCentralPath.init();
             temporalTemporalPath.init();
             isFullyCompleted = false;
@@ -95,7 +95,7 @@ private:
 
         void clear()
         {
-            canonicalPath.vertexCount = 0;
+            basePath.vertexCount = 0;
             temporalCentralPath.vertexCount = 0;
             temporalTemporalPath.vertexCount = 0;
             isFullyCompleted = false;
@@ -104,7 +104,7 @@ private:
 
         void deepCopy(PathDataBundle srcPathDataBundle)
         {
-            canonicalPath.deepCopy(srcPathDataBundle.canonicalPath);
+            basePath.deepCopy(srcPathDataBundle.basePath);
             temporalCentralPath.deepCopy(srcPathDataBundle.temporalCentralPath);
             temporalTemporalPath.deepCopy(srcPathDataBundle.temporalTemporalPath);
             isFullyCompleted = srcPathDataBundle.isFullyCompleted;
@@ -131,7 +131,7 @@ private:
 
     //  Options
 
-    bool mIsDisplayCanonicalPath = true;
+    bool mIsDisplayBasePath = true;
     bool mIsDisplayNEESegments = true;
     bool mIsDisplayTemporalCentralPath = true;
     bool mIsDisplayTemporalTemporalPath = true;
