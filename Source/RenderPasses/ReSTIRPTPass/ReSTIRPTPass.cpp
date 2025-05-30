@@ -744,7 +744,8 @@ void ReSTIRPTPass::execute(RenderContext* pRenderContext, const RenderData& rend
             {
                 if (mEnableTemporalReuse && !skipTemporalReuse)
                 {
-                    if (mStaticParams.shiftStrategy == ShiftMapping::Hybrid)
+                    if (mStaticParams.shiftStrategy == ShiftMapping::Hybrid
+                        || mStaticParams.shiftStrategy == ShiftMapping::HybridShiftSMS)
                         PathRetracePass(pRenderContext, restir_i, renderData, true, 0);
                     // a separate pass to trace rays for hybrid shift/random number replay
                     PathReusePass(pRenderContext, restir_i, renderData, true, 0, !mEnableSpatialReuse);
@@ -761,7 +762,8 @@ void ReSTIRPTPass::execute(RenderContext* pRenderContext, const RenderData& rend
                 for (int spatialRoundId = 0; spatialRoundId < mNumSpatialRounds; spatialRoundId++)
                 {
                     // a separate pass to trace rays for hybrid shift/random number replay
-                    if (mStaticParams.shiftStrategy == ShiftMapping::Hybrid)
+                    if (mStaticParams.shiftStrategy == ShiftMapping::Hybrid
+                        ||mStaticParams.shiftStrategy == ShiftMapping::HybridShiftSMS)
                         PathRetracePass(pRenderContext, restir_i, renderData, false, spatialRoundId);
                     PathReusePass(pRenderContext, restir_i, renderData, false, spatialRoundId, spatialRoundId == mNumSpatialRounds - 1);
                 }
@@ -1212,7 +1214,7 @@ void ReSTIRPTPass::prepareResources(RenderContext* pRenderContext, const RenderD
         if (mStaticParams.shiftStrategy != ShiftMapping::Hybrid)
             mReconnectionDataBuffer = nullptr;
 
-        uint32_t baseReservoirSize = 124;
+        uint32_t baseReservoirSize = 136;
         uint32_t pathTreeReservoirSize = 128;
 
         if (mpOutputReservoirs &&

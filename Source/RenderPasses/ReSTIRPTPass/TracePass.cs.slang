@@ -24,13 +24,15 @@ void tracePath(uint pathID, inout PathReservoir giReservoir, uint sampleIdx)
     PathState path;
     gPathTracer.generatePath(pathID, path);
 
-    printSetPixel(path.getPixel());
-    logSetPixel(path.getPixel());
+    uint2 pixel = path.getPixel();
+
+    printSetPixel(pixel);
+    logSetPixel(pixel);
 
     uint2 selectedPixel = getSelctedPixelLog();
     uint vertexCount = 0;
 
-    print("pixel", path.getPixel());
+    print("pixel", pixel);
     print("pathID", pathID);
 
     while (path.isActive())
@@ -39,7 +41,7 @@ void tracePath(uint pathID, inout PathReservoir giReservoir, uint sampleIdx)
         print("path.length", path.length);
 
         //  vertex 0 at camera
-        if ( path.length == 0 && all(selectedPixel == path.getPixel()))
+        if (path.length == 0 && all(selectedPixel == pixel))
         {
             pixelDebugPathDataBuffer[0].vertices[0] = float4(path.origin, 1);
             vertexCount += 1;
@@ -53,7 +55,7 @@ void tracePath(uint pathID, inout PathReservoir giReservoir, uint sampleIdx)
             gPathTracer.handleHit(path, debugVertexState);
 
             //  Record path data for visualization
-            if (all(selectedPixel == path.getPixel()))
+            if (all(selectedPixel == pixel))
             {
                 pixelDebugPathDataBuffer[0].vertices[vertexCount] = float4(debugVertexState.pos, 1);
                 pixelDebugPathDataBuffer[0].isSampledLight[vertexCount] = debugVertexState.isSampledLight;
@@ -79,12 +81,14 @@ void tracePath(uint pathID, inout PathReservoir giReservoir, uint sampleIdx)
             gPathTracer.handleMiss(path);
         }
 
+        print("in loop path.pathReservoir.rcVertexHit.instanceID", path.pathReservoir.rcVertexHit.instanceID);
+
         print("", 0);   // empty line
     }
 
     print("Path Radiance", path.L);
 
-    if(all(selectedPixel == path.getPixel()))
+    if (all(selectedPixel == pixel))
     {
         pixelDebugPathDataBuffer[0].vertexCount = vertexCount;
 
@@ -115,7 +119,15 @@ void tracePath(uint pathID, inout PathReservoir giReservoir, uint sampleIdx)
     }
 
     gPathTracer.finalize(path);
+
+    const uint reservoirIdx = gPathTracer.params.getReservoirOffset(pixel);
+
     gPathTracer.writeOutput(path, giReservoir, sampleIdx);
+
+    print("Output reservoir:", 0);
+    print("- rcVertexHit id:", gPathTracer.outputReservoirs[reservoirIdx].rcVertexHit.instanceID);
+    print("- rcPrevVertexHit id:", gPathTracer.outputReservoirs[reservoirIdx].rcPrevVertexHit.instanceID);
+    print("- rcPrevPrevVertexHit id:", gPathTracer.outputReservoirs[reservoirIdx].rcPrevPrevVertexHit.instanceID);
 }
 
 [numthreads(16, 16, 1)]

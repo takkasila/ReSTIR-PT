@@ -30,6 +30,9 @@ struct PathBuilder
     int rcVertexLength = kMaximumPathLength;
     ReSTIRPathFlags pathFlags;
     float3 cachedJacobian = 1.f;
+    TriMeshHitInfo rcPrevVertexHit;
+    TriMeshHitInfo rcPrevPrevVertexHit;
+    float3 rcPrevPrevVertexWo = float3(0.f);
 
     [mutating]
     void init<S : ISampleGenerator>(inout S sg)
@@ -37,6 +40,8 @@ struct PathBuilder
         this.sg = TinyUniformSampleGenerator(jenkinsHash(sg.next()));
         rcVertexWi[0] = float3(0.f);
         rcVertexHit.instanceID = 0xffffffff;
+        rcPrevVertexHit.instanceID = 0xffffffff;
+        rcPrevPrevVertexHit.instanceID = 0xffffffff;
 #if BPR
         rcVertexWi[1] = float3(0.f);
 #endif
@@ -99,6 +104,9 @@ struct PathBuilder
                 pathReservoir.F = pathWeight;
                 pathReservoir.rcVertexWi[0] = rcVertexWi[0];
                 pathReservoir.rcVertexHit = rcVertexHit;
+                pathReservoir.rcPrevVertexHit = rcPrevVertexHit;
+                pathReservoir.rcPrevPrevVertexHit = rcPrevPrevVertexHit;
+                pathReservoir.rcPrevPrevVertexWo = rcPrevPrevVertexWo;
 
                 pathReservoir.cachedJacobian = cachedJacobian;
 
@@ -165,6 +173,9 @@ struct PathBuilder
                 pathReservoir.F = pathWeight;
                 pathReservoir.rcVertexWi[0] = rcVertexWi[0];
                 pathReservoir.rcVertexHit = rcVertexHit;
+                pathReservoir.rcPrevVertexHit = rcPrevVertexHit;
+                pathReservoir.rcPrevPrevVertexHit = rcPrevPrevVertexHit;
+                pathReservoir.rcPrevPrevVertexWo = rcPrevPrevVertexWo;
 
                 pathReservoir.cachedJacobian = cachedJacobian;
 
@@ -184,12 +195,17 @@ struct PathBuilder
         return selected;
     }
 
-    [mutating] void markEscapeVertexAsRcVertex(RestirPathTracerParams params, uint pathLength, inout PathReservoir pathReservoir, HitInfo hit, bool isDelta,
+    [mutating] void markEscapeVertexAsRcVertex(RestirPathTracerParams params, uint pathLength, inout PathReservoir pathReservoir, HitInfo hit, HitInfo prevHit, HitInfo prevPrevHit, float3 prevPrevPrevWo, bool isDelta,
         bool isTransmission, bool isSpecularBounce, float lightPdf, uint lightType, float3 rcVertexIrradiance, float3 rcVertexWi, float prevScatterPdf, float geometryFactor)
     {
         pathReservoir.pathFlags.insertRcVertexLength(pathLength);
 
         pathReservoir.rcVertexHit.initFromHitInfo(hit);
+
+        pathReservoir.rcPrevVertexHit.initFromHitInfo(prevHit);
+        pathReservoir.rcPrevPrevVertexHit.initFromHitInfo(prevPrevHit);
+        pathReservoir.rcPrevPrevVertexWo = prevPrevPrevWo;
+
         pathReservoir.pathFlags.insertIsDeltaEvent(isDelta, true);
         pathReservoir.pathFlags.insertIsTransmissionEvent(isTransmission, true);
         pathReservoir.pathFlags.insertIsSpecularBounce(isSpecularBounce, true);

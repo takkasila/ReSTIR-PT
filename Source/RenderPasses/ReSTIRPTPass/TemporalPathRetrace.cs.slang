@@ -85,7 +85,7 @@ struct PathRetracePass
     */
     void ReSTIR(const uint2 pixel)
     {
-        print("TemporalPathRetrace.cs.slang: begin", 0);
+        print("Temporal path retrace: begin", 0);
 
         DebugPathData debugPathData1;
         DebugPathData debugPathData2;
@@ -132,6 +132,16 @@ struct PathRetracePass
         if (!isValidPackedHitInfo(temporalPrimaryHitPacked)) return;
 
         PathReservoir temporalReservoir = temporalReservoirs[params.getReservoirOffset(prevPixel)];
+
+        print("Central reservoir:")
+        print("- rcVertexHit.instanceID", centralReservoir.rcVertexHit.instanceID);
+        print("- rcPrevVertexHit.instanceID", centralReservoir.rcPrevVertexHit.instanceID);
+        print("- rcPrevPrevVertexHit.instanceID", centralReservoir.rcPrevPrevVertexHit.instanceID);
+
+        print("temporalReservoir reservoir:")
+        print("- rcVertexHit.instanceID", temporalReservoir.rcVertexHit.instanceID);
+        print("- rcPrevVertexHit.instanceID", temporalReservoir.rcPrevVertexHit.instanceID);
+        print("- rcPrevPrevVertexHit.instanceID", temporalReservoir.rcPrevPrevVertexHit.instanceID);
 
         // talbot MIS
         // compute mis weight for current pixel
@@ -203,8 +213,7 @@ struct PathRetracePass
 
             }
         }
-
-        print("TemporalPathRetrace.cs.slang: end", 0);
+        print("Temporal path retrace: end", 0);
     }
 
     /** Entry point for merge pass.

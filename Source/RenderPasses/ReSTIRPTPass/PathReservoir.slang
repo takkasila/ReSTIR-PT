@@ -229,7 +229,10 @@ struct PathReuseMISWeight
     float rcNEEMISWeight;
 }
 
-// 124/128 B, originaly 88/128
+//  Size:
+//  - realtime: 136
+//  - offline: 176? need to confirm
+//  original size was 88/128
 struct PathReservoir
 {
     float M = 0.f; // this is a float, because temporal history length is allowed to be a fraction.
@@ -248,7 +251,7 @@ struct PathReservoir
     // HybridShiftSMS
     TriMeshHitInfo rcPrevVertexHit;
     TriMeshHitInfo rcPrevPrevVertexHit;
-    // Do we need rcPrevPrevVertexWo ?
+    float3 rcPrevPrevVertexWo;
 
 #if BPR
     float rcLightPdf;

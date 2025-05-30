@@ -125,9 +125,6 @@ struct PathState
     HitInfo prevPrevHit;
     float3 prevPrevWo;
 
-    HitInfo rcPrevPrevVertexHit;
-    float3 rcPrevPrevVertexWo;
-
     // Accessors
     float3 getCurrentThp() { return thp * prefixThp; }
     [mutating] void recordPrefixThp() { prefixThp *= thp; thp = 1.f; }

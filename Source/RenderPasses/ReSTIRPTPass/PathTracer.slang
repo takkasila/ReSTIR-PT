@@ -764,7 +764,7 @@ struct PathTracer
         bool valid = false;
         if (kUseEnvLight && lightType == (uint)LightSampleType::EnvMap)
         {
-            if (gIsDebug) print("---- Sample light: EnvMap", 0);
+            print("---- Sample light: EnvMap", 0);
             valid = generateEnvMapSample(vertex, sg, ls);
         }
         if (kUseEmissiveLights && lightType == (uint)LightSampleType::Emissive)
@@ -772,7 +772,7 @@ struct PathTracer
             // Emissive light samplers have an option to exclusively sample the upper hemisphere.
             bool upperHemisphere = sampleUpperHemisphere && !sampleLowerHemisphere;
 
-            if (gIsDebug) print("---- Sample light: Emissive", 0);
+            print("---- Sample light: Emissive", 0);
 
             {
                 valid = generateEmissiveSample(vertex, upperHemisphere, sg, ls);
@@ -780,7 +780,7 @@ struct PathTracer
         }
         if (kUseAnalyticLights && lightType == (uint)LightSampleType::Analytic)
         {
-            if (gIsDebug) print("---- Sample light: Analytic", 0);
+            print("---- Sample light: Analytic", 0);
 
             valid = generateAnalyticLightSample(vertex, sg, ls);
         }
@@ -1016,6 +1016,8 @@ struct PathTracer
         //  Store to debugVertex
         debugVertexState.pos = sdPosW;
 
+        print("- path.hitId", th.instanceID.index);
+
         // Optionally disable emissive lights inside volumes.
         if (!kUseLightsInDielectricVolumes && path.isInsideDielectricVolume()) sd.emissive = float3(0.f);
 
@@ -1164,7 +1166,7 @@ struct PathTracer
                         else
                         {
 
-                            if (gIsDebug) print("--- the escaped vertex is also a RC", 0);
+                            print("--- the escaped vertex is also a RC", 0);
 
                             // we found an RC vertex!
                             // set rcVertexLength to current length (this will make rcVertexLength = reseroivr.pathLength + 1)
@@ -1172,7 +1174,24 @@ struct PathTracer
                             float geometryFactor = abs(dot(sd.faceN, sd.V)) / dot(disp, disp);
 
                             // markBsdfSampledLightVertexAsRc
-                            path.pathBuilder.markEscapeVertexAsRcVertex(params, path.length, path.pathReservoir, path.hit, path.isDelta(), path.isTransmission(), path.isSpecularBounce(), lightPdf, (uint)LightSampleType::Emissive, sd.emissive, float3(0.f), path.prevScatterPdf, geometryFactor);
+                            path.pathBuilder.markEscapeVertexAsRcVertex(
+	                            params, 
+	                            path.length, 
+	                            path.pathReservoir, 
+	                            path.hit, 
+                                path.prevHit,
+                                path.prevPrevHit,
+                                path.prevPrevWo,
+	                            path.isDelta(), 
+	                            path.isTransmission(), 
+	                            path.isSpecularBounce(),
+	                            lightPdf,
+	                            (uint)LightSampleType::Emissive,
+	                            sd.emissive,
+	                            float3(0.f),
+	                            path.prevScatterPdf,
+	                            geometryFactor
+                            );
                         }
                     }
 
@@ -1335,12 +1354,14 @@ struct PathTracer
                 else if (ShiftMapping(kShiftStrategy) == ShiftMapping::HybridShiftSMS)
                 {
                     // TODO: HybridSMS cache Jacobian
-                    path.rcPrevVertexHit = path.prevHit;
-                    path.rcPrevVertexWo = path.prevWo;
-                    path.rcPrevPrevVertexHit = path.prevPrevHit;
-                    path.rcPrevPrevVertexWo = path.prevPrevWo;
-                }
+                    path.pathBuilder.rcPrevVertexHit.initFromHitInfo(path.prevHit);
+                    path.pathBuilder.rcPrevPrevVertexHit.initFromHitInfo(path.prevPrevHit);
+                    path.pathBuilder.rcPrevPrevVertexWo = path.prevPrevWo;
 
+                    print("--- pathBuilder.rcVertexHit.instanceID", path.pathBuilder.rcVertexHit.instanceID);
+                    print("--- pathBuilder.rcPrevVertexHit.instanceID", path.pathBuilder.rcPrevVertexHit.instanceID);
+                    print("--- pathBuilder.rcPrevPrevVertexHit.instanceID", path.pathBuilder.rcPrevPrevVertexHit.instanceID);
+                }
 
                 // daqi: save the current path length as the rcVertex length
                 if (canConnect || canConnectSMS || !path.useHybridShift)
@@ -1437,7 +1458,7 @@ struct PathTracer
             && path.isReplayForHybridShiftSMS)
         {
             // TODO: Currently tracing random replay for Hybrid shift with Specular Manifold Sampling
-            print("- hello from replaying hybrid shift!", 0);
+            print("- hello from replaying hybrid shift SMS!", 0);
 
         }
 
@@ -1448,7 +1469,7 @@ struct PathTracer
         //  or not a PrimaryHit (v2, v3, ...)
         if (!(kDisableDirectIllumination && isPrimaryHit))
         {
-            if(gIsDebug) print("- Sample light: Begin", 0);
+            print("- Sample light: Begin", 0);
             // generate kNEESamples light samples
             if (sampleLights && (!path.enableRandomReplay || terminateRandomReplayForNEE))
             {
@@ -1544,8 +1565,14 @@ struct PathTracer
                                     is_rcVertex ? weight * ls.Li * path.thp : path.rcVertexPathTreeIrradiance, path.useHybridShift,
                                     path.russianRoulettePdf, misWeight, ls.pdf, ls.lightType, path.pathReservoir, path.enableRandomReplay);
 #else
+                                //  addNeeSampledLightVertex
+                                //      Try to add current path contribution (Lr) into the reservoir.
+                                //      If successful (accepted sample), set the reservoir data to path.pathBuilder's data
                                 bool selected = path.pathBuilder.addNeeVertex(params, path.length, ls.dir, Lr, weight * ls.Li * path.thp, path.useHybridShift,
                                     path.russianRoulettePdf, misWeight, ls.pdf, ls.lightType, path.pathReservoir, path.enableRandomReplay);
+
+                                if (selected)
+                                    print("--- Added sampledLightVertex to reservoir", 0);
 #endif
 
                                 //debugVertexState.isSampledLight = true;
@@ -1666,18 +1693,15 @@ struct PathTracer
         // Update path history for HybridSMS
         if (ShiftMapping(kShiftStrategy) == ShiftMapping::HybridShiftSMS)
         {
-            if(path.length >= 2)
+            if(path.length >= 1)
             {
                 path.isLastLastVertexClassifiedAsRough = path.isLastVertexClassifiedAsRough;
                 path.prevPrevHit = path.prevHit;
                 path.prevPrevWo = path.prevWo;
             }
 
-            if(path.length >= 1)
-            {
-                path.prevHit = path.hit;
-                path.prevWo = path.wo;
-            }
+            path.prevHit = path.hit;
+            path.prevWo = path.wo;
 
             path.wo = sd.V;
         }
@@ -1810,7 +1834,7 @@ struct PathTracer
 
                 print("- Add escape vertex", 0);
 
-
+                // addBsdfSampledLightVertex
                 bool selectedCurrentPath = path.pathBuilder.addEscapeVertex(params, path.length, path.dir, Lr, path.thp * Le * misWeight,
                     path.useHybridShift, path.russianRoulettePdf, misWeight, lightPdf, (uint)LightSampleType::EnvMap, path.pathReservoir, path.enableRandomReplay);
 #endif
@@ -1839,7 +1863,24 @@ struct PathTracer
                             // we found an RC vertex!
                             // set rcVertexLength to current length (this will make rcVertexLength = reseroivr.pathLength + 1)
                             HitInfo dummyHit = HitInfo();
-                            path.pathBuilder.markEscapeVertexAsRcVertex(params, path.length + 1, path.pathReservoir, dummyHit, path.isDelta(), path.isTransmission(), path.isSpecularBounce(), lightPdf, (uint)LightSampleType::EnvMap, Le, path.dir, path.prevScatterPdf, 1.f);
+                            path.pathBuilder.markEscapeVertexAsRcVertex(
+                                params,
+                                path.length + 1,
+                                path.pathReservoir,
+                                dummyHit,
+                                path.prevHit,
+                                path.prevPrevHit,
+                                path.prevPrevWo,
+                                path.isDelta(),
+                                path.isTransmission(),
+                                path.isSpecularBounce(),
+                                lightPdf,
+                                (uint)LightSampleType::EnvMap,
+                                Le,
+                                path.dir,
+                                path.prevScatterPdf,
+                                1.f
+                            );
                         }
                     }
                 }
@@ -2184,6 +2225,9 @@ struct PathTracer
             }
             else
             {
+                //  ReSTIR case
+
+                //  Compute weight
                 path.pathReservoir.finalizeRIS();
 
                 if (isLastRound)
@@ -2214,12 +2258,13 @@ struct PathTracer
 
             if (PathSamplingMode(kPathSamplingMode) != PathSamplingMode::PathTracing)
             {
-                print("- Update reservoir", 0);
+                print("- Update output reservoir", 0);
                 outputReservoirs[reservoirIdx] = path.pathReservoir;
             }
         }
         else
         {
+            print("- Multi samples case", 0);
             if (PathSamplingMode(kPathSamplingMode) == PathSamplingMode::PathTracing)
             {
                 float3 L = 0.f;
