@@ -179,7 +179,7 @@ struct PathRetracePass
                 debugPathData1
             );
 
-            reconnectionDataBuffer[centralOffset].data[0] = ReconnectionData(dstRcPrevVertexHit1, dstRcPrevVertexWo1, Tp);
+            reconnectionDataBuffer[centralOffset].data[0] = ReconnectionData(dstRcPrevVertexHit1, dstRcPrevVertexWo1, dstRcPrevPrevVertexHit1, dstRcPrevPrevVertexWo1, Tp);
 
             if (isDebug)
             {
@@ -222,7 +222,7 @@ struct PathRetracePass
                 debugPathData2
             );
 
-            reconnectionDataBuffer[centralOffset].data[1] = ReconnectionData(dstRcPrevVertexHit2, dstRcPrevVertexWo2, Tp2);
+            reconnectionDataBuffer[centralOffset].data[1] = ReconnectionData(dstRcPrevVertexHit2, dstRcPrevVertexWo2, dstRcPrevPrevVertexHit2, dstRcPrevPrevVertexWo2, Tp2);
 
             if (isDebug)
             {
