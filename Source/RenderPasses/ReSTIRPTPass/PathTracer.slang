@@ -283,15 +283,11 @@ struct PathTracer
     {
         path.rcPrevVertexHit = HitInfo();
         path.rcPrevVertexWo = float3(0);
+        // path.rcPrevPrevVertexHit = HitInfo();
+        // path.rcPrevPrevVertexWo = float3(0);
         path.L = 0.f;
         path.thp = 0.f;
         path.terminate();
-    }
-
-    void setDataBeforeTermination(inout HitInfo rcPrevHit, inout float3 rcPrevHitWo)
-    {
-        rcPrevHit = HitInfo();
-        rcPrevHitWo = float3(0);
     }
 
     /** Generates a new scatter ray using BSDF importance sampling.
@@ -1080,14 +1076,14 @@ struct PathTracer
                 // Note we can assume path.pdf > 0.f since we shouldn't have got here otherwise.
                 misWeight = evalMIS(1, path.pdf, 1, lightPdf);
 
-                if(gIsDebug) print("-- Compute emissive", 0);
+                print("-- Compute emissive", 0);
 
             }
 
             // Accumulate emitted radiance weighted by path throughput and MIS weight.
             if (!kDisableDirectIllumination || !isPrimaryHit || !isLightSamplable)
             {
-                if(gIsDebug) print("-- Compute emissive", 1);
+                print("-- Compute emissive", 1);
                 Lr = path.getCurrentThp() * sd.emissive * misWeight;
             }
 
@@ -1096,7 +1092,7 @@ struct PathTracer
             // daqi: Since ScreenSpaceReSTIR cannot handle transmission and delta reflection, we must include the contribution in the color buffer
             if (!path.enableRandomReplay || terminateRandomReplayForEscape)
             {
-                if(gIsDebug) print("-- Compute emissive", 2);
+                 print("-- Compute emissive", 2);
 
                 if (!kDisableDirectIllumination || path.length > 1) path.L += Lr;
                 // will change this to path.IsDelta() if ScreenSpaceReSTIR can handle transmission
@@ -1139,7 +1135,7 @@ struct PathTracer
 
 #endif
 
-                if (gIsDebug && selectedCurrentPath) print("-- added current path into reservoir", 0);
+                if (selectedCurrentPath) print("-- added current path into reservoir", 0);
 
                 // daqi: if current escaped vertex has path.length >= 2, then it can be used as a rcVertex
                 if (selectedCurrentPath
@@ -1175,15 +1171,15 @@ struct PathTracer
 
                             // markBsdfSampledLightVertexAsRc
                             path.pathBuilder.markEscapeVertexAsRcVertex(
-	                            params, 
-	                            path.length, 
-	                            path.pathReservoir, 
-	                            path.hit, 
+	                            params,
+	                            path.length,
+	                            path.pathReservoir,
+	                            path.hit,
                                 path.prevHit,
                                 path.prevPrevHit,
                                 path.prevPrevWo,
-	                            path.isDelta(), 
-	                            path.isTransmission(), 
+	                            path.isDelta(),
+	                            path.isTransmission(),
 	                            path.isSpecularBounce(),
 	                            lightPdf,
 	                            (uint)LightSampleType::Emissive,
@@ -1222,7 +1218,7 @@ struct PathTracer
             return;
         }
 
-        print("prepare to scatter ray", 0);
+        print("- prepare to scatter ray", 0);
 
         // daqi: save as previous path origin to compute distance between vertices
         float3 pathPrevPrevOrigin = path.length >= 1 ? path.prevOrigin : path.origin;
@@ -1377,7 +1373,7 @@ struct PathTracer
              && path.isReplayForHybridShift )
         {
             // Currently tracing random number replay path for hybrid shift
-            print("- Doing replay for hybrid shift", 0);
+            print("- Doing random replay for hybrid shift", 0);
 
             bool invertible = true;
             bool shouldTerminate = false;
@@ -1430,7 +1426,7 @@ struct PathTracer
 
             if (invertible)
             {
-                if(gIsDebug) print("-- Path is invertable", 0);
+                print("-- Path is invertable", 0);
 
                 // daqi: if it is invertible and we should terminate, save the hit information to set up a reconnection
                 if (shouldTerminate)
@@ -1442,14 +1438,14 @@ struct PathTracer
             }
             else //daqi: if the shift is not invertible, we should mark the case, which causes the shift to terminate when it goes back to shift.slang
             {
-                if(gIsDebug) print("-- Path is NOT invertable", 0);
+                print("-- Path is NOT invertable", 0);
 
                 invalidateAndTerminateReplayPath(path);
             }
 
             if (!path.isActive())
             {
-                if(gIsDebug) print("-- Terminate after doing replay for hybrid shift", 0);
+                print("-- Terminate after doing replay for hybrid shift", 0);
 
                 return;
             }
@@ -1458,7 +1454,9 @@ struct PathTracer
             && path.isReplayForHybridShiftSMS)
         {
             // TODO: Currently tracing random replay for Hybrid shift with Specular Manifold Sampling
-            print("- hello from replaying hybrid shift SMS!", 0);
+            print("-- Doing random replay for hybrid shift SMS", 0);
+
+            //  Check invertibility
 
         }
 
@@ -1898,6 +1896,7 @@ struct PathTracer
     }
 
     // function to trace a path using random number replay
+    //      Caller is computeShiftedIntegrandRandomReplay
     float3 traceRandomReplayPath(HitInfo hit, ShadingData sd, ShadingData srcSd, Ray ray, inout PathReservoir tempPathReservoir)
     {
         PathState path;
@@ -1943,19 +1942,61 @@ struct PathTracer
         return path.L;
     }
 
-    float3 traceRandomReplayPathHybridSimple(HitInfo hit, ShadingData sd, Ray ray, ReSTIRPathFlags pathFlags,
-        uint initRandomSeed, inout HitInfo rcPrevHit, inout float3 rcPrevHitWo, inout DebugPathData debugPathData)
+    /**
+     *
+     * Trace random replay path for HybridShift mapping.
+     *
+     * @param hit Offset path primary hit's HitInfo(v1)
+     * @param sd Offset path primary hit's ShadingData
+     * @param ray Offset path Ray
+     * @param pathFlags Base path's ReSTIRPathFlags
+     * @param initRandomSeed Base path's beginning seed for random replay
+     * @param rcPrevHit Output HitInfo at the vertex before RC Vertex
+     * @param rcPrevHitWo Output outgoing direction at the vertex before RC vertex
+     * @param rcPrevPrevHit Output HitInfo at two vertices before RC Vertex
+     * @param rcPrevPrevHitWo Output outgoing direction at two vertices before RC vertex
+     * @param debugPathData Ouput path history for visualization
+     * @param isHybridShiftSMS Is this random replay going to be used for HybridShiftSMS
+     *
+     * @return path contribution.
+     */
+    float3 traceRandomReplayPathHybridSimple(
+        HitInfo hit,
+        ShadingData sd,
+        Ray ray,
+        ReSTIRPathFlags pathFlags,
+        uint initRandomSeed,
+        inout HitInfo rcPrevHit,
+        inout float3 rcPrevHitWo,
+        // inout HitInfo rcPrevPrevHit,
+        // inout float3 rcPrevPrevHitWo,
+        inout DebugPathData debugPathData
+    )
     {
         print("-- traceRandomReplayPathHybridSimple: begin", 0);
+
+        //
+        //  Generate random replay path
+        //
         PathState path;
         bool isRcVertexEscapedVertex = pathFlags.pathLength() + 1 == pathFlags.rcVertexLength();
         generateRandomReplayPath(path, hit, ray, initRandomSeed, pathFlags.pathLength(), pathFlags.lastVertexNEE(), isRcVertexEscapedVertex);
+
         path.useHybridShift = true;
-        path.isReplayForHybridShift = true;
+        // bool isHybridShiftSMS = ShiftMapping(kShiftStrategy) == ShiftMapping::HybridShiftSMS;
+        bool isHybridShiftSMS = true;
+        path.isReplayForHybridShift = !isHybridShiftSMS;
+        path.isReplayForHybridShiftSMS = isHybridShiftSMS;
+
         path.pathBuilder.rcVertexLength = pathFlags.rcVertexLength();
 
-        setDataBeforeTermination(rcPrevHit, rcPrevHitWo);
+        //  Set data before termination
+        rcPrevHit = HitInfo();
+        rcPrevHitWo = float3(0);
+        // rcPrevPrevHit = HitInfo();
+        // rcPrevPrevHitWo = float3(0);
 
+        //  Init DebugPathData for visualization
         debugPathData.vertexCount = 0;
         debugPathData.vertices[debugPathData.vertexCount] = float4(path.origin, 1);
         debugPathData.vertexCount += 1;
@@ -1966,22 +2007,27 @@ struct PathTracer
         debugPathData.vertices[debugPathData.vertexCount] = float4(path.origin, 1);
         debugPathData.vertexCount += 1;
 
-
         // this is also applicable for random number reuse
         path.pathBuilder.pathFlags.flags = 0;
         path.pathBuilder.pathFlags.transferSpecularBounceInformation(pathFlags);
 
         // set up the two scatter directions (or half vectors) for reuse
 
-        DebugVertexState debugVertexState;
-
+        //      Generate a dir
         generateReplayPrimaryScatterRay(path, sd);
-        if (path.isActive()) nextVertex(path);
+
+        if (path.isActive())
+        {
+            //  update path.hit
+            //      Trace to find the next vertex (path.orig = v1, path.hit = v2)
+            nextVertex(path);
+        }
         else
         {
             return 0.f;
         }
 
+        DebugVertexState debugVertexState;
 
         while (path.isActive() && path.isHit())
         {
@@ -1999,7 +2045,8 @@ struct PathTracer
             }
 
             // Move to the next path vertex.
-            if (path.isActive() && path.isHit()) nextVertex(path);
+            if (path.isActive() && path.isHit())
+                nextVertex(path);
         }
 
         // Handle the miss and terminate path.
@@ -2014,15 +2061,27 @@ struct PathTracer
             }
         }
 
-        rcPrevHit = HitInfo();
-
         float3 L = 1.f;
 
+        //  Remember: pathFlags is srcReservoir path's aka. basePath
+
+        //  If the reservoir have RC, return infomation of the vertex before RC
         if (pathFlags.rcVertexLength() <= pathFlags.pathLength() || isRcVertexEscapedVertex)
         {
             rcPrevHit = path.rcPrevVertexHit;
             rcPrevHitWo = path.rcPrevVertexWo;
             L = path.getCurrentThp();
+
+            //  If RC vertex is part of DSD chain
+            bool isPrevRcVertexSpecular = pathFlags.decodeIsSpecularBounce(true);
+
+            if(isPrevRcVertexSpecular)
+            {
+                print("--- RC vertex is for HybridSMS", 0);
+                // rcPrevPrevHit = path.rcPrevPrevVertexHit;
+                // rcPrevPrevHitWo = path.rcPrevPrevVertexWo;
+            }
+
         }
         else // this branch is the case where rcVertex does not exist (or infinitely far)
         {

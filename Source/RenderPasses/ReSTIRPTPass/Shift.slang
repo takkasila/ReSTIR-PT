@@ -202,8 +202,18 @@ float3 computeShiftedIntegrandHybrid(const RestirPathTracerParams params, bool u
     return Tp * rcTp;
 }
 
-float3 traceHybridShiftRays(const RestirPathTracerParams params, bool usePrev, const PackedHitInfo dstPrimaryHitPacked, const ShadingData dstPrimarySd,
-                            PathReservoir srcReservoir, inout HitInfo dstRcPrevVertexHit, inout float3 dstRcPrevVertexWo, inout DebugPathData debugPathData)
+float3 traceHybridShiftRays(
+    const RestirPathTracerParams params,
+    bool usePrev,
+    const PackedHitInfo dstPrimaryHitPacked,
+    const ShadingData dstPrimarySd,
+    PathReservoir srcReservoir,
+    inout HitInfo dstRcPrevVertexHit,
+    inout float3 dstRcPrevVertexWo,
+    // inout HitInfo dstRcPrevPrevVertexHit,
+    // inout float3 dstRcPrevPrevVertexWo,
+    inout DebugPathData debugPathData
+)
 {
     // usePrev means use previous frame data
     if (srcReservoir.weight == 0.f) return 0.f;
@@ -213,7 +223,18 @@ float3 traceHybridShiftRays(const RestirPathTracerParams params, bool usePrev, c
     dstPrimaryHit.unpack(dstPrimaryHitPacked);
     Ray ray = Ray(gScene.camera.getPosition(usePrev), -dstPrimarySd.V, 0, kRayTMax); // this ray can be arbitrary, does not affect results
 
-    float3 Tp = gPathTracer.traceRandomReplayPathHybridSimple(dstPrimaryHit, dstPrimarySd, ray, srcReservoir.pathFlags, srcReservoir.initRandomSeed, dstRcPrevVertexHit, dstRcPrevVertexWo, debugPathData);
+    float3 Tp = gPathTracer.traceRandomReplayPathHybridSimple(
+        dstPrimaryHit,
+        dstPrimarySd,
+        ray,
+        srcReservoir.pathFlags,
+        srcReservoir.initRandomSeed,
+        dstRcPrevVertexHit,
+        dstRcPrevVertexWo,
+        // dstRcPrevPrevVertexHit,
+        // dstRcPrevPrevVertexWo,
+        debugPathData
+    );
 
     return Tp;
 }

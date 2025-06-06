@@ -133,12 +133,12 @@ struct PathRetracePass
 
         PathReservoir temporalReservoir = temporalReservoirs[params.getReservoirOffset(prevPixel)];
 
-        print("Central reservoir:")
+        print("Central reservoir:", 0);
         print("- rcVertexHit.instanceID", centralReservoir.rcVertexHit.instanceID);
         print("- rcPrevVertexHit.instanceID", centralReservoir.rcPrevVertexHit.instanceID);
         print("- rcPrevPrevVertexHit.instanceID", centralReservoir.rcPrevPrevVertexHit.instanceID);
 
-        print("temporalReservoir reservoir:")
+        print("temporalReservoir reservoir:", 0);
         print("- rcVertexHit.instanceID", temporalReservoir.rcVertexHit.instanceID);
         print("- rcPrevVertexHit.instanceID", temporalReservoir.rcPrevVertexHit.instanceID);
         print("- rcPrevPrevVertexHit.instanceID", temporalReservoir.rcPrevPrevVertexHit.instanceID);
@@ -146,11 +146,18 @@ struct PathRetracePass
         // talbot MIS
         // compute mis weight for current pixel
 
+        //  Base path is central reservoir
         HitInfo dstRcPrevVertexHit;
-        HitInfo dstRcPrevVertexHit2;
         float3 dstRcPrevVertexWo;
-        float3 dstRcPrevVertexWo2;
+        HitInfo dstRcPrevPrevVertexHit1;
+        float3 dstRcPrevPrevVertexWo1;
         float3 Tp;
+
+        //  Base path is temporal reservoir
+        HitInfo dstRcPrevVertexHit2;
+        float3 dstRcPrevVertexWo2;
+        HitInfo dstRcPrevPrevVertexHit2;
+        float3 dstRcPrevPrevVertexWo2;
         float3 Tp2;
 
         // write to memory
@@ -159,7 +166,19 @@ struct PathRetracePass
             print("- traceHybridShiftRays centralReservoir", 0);
 
             //  Use previous frame data
-            Tp = traceHybridShiftRays(params, true, temporalPrimaryHitPacked, temporalPrimarySd, centralReservoir, dstRcPrevVertexHit, dstRcPrevVertexWo, debugPathData1);
+            Tp = traceHybridShiftRays(
+                params,
+                true,
+                temporalPrimaryHitPacked,
+                temporalPrimarySd,
+                centralReservoir,
+                dstRcPrevVertexHit,
+                dstRcPrevVertexWo,
+                // dstRcPrevPrevVertexHit1,
+                // dstRcPrevPrevVertexWo1,
+                debugPathData1
+            );
+
             reconnectionDataBuffer[centralOffset].data[0] = ReconnectionData(dstRcPrevVertexHit, dstRcPrevVertexWo, Tp);
 
             if (isDebug)
@@ -190,7 +209,19 @@ struct PathRetracePass
         {
             print("- traceHybridShiftRays temporalReservoir", 0);
 
-            Tp2 = traceHybridShiftRays(params, false, centralPrimaryHitPacked, centralPrimarySd, temporalReservoir, dstRcPrevVertexHit2, dstRcPrevVertexWo2, debugPathData2);
+            Tp2 = traceHybridShiftRays(
+                params,
+                false,
+                centralPrimaryHitPacked,
+                centralPrimarySd,
+                temporalReservoir,
+                dstRcPrevVertexHit2,
+                dstRcPrevVertexWo2,
+                // dstRcPrevPrevVertexHit2,
+                // dstRcPrevPrevVertexWo2,
+                debugPathData2
+            );
+
             reconnectionDataBuffer[centralOffset].data[1] = ReconnectionData(dstRcPrevVertexHit2, dstRcPrevVertexWo2, Tp2);
 
             if (isDebug)
