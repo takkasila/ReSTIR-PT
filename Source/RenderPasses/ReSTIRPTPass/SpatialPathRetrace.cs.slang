@@ -170,8 +170,8 @@ struct PathRetracePass
                     centralReservoir,
                     dstRcPrevVertexHit1,
                     dstRcPrevVertexWo1,
-                    // dstRcPrevPrevVertexHit1,
-                    // dstRcPrevPrevVertexWo1,
+                    dstRcPrevPrevVertexHit1,
+                    dstRcPrevPrevVertexWo1,
                     debugPathData1
                 );
 
@@ -188,8 +188,8 @@ struct PathRetracePass
                     neighborReservoir,
                     dstRcPrevVertexHit2,
                     dstRcPrevVertexWo2,
-                    // dstRcPrevPrevVertexHit2,
-                    // dstRcPrevPrevVertexWo2,
+                    dstRcPrevPrevVertexHit2,
+                    dstRcPrevPrevVertexWo2,
                     debugPathData2
                 );
 

@@ -283,8 +283,8 @@ struct PathTracer
     {
         path.rcPrevVertexHit = HitInfo();
         path.rcPrevVertexWo = float3(0);
-        // path.rcPrevPrevVertexHit = HitInfo();
-        // path.rcPrevPrevVertexWo = float3(0);
+        path.rcPrevPrevVertexHit = HitInfo();
+        path.rcPrevPrevVertexWo = float3(0);
         path.L = 0.f;
         path.thp = 0.f;
         path.terminate();
@@ -1968,8 +1968,8 @@ struct PathTracer
         uint initRandomSeed,
         inout HitInfo rcPrevHit,
         inout float3 rcPrevHitWo,
-        // inout HitInfo rcPrevPrevHit,
-        // inout float3 rcPrevPrevHitWo,
+        inout HitInfo rcPrevPrevHit,
+        inout float3 rcPrevPrevHitWo,
         inout DebugPathData debugPathData
     )
     {
@@ -1993,8 +1993,8 @@ struct PathTracer
         //  Set data before termination
         rcPrevHit = HitInfo();
         rcPrevHitWo = float3(0);
-        // rcPrevPrevHit = HitInfo();
-        // rcPrevPrevHitWo = float3(0);
+        rcPrevPrevHit = HitInfo();
+        rcPrevPrevHitWo = float3(0);
 
         //  Init DebugPathData for visualization
         debugPathData.vertexCount = 0;

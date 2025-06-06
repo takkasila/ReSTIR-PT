@@ -210,8 +210,8 @@ float3 traceHybridShiftRays(
     PathReservoir srcReservoir,
     inout HitInfo dstRcPrevVertexHit,
     inout float3 dstRcPrevVertexWo,
-    // inout HitInfo dstRcPrevPrevVertexHit,
-    // inout float3 dstRcPrevPrevVertexWo,
+    inout HitInfo dstRcPrevPrevVertexHit,
+    inout float3 dstRcPrevPrevVertexWo,
     inout DebugPathData debugPathData
 )
 {
@@ -231,8 +231,8 @@ float3 traceHybridShiftRays(
         srcReservoir.initRandomSeed,
         dstRcPrevVertexHit,
         dstRcPrevVertexWo,
-        // dstRcPrevPrevVertexHit,
-        // dstRcPrevPrevVertexWo,
+        dstRcPrevPrevVertexHit,
+        dstRcPrevPrevVertexWo,
         debugPathData
     );
 

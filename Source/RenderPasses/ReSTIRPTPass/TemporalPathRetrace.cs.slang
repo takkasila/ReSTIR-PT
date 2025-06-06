@@ -147,8 +147,8 @@ struct PathRetracePass
         // compute mis weight for current pixel
 
         //  Base path is central reservoir
-        HitInfo dstRcPrevVertexHit;
-        float3 dstRcPrevVertexWo;
+        HitInfo dstRcPrevVertexHit1;
+        float3 dstRcPrevVertexWo1;
         HitInfo dstRcPrevPrevVertexHit1;
         float3 dstRcPrevPrevVertexWo1;
         float3 Tp;
@@ -172,14 +172,14 @@ struct PathRetracePass
                 temporalPrimaryHitPacked,
                 temporalPrimarySd,
                 centralReservoir,
-                dstRcPrevVertexHit,
-                dstRcPrevVertexWo,
-                // dstRcPrevPrevVertexHit1,
-                // dstRcPrevPrevVertexWo1,
+                dstRcPrevVertexHit1,
+                dstRcPrevVertexWo1,
+                dstRcPrevPrevVertexHit1,
+                dstRcPrevPrevVertexWo1,
                 debugPathData1
             );
 
-            reconnectionDataBuffer[centralOffset].data[0] = ReconnectionData(dstRcPrevVertexHit, dstRcPrevVertexWo, Tp);
+            reconnectionDataBuffer[centralOffset].data[0] = ReconnectionData(dstRcPrevVertexHit1, dstRcPrevVertexWo1, Tp);
 
             if (isDebug)
             {
@@ -189,7 +189,7 @@ struct PathRetracePass
 
                 bool isValidRCD = (
                     any(Tp > 0.f)
-                    && (dstRcPrevVertexHit.isValid())
+                    && (dstRcPrevVertexHit1.isValid())
                 );
 
                 if (isValidRCD)
@@ -217,8 +217,8 @@ struct PathRetracePass
                 temporalReservoir,
                 dstRcPrevVertexHit2,
                 dstRcPrevVertexWo2,
-                // dstRcPrevPrevVertexHit2,
-                // dstRcPrevPrevVertexWo2,
+                dstRcPrevPrevVertexHit2,
+                dstRcPrevPrevVertexWo2,
                 debugPathData2
             );
 

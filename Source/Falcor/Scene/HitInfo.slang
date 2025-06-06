@@ -200,7 +200,10 @@ struct HitInfo
     */
     [mutating] void clear()
     {
-        data[0] = 0;
+        for (uint i = 0; i < kDataSize; i++)
+        {
+            data[i] = 0;
+        }
     }
 
     /** Return true if object represents a valid hit.

@@ -94,8 +94,8 @@ struct PathState
     float3 rcPrevVertexWo; // daqi: save the outgoing direction at the previous vertex of rcVertex, used in hybrid shift replay, for later reconnection
 
     //  For HybridShiftSMS reconnection
-    // HitInfo rcPrevPrevVertexHit;
-    // float3 rcPrevPrevVertexWo;
+    HitInfo rcPrevPrevVertexHit;
+    float3 rcPrevPrevVertexWo;
 
     float hitDist; // for NRD
 
@@ -111,10 +111,9 @@ struct PathState
     int      randomReplayLength; // daqi: the length of the random replay (same as the path length of the base path)
     bool     useHybridShift;
     // this is used for hybrid shift or hybrid shift is being MIS'ed with (at both initial candidate generation and resampling)
-    bool     isReplayForHybridShift; // daqi: indicate that a random number replay is done with the hybrid shift in mind (invalidated if invertibility is violated)
     bool     isLastVertexClassifiedAsRough; // daqi: remembers if last vertex is classified as a diffuse vertex (used for specularskip in hybrid shift)
 
-    //bool isUseHybridShiftSMS;
+    bool     isReplayForHybridShift; // daqi: indicate that a random number replay is done with the hybrid shift in mind (invalidated if invertibility is violated)
     bool isReplayForHybridShiftSMS;
     bool isLastLastVertexClassifiedAsRough;
 
