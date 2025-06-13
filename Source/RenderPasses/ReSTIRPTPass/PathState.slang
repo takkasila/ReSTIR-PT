@@ -48,6 +48,14 @@ enum class BounceType
     Volume                  = 3,    ///< Scatter event in heterogeneous volume.
 };
 
+//  Indicate whether random replay is done with hybrid shift or hybrid shift sms in mind
+enum ReplayMode
+{
+    None,
+    HybridShift,
+    HybridShiftSMS,
+};
+
 /** Packed path state. Contains all data from PathState in packed form.
     Default total size: 80 + (2*4) + (4-16) bytes.
 */
@@ -113,8 +121,9 @@ struct PathState
     // this is used for hybrid shift or hybrid shift is being MIS'ed with (at both initial candidate generation and resampling)
     bool     isLastVertexClassifiedAsRough; // daqi: remembers if last vertex is classified as a diffuse vertex (used for specularskip in hybrid shift)
 
-    bool     isReplayForHybridShift; // daqi: indicate that a random number replay is done with the hybrid shift in mind (invalidated if invertibility is violated)
-    bool isReplayForHybridShiftSMS;
+    // daqi: indicate that a random number replay is done with the hybrid shift in mind (invalidated if invertibility is violated)
+    ReplayMode replayMode = ReplayMode::None;
+
     bool isLastLastVertexClassifiedAsRough;
 
     //  HybridSMS

@@ -90,6 +90,7 @@ float3 computeShiftedIntegrand_(const RestirPathTracerParams params, inout float
 }
 
 
+// Doing basic random replay
 float3 computeShiftedIntegrandRandomReplay(const RestirPathTracerParams params, bool usePrev, inout float dstJacobian, const PackedHitInfo dstPrimaryHitPacked, ShadingData dstPrimarySd, ShadingData srcPrimarySd,
     inout PathReservoir tempPathReservoir)
 {

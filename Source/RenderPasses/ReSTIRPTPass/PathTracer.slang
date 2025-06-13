@@ -195,11 +195,12 @@ struct PathTracer
         path.rcVertexPathTreeIrradiance = float3(0.f);
 
         path.LDeltaDirect = float3(0.f);
-        path.enableRandomReplay = false;
         path.useHybridShift = ShiftMapping(kShiftStrategy) == ShiftMapping::Hybrid;
+        path.enableRandomReplay = false;
+        path.replayMode = ReplayMode::None;
+
         path.isLastVertexClassifiedAsRough = true;
         path.isLastLastVertexClassifiedAsRough = true;
-        path.isReplayForHybridShift = false;
 
         // Load the primary hit info from the V-buffer.
         // If invalid, the path is still active and treated as a miss.
@@ -977,7 +978,7 @@ struct PathTracer
         // - Sample scatter ray or terminate
 
         // setupPathLogging(path);
-        if(gIsDebug) print("handleHit -- begin", 0);
+        print("handleHit -- begin", 0);
 
         TriangleHit th = path.hit.getTriangleHit();
 
@@ -1052,7 +1053,7 @@ struct PathTracer
             float misWeight = 1.f;
             float3 Lr = 0.f;
 
-            if(gIsDebug) print("- Compute emissive: Begin", 0);
+            print("- Compute emissive: Begin", 0);
 
 
             if (kUseEmissiveLights && kUseNEE && kUseMIS && !isPrimaryHit && path.isLightSampled() && isLightSamplable)
@@ -1153,13 +1154,7 @@ struct PathTracer
                     //  This essentially means if(distanceConditionPass && roughnessConditionPass)
                     if (!(params.localStrategyType & (uint)LocalStrategy::DistanceCondition && !isFarField || params.localStrategyType & (uint)LocalStrategy::RoughnessCondition && !isLastVertexAcceptableForRcPrev))
                     {
-                        if (path.isReplayForHybridShift) // non-invertible case
-                        {
-                            // If currently doing random number replay for HybridShift and found that the current escape vertex is suitable for an RCVertex then remove the path contribution.
-                            //  Why???
-                            path.L = 0.f;
-                        }
-                        else
+                        if (path.replayMode == ReplayMode::None)
                         {
 
                             print("--- the escaped vertex is also a RC", 0);
@@ -1189,6 +1184,14 @@ struct PathTracer
 	                            geometryFactor
                             );
                         }
+                        else
+                        {
+                            // non-invertible case
+
+                            // If currently doing random number replay for HybridShift and found that the current escape vertex is suitable for an RCVertex then remove the path contribution.
+                            //  Why???
+                            path.L = 0.f;
+                        }
                     }
 
                     // TODO: Add support for HybridShiftSMS
@@ -1198,7 +1201,7 @@ struct PathTracer
                 }
             }
 
-            if(gIsDebug) print("- Compute emissive: end", 0);
+            print("- Compute emissive: end", 0);
         }
 
 
@@ -1268,7 +1271,7 @@ struct PathTracer
 
         // daqi: if we are not doing a hybrid shift replay, we should check if current vertex satisfy the condition to be used as a rcVertex
 
-        if (!path.isReplayForHybridShift && PathSamplingMode(kPathSamplingMode) != PathSamplingMode::PathTracing)
+        if (path.replayMode == ReplayMode::None && PathSamplingMode(kPathSamplingMode) != PathSamplingMode::PathTracing)
         {
             print("- Considering if current vertex can be a RC", 0);
 
@@ -1368,9 +1371,9 @@ struct PathTracer
                 }
             }
         }
-        //else if (PathSamplingMode(kPathSamplingMode) != PathSamplingMode::PathTracing)
         else if (PathSamplingMode(kPathSamplingMode) != PathSamplingMode::PathTracing
-             && path.isReplayForHybridShift )
+                // Should this be != ReplayMode::None instead?
+             && path.replayMode == ReplayMode::HybridShift )
         {
             // Currently tracing random number replay path for hybrid shift
             print("- Doing random replay for hybrid shift", 0);
@@ -1451,7 +1454,7 @@ struct PathTracer
             }
         }
         else if (PathSamplingMode(kPathSamplingMode) != PathSamplingMode::PathTracing
-            && path.isReplayForHybridShiftSMS)
+            && path.replayMode == ReplayMode::HybridShiftSMS)
         {
             // TODO: Currently tracing random replay for Hybrid shift with Specular Manifold Sampling
             print("-- Doing random replay for hybrid shift SMS", 0);
@@ -1471,12 +1474,12 @@ struct PathTracer
             // generate kNEESamples light samples
             if (sampleLights && (!path.enableRandomReplay || terminateRandomReplayForNEE))
             {
-                if(gIsDebug) print("-- Sample light: kNEESamples light samples", 0);
+                print("-- Sample light: kNEESamples light samples", 0);
 
                 // cache (NEE sampling) seed for temporal validation (only possible for non early direction reuse since it uses the cachedRandomSeed slot)
                 if (path.length == path.pathBuilder.rcVertexLength)
                 {
-                    if(gIsDebug) print("--- Sample light: cache seed for RC", 0);
+                    print("--- Sample light: cache seed for RC", 0);
 
                     path.pathBuilder.cachedRandomSeed = path.sg.getCurrentSeed();
                 }
@@ -1583,7 +1586,7 @@ struct PathTracer
             else
                 // daqi: for random number replay, we should skip the random numbers for NEE if we should not terminate on current bounce
             {
-                if(gIsDebug) print("-- Sample light: skip light sample", 0);
+                print("-- Sample light: skip light sample", 0);
 
                 if (path.enableRandomReplay && sampleLights)
                 {
@@ -1596,14 +1599,14 @@ struct PathTracer
                 skipLightSampleRandomNumbers(path.sg);
             }
 
-            if(gIsDebug) print("- Sample light: End", 0);
+            print("- Sample light: End", 0);
 
         }
 
         // daqi: terminate the path if the bounce of random replay reaches the desired bounce and the base path is an NEE path
         if (terminateRandomReplayForNEE)
         {
-            if(gIsDebug) print("terminateRandomReplayForNEE", 0);
+            print("terminateRandomReplayForNEE", 0);
             path.terminate();
             return;
         }
@@ -1620,7 +1623,7 @@ struct PathTracer
             {
                 if (terminatePathByRussianRoulette(path))
                 {
-                    if(gIsDebug) print("terminate by Russian Roulette", 0);
+                    print("terminate by Russian Roulette", 0);
                     return;
                 }
             }
@@ -1636,7 +1639,7 @@ struct PathTracer
         }
 
         // Generate the next path segment or terminate.
-        if(gIsDebug) print("Generate scatter ray", 0);
+        print("Generate scatter ray", 0);
 
         bool valid = generateScatterRay(sd, path);
 
@@ -1646,10 +1649,16 @@ struct PathTracer
         {
             bool seenAsConnectible = !path.isSpecularBounce() || sd.linearRoughness > params.specularRoughnessThreshold;
 
-            if (path.isReplayForHybridShift && seenAsConnectible && isLastVertexAcceptableForRcPrev && path.length >= 1)
+            if (path.replayMode == ReplayMode::HybridShift
+                && seenAsConnectible
+                && isLastVertexAcceptableForRcPrev
+                && path.length >= 1
+            )
             {
                 // check if near field rejection is satisfied
-                if (isFarField || !(params.localStrategyType & (uint)LocalStrategy::DistanceCondition))
+                if (isFarField
+                    || !(params.localStrategyType & (uint)LocalStrategy::DistanceCondition)
+                )
                 {
 
                     // Basically, if we're doing random number replay for
@@ -1661,7 +1670,11 @@ struct PathTracer
                     invalidateAndTerminateReplayPath(path);
                 }
             }
-            else if (!path.isReplayForHybridShift && path.useHybridShift && !seenAsConnectible)
+            else if (
+                path.useHybridShift
+                && path.replayMode == ReplayMode::None
+                && !seenAsConnectible
+            )
             {
                 // Tracing base path in HybridShift mapping mode and is not connectible.
                 if (is_rcVertex)
@@ -1671,7 +1684,9 @@ struct PathTracer
                     path.pathBuilder.rcVertexLength = kMaximumPathLength; // reset
                 }
             }
-            if (path.useHybridShift) isCurrentVertexClassifiedAsRough = seenAsConnectible;
+
+            if (path.useHybridShift)
+                isCurrentVertexClassifiedAsRough = seenAsConnectible;
         }
 
         // cache seed for temporal validation (only possible for non early direction reuse since it uses the cachedRandomSeed slot)
@@ -1683,7 +1698,7 @@ struct PathTracer
         // daqi: save the incoming direction on rcVertex
         if (is_rcVertex && valid && (int(path.length > 1) == 0 || !BPR))
         {
-            if(gIsDebug) print("- update rcVertexWi ", 0);
+            print("- update rcVertexWi ", 0);
 
             path.pathBuilder.rcVertexWi[0] = path.dir;
         }
@@ -1729,14 +1744,14 @@ struct PathTracer
         // Terminate if this is the last path vertex and light sampling already completely sampled incident radiance.
         if (kUseNEE && !kUseMIS && isLastVertex && path.isLightSamplable())
         {
-            if(gIsDebug) print("terminate at last vertex with NEE ", 0);
+            print("terminate at last vertex with NEE ", 0);
             valid = false;
         }
 
         // Terminate caustics paths.
         if (kDisableCaustics && path.getBounces(BounceType::Diffuse) > 0 && path.isSpecular())
         {
-            if(gIsDebug) print("terminate because disabled caustic path", 0);
+            print("terminate because disabled caustic path", 0);
             valid = false;
         }
 
@@ -1745,7 +1760,7 @@ struct PathTracer
             path.terminate();
         }
 
-        if(gIsDebug) print("handleHit -- end", 0);
+        print("handleHit -- end", 0);
 
     }
 
@@ -1848,7 +1863,8 @@ struct PathTracer
                     // daqi: in the case of escaped to infinitely far, we always satisfy the far field requirement
                     if (!(params.localStrategyType & (uint)LocalStrategy::RoughnessCondition && !isLastVertexAcceptableForRcPrev))
                     {
-                        if (path.isReplayForHybridShift) // non-invertible case
+                        // non-invertible case
+                        if (path.replayMode == ReplayMode::HybridShift)
                         {
                             print("-- non-invertiable case", 0);
 
@@ -1892,7 +1908,7 @@ struct PathTracer
 
         path.terminate();
 
-        if(gIsDebug) print("handleMiss -- end", 0);
+        print("handleMiss -- end", 0);
     }
 
     // function to trace a path using random number replay
@@ -1901,7 +1917,7 @@ struct PathTracer
     {
         PathState path;
         generateRandomReplayPath(path, hit, ray, tempPathReservoir.initRandomSeed, tempPathReservoir.pathFlags.pathLength(), tempPathReservoir.pathFlags.lastVertexNEE(), false);
-        path.isReplayForHybridShift = false;
+        path.replayMode = ReplayMode::None;
 
         path.origin = sd.computeNewRayOrigin();
 
@@ -1953,9 +1969,6 @@ struct PathTracer
      * @param initRandomSeed Base path's beginning seed for random replay
      * @param reconnectionData Output reconnection data
      * @param debugPathData Ouput path history for visualization
-     * @param isHybridShiftSMS Is this random replay going to be used for HybridShiftSMS
-     *
-     * @return path contribution.
      */
     void traceRandomReplayPathHybridSimple(
         HitInfo hit,
@@ -1978,10 +1991,18 @@ struct PathTracer
 
         path.useHybridShift = true;
 
-        bool isHybridShiftSMS = ShiftMapping(kShiftStrategy) == ShiftMapping::HybridShiftSMS;
-
-        //  TODO: Refactor this flag
-        path.isReplayForHybridShift = true;
+        if (ShiftMapping(kShiftStrategy) == ShiftMapping::HybridShiftSMS)
+        {
+            path.replayMode = ReplayMode::HybridShiftSMS;
+        }
+        else if (ShiftMapping(kShiftStrategy) == ShiftMapping::Hybrid)
+        {
+            path.replayMode = ReplayMode::HybridShift;
+        }
+        else
+        {
+            path.replayMode = ReplayMode::None;
+        }
 
         path.pathBuilder.rcVertexLength = pathFlags.rcVertexLength();
 
@@ -2092,7 +2113,7 @@ struct PathTracer
         bool isRcVertexEscapedVertex = pathFlags.pathLength() + 1 == pathFlags.rcVertexLength();
         generateRandomReplayPath(path, hit, ray, initRandomSeed, pathFlags.pathLength(), pathFlags.lastVertexNEE(), isRcVertexEscapedVertex);
         path.useHybridShift = true;
-        path.isReplayForHybridShift = true;
+        path.replayMode = ReplayMode::HybridShift;
         path.pathBuilder.rcVertexLength = pathFlags.rcVertexLength();
 
         if (path.pathBuilder.rcVertexLength > 1)
@@ -2179,7 +2200,7 @@ struct PathTracer
             generateRandomReplayPath(path, tempPathReservoir.rcVertexHit.getHitInfo(), emptyRay, tempPathReservoir.rcRandomSeed, tempPathReservoir.pathFlags.pathLength(), tempPathReservoir.pathFlags.lastVertexNEE(), isRcVertexEscapedVertex);
             path.length = rcVertexLength;
             path.useHybridShift = false;
-            path.isReplayForHybridShift = false;
+            path.replayMode = ReplayMode::None;
 
             uint lobes = getBSDFLobes(rcVertexSd);
             bool sampleUpperHemisphere = ((lobes & (uint)LobeType::NonDeltaReflection) != 0);
