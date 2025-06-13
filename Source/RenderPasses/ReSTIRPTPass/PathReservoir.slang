@@ -157,6 +157,7 @@ struct ReconnectionData
     float3 rcPrevWo;       // 12 bytes
     float3 rcPrevPrevWo; // 12 bytes
     float3 pathThroughput; // 12 bytes
+
     __init(
         HitInfo rcPrevHit,
         float3 rcPrevWo,
@@ -170,6 +171,12 @@ struct ReconnectionData
         this.rcPrevPrevHit = rcPrevPrevHit;
         this.rcPrevPrevWo = rcPrevPrevWo;
         this.pathThroughput = pathThroughput;
+    }
+
+    //  Overload constructor for default values
+    __init()
+    {
+        this.Init();
     }
 
     [mutating]

@@ -1951,25 +1951,19 @@ struct PathTracer
      * @param ray Offset path Ray
      * @param pathFlags Base path's ReSTIRPathFlags
      * @param initRandomSeed Base path's beginning seed for random replay
-     * @param rcPrevHit Output HitInfo at the vertex before RC Vertex
-     * @param rcPrevHitWo Output outgoing direction at the vertex before RC vertex
-     * @param rcPrevPrevHit Output HitInfo at two vertices before RC Vertex
-     * @param rcPrevPrevHitWo Output outgoing direction at two vertices before RC vertex
+     * @param reconnectionData Output reconnection data
      * @param debugPathData Ouput path history for visualization
      * @param isHybridShiftSMS Is this random replay going to be used for HybridShiftSMS
      *
      * @return path contribution.
      */
-    float3 traceRandomReplayPathHybridSimple(
+    void traceRandomReplayPathHybridSimple(
         HitInfo hit,
         ShadingData sd,
         Ray ray,
         ReSTIRPathFlags pathFlags,
         uint initRandomSeed,
-        inout HitInfo rcPrevHit,
-        inout float3 rcPrevHitWo,
-        inout HitInfo rcPrevPrevHit,
-        inout float3 rcPrevPrevHitWo,
+        inout ReconnectionData reconnectionData,
         inout DebugPathData debugPathData
     )
     {
@@ -1988,13 +1982,8 @@ struct PathTracer
 
         //  TODO: Refactor this flag
         path.isReplayForHybridShift = true;
-        path.pathBuilder.rcVertexLength = pathFlags.rcVertexLength();
 
-        // Set data before termination
-        rcPrevHit = HitInfo();
-        rcPrevHitWo = float3(0.f);
-        rcPrevPrevHit = HitInfo();
-        rcPrevPrevHitWo = float3(0.f);
+        path.pathBuilder.rcVertexLength = pathFlags.rcVertexLength();
 
         //  Init DebugPathData for visualization
         debugPathData.vertexCount = 0;
@@ -2024,7 +2013,8 @@ struct PathTracer
         }
         else
         {
-            return 0.f;
+            reconnectionData.pathThroughput = float3(0.f);
+            return;
         }
 
         DebugVertexState debugVertexState;
@@ -2057,7 +2047,8 @@ struct PathTracer
             // non-invertible: path length doesn't match
             if (path.length != pathFlags.pathLength())
             {
-                return 0.f;
+                reconnectionData.pathThroughput = float3(0.f);
+                return;
             }
         }
 
@@ -2068,8 +2059,8 @@ struct PathTracer
         //  If the reservoir have RC, return infomation of the vertex before RC
         if (pathFlags.rcVertexLength() <= pathFlags.pathLength() || isRcVertexEscapedVertex)
         {
-            rcPrevHit = path.rcPrevVertexHit;
-            rcPrevHitWo = path.rcPrevVertexWo;
+            reconnectionData.rcPrevHit = path.rcPrevVertexHit;
+            reconnectionData.rcPrevWo = path.rcPrevVertexWo;
             L = path.getCurrentThp();
 
             //  If RC vertex is part of DSD chain
@@ -2090,7 +2081,8 @@ struct PathTracer
 
         print("-- traceRandomReplayPathHybridSimple: end", 0);
 
-        return L;
+        reconnectionData.pathThroughput = L;
+        return;
     }
 
     void traceRandomReplayGetDenoiserData(HitInfo hit, ShadingData sd, Ray ray, ReSTIRPathFlags pathFlags,

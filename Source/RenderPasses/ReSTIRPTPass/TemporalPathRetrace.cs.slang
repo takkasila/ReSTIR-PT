@@ -146,17 +146,8 @@ struct PathRetracePass
         // talbot MIS
         // compute mis weight for current pixel
 
-        HitInfo dstRcPrevVertexHit1;
-        float3 dstRcPrevVertexWo1;
-        HitInfo dstRcPrevPrevVertexHit1;
-        float3 dstRcPrevPrevVertexWo1;
-        float3 Tp1;
-
-        HitInfo dstRcPrevVertexHit2;
-        float3 dstRcPrevVertexWo2;
-        HitInfo dstRcPrevPrevVertexHit2;
-        float3 dstRcPrevPrevVertexWo2;
-        float3 Tp2;
+        ReconnectionData centralReservoirReconnectionData;
+        ReconnectionData temporalReservoirReconnectionData;
 
         // write to memory
         if (centralReservoir.pathFlags.rcVertexLength() > 1)
@@ -164,26 +155,17 @@ struct PathRetracePass
             print("- traceHybridShiftRays centralReservoir", 0);
 
             //  Use previous frame data
-            Tp1 = traceHybridShiftRays(
+            traceHybridShiftRays(
                 params,
                 true,
                 temporalPrimaryHitPacked,
                 temporalPrimarySd,
                 centralReservoir,
-                dstRcPrevVertexHit1,
-                dstRcPrevVertexWo1,
-                dstRcPrevPrevVertexHit1,
-                dstRcPrevPrevVertexWo1,
+                centralReservoirReconnectionData,
                 debugPathData1
             );
 
-            reconnectionDataBuffer[centralOffset].data[0] = ReconnectionData(
-                dstRcPrevVertexHit1,
-                dstRcPrevVertexWo1,
-                dstRcPrevPrevVertexHit1,
-                dstRcPrevPrevVertexWo1,
-                Tp1
-            );
+            reconnectionDataBuffer[centralOffset].data[0] = centralReservoirReconnectionData;
 
             if (isDebug)
             {
@@ -192,8 +174,8 @@ struct PathRetracePass
                 print("- pathLength", centralReservoir.pathFlags.pathLength());
 
                 bool isValidRCD = (
-                    any(Tp1 > 0.f)
-                    && (dstRcPrevVertexHit1.isValid())
+                    any(centralReservoirReconnectionData.pathThroughput > 0.f)
+                    && (centralReservoirReconnectionData.rcPrevHit.isValid())
                 );
 
                 if (isValidRCD)
@@ -213,31 +195,23 @@ struct PathRetracePass
         {
             print("- traceHybridShiftRays temporalReservoir", 0);
 
-            Tp2 = traceHybridShiftRays(
+            traceHybridShiftRays(
                 params,
                 false,
                 centralPrimaryHitPacked,
                 centralPrimarySd,
                 temporalReservoir,
-                dstRcPrevVertexHit2,
-                dstRcPrevVertexWo2,
-                dstRcPrevPrevVertexHit2,
-                dstRcPrevPrevVertexWo2,
+                temporalReservoirReconnectionData,
                 debugPathData2
             );
-            reconnectionDataBuffer[centralOffset].data[1] = ReconnectionData(
-                dstRcPrevVertexHit2,
-                dstRcPrevVertexWo2,
-                dstRcPrevPrevVertexHit2,
-                dstRcPrevPrevVertexWo2,
-                Tp2
-            );
+
+            reconnectionDataBuffer[centralOffset].data[1] = temporalReservoirReconnectionData;
 
             if (isDebug)
             {
                 bool isValidRCD = (
-                    any(Tp2 > 0.f)
-                    && (dstRcPrevVertexHit2.isValid())
+                    any(temporalReservoirReconnectionData.pathThroughput > 0.f)
+                    && (temporalReservoirReconnectionData.rcPrevHit.isValid())
                 );
 
                 if(isValidRCD)

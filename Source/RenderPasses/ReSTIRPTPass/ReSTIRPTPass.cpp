@@ -1227,7 +1227,6 @@ void ReSTIRPTPass::prepareResources(RenderContext* pRenderContext, const RenderD
                 mpTemporalReservoirs.size() != mStaticParams.samplesPerPixel && mStaticParams.pathSamplingMode != PathSamplingMode::PathReuse))
         {
             mpOutputReservoirs = Buffer::createStructured(var["outputReservoirs"], reservoirCount, Resource::BindFlags::ShaderResource | Resource::BindFlags::UnorderedAccess, Buffer::CpuAccess::None, nullptr, false);
-            //printf("reservoir size: %d\n", mpOutputReservoirs->getElementSize());
 
             if (mStaticParams.pathSamplingMode != PathSamplingMode::PathReuse)
             {
