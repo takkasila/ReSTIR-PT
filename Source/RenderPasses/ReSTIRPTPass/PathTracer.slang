@@ -1983,18 +1983,18 @@ struct PathTracer
         generateRandomReplayPath(path, hit, ray, initRandomSeed, pathFlags.pathLength(), pathFlags.lastVertexNEE(), isRcVertexEscapedVertex);
 
         path.useHybridShift = true;
-        // bool isHybridShiftSMS = ShiftMapping(kShiftStrategy) == ShiftMapping::HybridShiftSMS;
-        bool isHybridShiftSMS = true;
-        path.isReplayForHybridShift = !isHybridShiftSMS;
-        path.isReplayForHybridShiftSMS = isHybridShiftSMS;
 
+        bool isHybridShiftSMS = ShiftMapping(kShiftStrategy) == ShiftMapping::HybridShiftSMS;
+
+        //  TODO: Refactor this flag
+        path.isReplayForHybridShift = true;
         path.pathBuilder.rcVertexLength = pathFlags.rcVertexLength();
 
-        //  Set data before termination
+        // Set data before termination
         rcPrevHit = HitInfo();
-        rcPrevHitWo = float3(0);
+        rcPrevHitWo = float3(0.f);
         rcPrevPrevHit = HitInfo();
-        rcPrevPrevHitWo = float3(0);
+        rcPrevPrevHitWo = float3(0.f);
 
         //  Init DebugPathData for visualization
         debugPathData.vertexCount = 0;

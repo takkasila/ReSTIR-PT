@@ -142,14 +142,12 @@ struct PathRetracePass
             if (!isValidPackedHitInfo(neighborPrimaryHitPacked)) continue;
             if (!isValidGeometry(centralPrimarySd, neighborPrimarySd)) continue;
 
-            //  Base path is central reservoir
             HitInfo dstRcPrevVertexHit1;
             float3 dstRcPrevVertexWo1;
             HitInfo dstRcPrevPrevVertexHit1;
             float3 dstRcPrevPrevVertexWo1;
             float3 Tp1;
 
-            //  Base path is temporal reservoir
             HitInfo dstRcPrevVertexHit2;
             float3 dstRcPrevVertexWo2;
             HitInfo dstRcPrevPrevVertexHit2;
@@ -175,7 +173,13 @@ struct PathRetracePass
                     debugPathData1
                 );
 
-                reconnectionDataBuffer[centralOffset].data[2 * i] = ReconnectionData(dstRcPrevVertexHit1, dstRcPrevVertexWo1, dstRcPrevPrevVertexHit1, dstRcPrevPrevVertexWo1, Tp1);
+                reconnectionDataBuffer[centralOffset].data[2 * i] = ReconnectionData(
+                    dstRcPrevVertexHit1,
+                    dstRcPrevVertexWo1,
+                    dstRcPrevPrevVertexHit1,
+                    dstRcPrevPrevVertexWo1,
+                    Tp1
+                );
             }
 
             if (neighborReservoir.pathFlags.rcVertexLength() > 1)
@@ -193,7 +197,13 @@ struct PathRetracePass
                     debugPathData2
                 );
 
-                reconnectionDataBuffer[centralOffset].data[2 * i + 1] = ReconnectionData(dstRcPrevVertexHit2, dstRcPrevVertexWo2, dstRcPrevPrevVertexHit2, dstRcPrevPrevVertexWo2, Tp2);
+                reconnectionDataBuffer[centralOffset].data[2 * i + 1] = ReconnectionData(
+                    dstRcPrevVertexHit2,
+                    dstRcPrevVertexWo2,
+                    dstRcPrevPrevVertexHit2,
+                    dstRcPrevPrevVertexWo2,
+                    Tp2
+                );
             }
         }
     }

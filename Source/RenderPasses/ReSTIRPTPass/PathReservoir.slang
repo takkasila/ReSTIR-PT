@@ -148,21 +148,27 @@ struct ReSTIRPathFlags
 
 };
 
-// 40/68 B
+// Prev: 40 B
+// Now: 68 B
 struct ReconnectionData
 {
     HitInfo rcPrevHit; // 16 bytes
-    //HitInfo rcPrevPrevHit; // 16 bytes
-    float3 rcPrevWo;   // 12 bytes
-    //float3 rcPrevPrevWo; // 12 bytes
+    HitInfo rcPrevPrevHit; // 16 bytes
+    float3 rcPrevWo;       // 12 bytes
+    float3 rcPrevPrevWo; // 12 bytes
     float3 pathThroughput; // 12 bytes
-
-    __init(HitInfo rcPrevHit, float3 rcPrevWo, HitInfo rcPrevPrevHit, float3 rcPrevPrevWo, float3 pathThroughput)
+    __init(
+        HitInfo rcPrevHit,
+        float3 rcPrevWo,
+        HitInfo rcPrevPrevHit,
+        float3 rcPrevPrevWo,
+        float3 pathThroughput
+    )
     {
         this.rcPrevHit = rcPrevHit;
         this.rcPrevWo = rcPrevWo;
-        //this.rcPrevPrevHit = rcPrevPrevHit;
-        //this.rcPrevPrevWo = rcPrevPrevWo;
+        this.rcPrevPrevHit = rcPrevPrevHit;
+        this.rcPrevPrevWo = rcPrevPrevWo;
         this.pathThroughput = pathThroughput;
     }
 
@@ -170,9 +176,9 @@ struct ReconnectionData
     void Init()
     {
         rcPrevHit.clear();
-        //rcPrevPrevHit.clear();
+        rcPrevPrevHit.clear();
+        rcPrevPrevWo = float3(0.f);
         rcPrevWo = float3(0.f);
-        //rcPrevPrevWo = float3(0.0f);
         pathThroughput = float3(1.f);
     }
 }
@@ -184,13 +190,11 @@ struct ReconnectionData
 //  real time size = 68 * 6 = 408
 //      16-align -> 408 + 8  = 416
 //  offline size = 68 * 12 = 816 -> already 16-aligned
+
 struct PixelReconnectionData
 {
     ReconnectionData data[RCDATA_PATH_NUM];
     float4 padding[RCDATA_PAD_SIZE]; //pad to 256 bytes
-//#if IS_ONLINE
-    //float padding[2];
-//#endif
 }
 
 

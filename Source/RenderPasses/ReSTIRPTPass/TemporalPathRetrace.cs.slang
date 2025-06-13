@@ -146,14 +146,12 @@ struct PathRetracePass
         // talbot MIS
         // compute mis weight for current pixel
 
-        //  Base path is central reservoir
         HitInfo dstRcPrevVertexHit1;
         float3 dstRcPrevVertexWo1;
         HitInfo dstRcPrevPrevVertexHit1;
         float3 dstRcPrevPrevVertexWo1;
-        float3 Tp;
+        float3 Tp1;
 
-        //  Base path is temporal reservoir
         HitInfo dstRcPrevVertexHit2;
         float3 dstRcPrevVertexWo2;
         HitInfo dstRcPrevPrevVertexHit2;
@@ -166,7 +164,7 @@ struct PathRetracePass
             print("- traceHybridShiftRays centralReservoir", 0);
 
             //  Use previous frame data
-            Tp = traceHybridShiftRays(
+            Tp1 = traceHybridShiftRays(
                 params,
                 true,
                 temporalPrimaryHitPacked,
@@ -179,7 +177,13 @@ struct PathRetracePass
                 debugPathData1
             );
 
-            reconnectionDataBuffer[centralOffset].data[0] = ReconnectionData(dstRcPrevVertexHit1, dstRcPrevVertexWo1, dstRcPrevPrevVertexHit1, dstRcPrevPrevVertexWo1, Tp);
+            reconnectionDataBuffer[centralOffset].data[0] = ReconnectionData(
+                dstRcPrevVertexHit1,
+                dstRcPrevVertexWo1,
+                dstRcPrevPrevVertexHit1,
+                dstRcPrevPrevVertexWo1,
+                Tp1
+            );
 
             if (isDebug)
             {
@@ -188,7 +192,7 @@ struct PathRetracePass
                 print("- pathLength", centralReservoir.pathFlags.pathLength());
 
                 bool isValidRCD = (
-                    any(Tp > 0.f)
+                    any(Tp1 > 0.f)
                     && (dstRcPrevVertexHit1.isValid())
                 );
 
@@ -221,8 +225,13 @@ struct PathRetracePass
                 dstRcPrevPrevVertexWo2,
                 debugPathData2
             );
-
-            reconnectionDataBuffer[centralOffset].data[1] = ReconnectionData(dstRcPrevVertexHit2, dstRcPrevVertexWo2, dstRcPrevPrevVertexHit2, dstRcPrevPrevVertexWo2, Tp2);
+            reconnectionDataBuffer[centralOffset].data[1] = ReconnectionData(
+                dstRcPrevVertexHit2,
+                dstRcPrevVertexWo2,
+                dstRcPrevPrevVertexHit2,
+                dstRcPrevPrevVertexWo2,
+                Tp2
+            );
 
             if (isDebug)
             {
