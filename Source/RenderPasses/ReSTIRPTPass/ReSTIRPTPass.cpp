@@ -689,7 +689,7 @@ void ReSTIRPTPass::execute(RenderContext* pRenderContext, const RenderData& rend
         mStaticParams.shiftStrategy = ShiftMapping::Reconnection;
         mEnableSpatialReuse = true;
     }
-    if (mStaticParams.shiftStrategy == ShiftMapping::Hybrid)
+    if (mStaticParams.shiftStrategy == ShiftMapping::Hybrid || mStaticParams.shiftStrategy == ShiftMapping::HybridShiftSMS)
     {
         // the ray tracing pass happens before spatial/temporal reuse,
         // so currently hybrid shift is only implemented for Pairwise and Talbot
@@ -892,7 +892,7 @@ bool ReSTIRPTPass::renderRenderingUI(Gui::Widgets& widget)
             }
         }
 
-        if (mStaticParams.pathSamplingMode == PathSamplingMode::ReSTIR && mStaticParams.shiftStrategy == ShiftMapping::Hybrid)
+        if (mStaticParams.pathSamplingMode == PathSamplingMode::ReSTIR && (mStaticParams.shiftStrategy == ShiftMapping::Hybrid || mStaticParams.shiftStrategy == ShiftMapping::HybridShiftSMS))
         {
             if (auto group = widget.group("Local Strategies", true))
             {
@@ -1160,7 +1160,7 @@ void ReSTIRPTPass::updatePrograms()
 {
     if (mRecompile == false) return;
 
-    mStaticParams.rcDataOfflineMode = mSpatialNeighborCount > 3 && mStaticParams.shiftStrategy == ShiftMapping::Hybrid;
+    mStaticParams.rcDataOfflineMode = mSpatialNeighborCount > 3 && (mStaticParams.shiftStrategy == ShiftMapping::Hybrid || mStaticParams.shiftStrategy == ShiftMapping::HybridShiftSMS);
 
     auto defines = mStaticParams.getDefines(*this);
 
@@ -1203,15 +1203,20 @@ void ReSTIRPTPass::prepareResources(RenderContext* pRenderContext, const RenderD
 
     if (mStaticParams.pathSamplingMode != PathSamplingMode::PathTracing)
     {
+        uint32_t onlineReconnectionBufferSize = 408;
+        uint32_t offlineReconnectionBufferSize = 816;
 
-        if (mStaticParams.shiftStrategy == ShiftMapping::Hybrid && (!mReconnectionDataBuffer ||
-            mStaticParams.rcDataOfflineMode && mReconnectionDataBuffer->getElementSize() != 512 ||
-            !mStaticParams.rcDataOfflineMode && mReconnectionDataBuffer->getElementSize() != 256))
+        bool isHybridShift = mStaticParams.shiftStrategy == ShiftMapping::Hybrid || mStaticParams.shiftStrategy == ShiftMapping::HybridShiftSMS;
+
+        if ( isHybridShift
+            && (!mReconnectionDataBuffer ||
+            mStaticParams.rcDataOfflineMode && mReconnectionDataBuffer->getElementSize() != offlineReconnectionBufferSize ||
+            !mStaticParams.rcDataOfflineMode && mReconnectionDataBuffer->getElementSize() != onlineReconnectionBufferSize))
         {
             mReconnectionDataBuffer = Buffer::createStructured(var["reconnectionDataBuffer"], reservoirCount, Resource::BindFlags::ShaderResource | Resource::BindFlags::UnorderedAccess, Buffer::CpuAccess::None, nullptr, false);
             //printf("rcDataSize size: %d\n", mReconnectionDataBuffer->getElementSize());
         }
-        if (mStaticParams.shiftStrategy != ShiftMapping::Hybrid)
+        if (!isHybridShift)
             mReconnectionDataBuffer = nullptr;
 
         uint32_t baseReservoirSize = 136;

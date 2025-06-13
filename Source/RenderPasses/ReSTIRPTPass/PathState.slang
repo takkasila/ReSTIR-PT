@@ -93,6 +93,10 @@ struct PathState
     HitInfo rcPrevVertexHit;   // daqi: save the previous vertex of rcVertex, used in hybrid shift replay, for later reconnection
     float3 rcPrevVertexWo; // daqi: save the outgoing direction at the previous vertex of rcVertex, used in hybrid shift replay, for later reconnection
 
+    //  For HybridShiftSMS reconnection
+    HitInfo rcPrevPrevVertexHit;
+    float3 rcPrevPrevVertexWo;
+
     float hitDist; // for NRD
 
     InteriorList interiorList;      ///< Interior list. Keeping track of a stack of materials with medium properties.

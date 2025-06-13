@@ -142,11 +142,16 @@ struct PathRetracePass
             if (!isValidPackedHitInfo(neighborPrimaryHitPacked)) continue;
             if (!isValidGeometry(centralPrimarySd, neighborPrimarySd)) continue;
 
-            HitInfo dstRcPrevVertexHit;
+            HitInfo dstRcPrevVertexHit1;
+            float3 dstRcPrevVertexWo1;
+            HitInfo dstRcPrevPrevVertexHit1;
+            float3 dstRcPrevPrevVertexWo1;
+            float3 Tp1;
+
             HitInfo dstRcPrevVertexHit2;
-            float3 dstRcPrevVertexWo;
             float3 dstRcPrevVertexWo2;
-            float3 Tp;
+            HitInfo dstRcPrevPrevVertexHit2;
+            float3 dstRcPrevPrevVertexWo2;
             float3 Tp2;
 
             DebugPathData debugPathData1;
@@ -154,14 +159,50 @@ struct PathRetracePass
             // write to memory
             if (centralReservoir.pathFlags.rcVertexLength() > 1)
             {
-                Tp = traceHybridShiftRays(params, false, neighborPrimaryHitPacked, neighborPrimarySd, centralReservoir, dstRcPrevVertexHit, dstRcPrevVertexWo, debugPathData1);
-                reconnectionDataBuffer[centralOffset].data[2 * i] = ReconnectionData(dstRcPrevVertexHit, dstRcPrevVertexWo, Tp);
+                Tp1 = traceHybridShiftRays(
+                    params,
+                    false,
+                    neighborPrimaryHitPacked,
+                    neighborPrimarySd,
+                    centralReservoir,
+                    dstRcPrevVertexHit1,
+                    dstRcPrevVertexWo1,
+                    dstRcPrevPrevVertexHit1,
+                    dstRcPrevPrevVertexWo1,
+                    debugPathData1
+                );
+
+                reconnectionDataBuffer[centralOffset].data[2 * i] = ReconnectionData(
+                    dstRcPrevVertexHit1,
+                    dstRcPrevVertexWo1,
+                    dstRcPrevPrevVertexHit1,
+                    dstRcPrevPrevVertexWo1,
+                    Tp1
+                );
             }
 
             if (neighborReservoir.pathFlags.rcVertexLength() > 1)
             {
-                Tp2 = traceHybridShiftRays(params, false, centralPrimaryHitPacked, centralPrimarySd, neighborReservoir, dstRcPrevVertexHit2, dstRcPrevVertexWo2, debugPathData2);
-                reconnectionDataBuffer[centralOffset].data[2 * i + 1] = ReconnectionData(dstRcPrevVertexHit2, dstRcPrevVertexWo2, Tp2);
+                Tp2 = traceHybridShiftRays(
+                    params,
+                    false,
+                    centralPrimaryHitPacked,
+                    centralPrimarySd,
+                    neighborReservoir,
+                    dstRcPrevVertexHit2,
+                    dstRcPrevVertexWo2,
+                    dstRcPrevPrevVertexHit2,
+                    dstRcPrevPrevVertexWo2,
+                    debugPathData2
+                );
+
+                reconnectionDataBuffer[centralOffset].data[2 * i + 1] = ReconnectionData(
+                    dstRcPrevVertexHit2,
+                    dstRcPrevVertexWo2,
+                    dstRcPrevPrevVertexHit2,
+                    dstRcPrevPrevVertexWo2,
+                    Tp2
+                );
             }
         }
     }
