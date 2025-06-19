@@ -195,7 +195,7 @@ struct PathTracer
         path.rcVertexPathTreeIrradiance = float3(0.f);
 
         path.LDeltaDirect = float3(0.f);
-        path.useHybridShift = ShiftMapping(kShiftStrategy) == ShiftMapping::Hybrid;
+        // path.useHybridShift = ShiftMapping(kShiftStrategy) == ShiftMapping::Hybrid;
         path.enableRandomReplay = false;
         path.replayMode = ReplayMode::None;
 
@@ -246,7 +246,8 @@ struct PathTracer
         path.rcVertexPathTreeIrradiance = float3(0.f);
 
         path.enableRandomReplay = true;
-        path.useHybridShift = ShiftMapping(kShiftStrategy) == ShiftMapping::Hybrid;
+        // path.replayMode will have to be set by the caller afterward
+        // path.useHybridShift = ShiftMapping(kShiftStrategy) == ShiftMapping::Hybrid;
         path.setHit(hit);
 
         path.origin = ray.origin;
@@ -1113,8 +1114,7 @@ struct PathTracer
                     path.rcVertexPathTreeIrradiance += path.thp * sd.emissive * misWeight;
                 }
                 bool selectedCurrentPath = path.pathBuilder.addEscapeVertex(params, max(0, path.length - 1), path.dir, Lr,
-                    path.length - 1 == path.pathBuilder.rcVertexLength ? path.thp * sd.emissive * misWeight : path.rcVertexPathTreeIrradiance,
-                    path.useHybridShift, path.russianRoulettePdf, misWeight, lightPdf, (uint)LightSampleType::Emissive, path.pathReservoir, path.enableRandomReplay);
+                    path.length - 1 == path.pathBuilder.rcVertexLength ? path.thp * sd.emissive * misWeight : path.rcVertexPathTreeIrradiance, path.russianRoulettePdf, misWeight, lightPdf, (uint)LightSampleType::Emissive, path.pathReservoir, path.enableRandomReplay);
 #else
                 //  Doing russian roulette. \varepsilon < (Lr / russianRoulettePdf)
                 //
@@ -1126,7 +1126,6 @@ struct PathTracer
                     path.dir,
                     Lr,
                     path.thp * sd.emissive * misWeight,
-                    path.useHybridShift,
                     path.russianRoulettePdf, misWeight, lightPdf,
                     (uint)LightSampleType::Emissive,
                     path.pathReservoir, path.enableRandomReplay
@@ -1140,7 +1139,7 @@ struct PathTracer
 
                 // daqi: if current escaped vertex has path.length >= 2, then it can be used as a rcVertex
                 if (selectedCurrentPath
-                    && path.useHybridShift
+                    && path.replayMode == ReplayMode::HybridShift
                     && path.length >= 2
                     && path.length < path.pathBuilder.rcVertexLength
                 )
@@ -1295,7 +1294,7 @@ struct PathTracer
             bool canConnectSMS = false;
 
             if (isDSDPath
-                && ShiftMapping(kShiftStrategy) == ShiftMapping::HybridShiftSMS
+                && (path.replayMode == ReplayMode::HybridShiftSMS)
             )
             {
 
@@ -1319,17 +1318,14 @@ struct PathTracer
                 print("-- canConnectSMS", canConnectSMS);
             }
 
-
-            bool isReconnectOrRandomReplayShiftMapping = (ShiftMapping(kShiftStrategy) == ShiftMapping::Reconnection) || (ShiftMapping(kShiftStrategy) == ShiftMapping::RandomReplay);
-
             // If either
-            //  - not useHybridShift (other shift mapping modes) and at primary hit
-            //  - or useHybridShift and canConnect
+            //  - not HybridShift or HybridShiftSMS and at primary hit
+            //  - or ShiftMapping::HybridShift and canConnect
             //  - or ShiftMapping::HybridShiftSMS and canConnectSMS
             if (
-                (isReconnectOrRandomReplayShiftMapping && path.length == 1)
-                || (path.useHybridShift && canConnect)
-                || ((ShiftMapping(kShiftStrategy) == ShiftMapping::HybridShiftSMS) && canConnectSMS)
+                ((path.replayMode == ReplayMode::None) && path.length == 1)
+                || ((path.replayMode == ReplayMode::HybridShift) && canConnect)
+                || ((path.replayMode == ReplayMode::HybridShiftSMS) && canConnectSMS)
             )
             {
                 print("-- setting is_rcVertex = true", 0);
@@ -1345,12 +1341,12 @@ struct PathTracer
 
                 float3 disp = path.prevOrigin - sd.posW;
 
-                if (ShiftMapping(kShiftStrategy) == ShiftMapping::Hybrid)
+                if (path.replayMode == ReplayMode::HybridShift)
                 {
                     // daqi: save geometry term as part of cachedJacobian
                     path.pathBuilder.cachedJacobian.z = abs(dot(sd.faceN, sd.V)) / dot(disp, disp);
                 }
-                else if (ShiftMapping(kShiftStrategy) == ShiftMapping::HybridShiftSMS)
+                else if (path.replayMode == ReplayMode::HybridShiftSMS)
                 {
                     // TODO: HybridSMS cache Jacobian
                     path.pathBuilder.rcPrevVertexHit.initFromHitInfo(path.prevHit);
@@ -1363,7 +1359,7 @@ struct PathTracer
                 }
 
                 // daqi: save the current path length as the rcVertex length
-                if (canConnect || canConnectSMS || !path.useHybridShift)
+                if (canConnect || canConnectSMS || (path.replayMode != ReplayMode::None))
                 {
                     print("-- save the current path length as the rcVertex length", 0);
 
@@ -1563,13 +1559,13 @@ struct PathTracer
                                 }
 
                                 bool selected = path.pathBuilder.addNeeVertex(params, path.length, ls.dir, Lr,
-                                    is_rcVertex ? weight * ls.Li * path.thp : path.rcVertexPathTreeIrradiance, path.useHybridShift,
+                                    is_rcVertex ? weight * ls.Li * path.thp : path.rcVertexPathTreeIrradiance,
                                     path.russianRoulettePdf, misWeight, ls.pdf, ls.lightType, path.pathReservoir, path.enableRandomReplay);
 #else
                                 //  addNeeSampledLightVertex
                                 //      Try to add current path contribution (Lr) into the reservoir.
                                 //      If successful (accepted sample), set the reservoir data to path.pathBuilder's data
-                                bool selected = path.pathBuilder.addNeeVertex(params, path.length, ls.dir, Lr, weight * ls.Li * path.thp, path.useHybridShift,
+                                bool selected = path.pathBuilder.addNeeVertex(params, path.length, ls.dir, Lr, weight * ls.Li * path.thp,
                                     path.russianRoulettePdf, misWeight, ls.pdf, ls.lightType, path.pathReservoir, path.enableRandomReplay);
 
                                 if (selected)
@@ -1671,8 +1667,7 @@ struct PathTracer
                 }
             }
             else if (
-                path.useHybridShift
-                && path.replayMode == ReplayMode::None
+                path.replayMode == ReplayMode::None
                 && !seenAsConnectible
             )
             {
@@ -1685,7 +1680,7 @@ struct PathTracer
                 }
             }
 
-            if (path.useHybridShift)
+            if (path.replayMode != ReplayMode::None)
                 isCurrentVertexClassifiedAsRough = seenAsConnectible;
         }
 
@@ -1704,7 +1699,7 @@ struct PathTracer
         }
 
         // Update path history for HybridSMS
-        if (ShiftMapping(kShiftStrategy) == ShiftMapping::HybridShiftSMS)
+        if (path.replayMode == ReplayMode::HybridShiftSMS)
         {
             if(path.length >= 1)
             {
@@ -1842,19 +1837,23 @@ struct PathTracer
                 }
                 bool selectedCurrentPath = path.pathBuilder.addEscapeVertex(params, path.length, path.dir, Lr,
                     path.length == path.pathBuilder.rcVertexLength ? path.thp * Le * misWeight : path.rcVertexPathTreeIrradiance,
-                    path.useHybridShift, path.russianRoulettePdf, misWeight, lightPdf, (uint)LightSampleType::EnvMap, path.pathReservoir, path.enableRandomReplay);
+                    path.russianRoulettePdf, misWeight, lightPdf, (uint)LightSampleType::EnvMap, path.pathReservoir, path.enableRandomReplay);
 #else
 
                 print("- Add escape vertex", 0);
 
                 // addBsdfSampledLightVertex
                 bool selectedCurrentPath = path.pathBuilder.addEscapeVertex(params, path.length, path.dir, Lr, path.thp * Le * misWeight,
-                    path.useHybridShift, path.russianRoulettePdf, misWeight, lightPdf, (uint)LightSampleType::EnvMap, path.pathReservoir, path.enableRandomReplay);
+                    path.russianRoulettePdf, misWeight, lightPdf, (uint)LightSampleType::EnvMap, path.pathReservoir, path.enableRandomReplay);
 #endif
                 print("- is selected current path as escape", selectedCurrentPath);
 
                 // daqi: if current escaped vertex has path.length >= 2, then it can be used as a rcVertex
-                if (selectedCurrentPath && path.useHybridShift && path.length >= 1 && path.length + 1 < path.pathBuilder.rcVertexLength)
+                if (selectedCurrentPath
+                    && (path.replayMode == ReplayMode::HybridShift)
+                    && path.length >= 1
+                    && path.length + 1 < path.pathBuilder.rcVertexLength
+                )
                 {
                     bool isLastVertexAcceptableForRcPrev = path.isLastVertexClassifiedAsRough;
 
@@ -1989,7 +1988,7 @@ struct PathTracer
         bool isRcVertexEscapedVertex = pathFlags.pathLength() + 1 == pathFlags.rcVertexLength();
         generateRandomReplayPath(path, hit, ray, initRandomSeed, pathFlags.pathLength(), pathFlags.lastVertexNEE(), isRcVertexEscapedVertex);
 
-        path.useHybridShift = true;
+        //path.useHybridShift = true;
 
         if (ShiftMapping(kShiftStrategy) == ShiftMapping::HybridShiftSMS)
         {
@@ -2112,7 +2111,7 @@ struct PathTracer
         PathState path;
         bool isRcVertexEscapedVertex = pathFlags.pathLength() + 1 == pathFlags.rcVertexLength();
         generateRandomReplayPath(path, hit, ray, initRandomSeed, pathFlags.pathLength(), pathFlags.lastVertexNEE(), isRcVertexEscapedVertex);
-        path.useHybridShift = true;
+        // path.useHybridShift = true;
         path.replayMode = ReplayMode::HybridShift;
         path.pathBuilder.rcVertexLength = pathFlags.rcVertexLength();
 
@@ -2199,7 +2198,7 @@ struct PathTracer
             bool isRcVertexEscapedVertex = false;
             generateRandomReplayPath(path, tempPathReservoir.rcVertexHit.getHitInfo(), emptyRay, tempPathReservoir.rcRandomSeed, tempPathReservoir.pathFlags.pathLength(), tempPathReservoir.pathFlags.lastVertexNEE(), isRcVertexEscapedVertex);
             path.length = rcVertexLength;
-            path.useHybridShift = false;
+            // path.useHybridShift = false;
             path.replayMode = ReplayMode::None;
 
             uint lobes = getBSDFLobes(rcVertexSd);

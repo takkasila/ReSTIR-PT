@@ -117,7 +117,7 @@ struct PathState
     bool     randomReplayIsNEE; // daqi: indicate the base path is a NEE path, therefore the random replay should also terminates as a NEE path
     bool     randomReplayIsEscaped; // daqi: indicate the base path is a escaped path, therefore the random replay should also terminates as a escaped path
     int      randomReplayLength; // daqi: the length of the random replay (same as the path length of the base path)
-    bool     useHybridShift;
+    //bool     useHybridShift;
     // this is used for hybrid shift or hybrid shift is being MIS'ed with (at both initial candidate generation and resampling)
     bool     isLastVertexClassifiedAsRough; // daqi: remembers if last vertex is classified as a diffuse vertex (used for specularskip in hybrid shift)
 
