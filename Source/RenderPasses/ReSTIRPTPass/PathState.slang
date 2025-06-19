@@ -48,6 +48,14 @@ enum class BounceType
     Volume                  = 3,    ///< Scatter event in heterogeneous volume.
 };
 
+//  Indicate whether random replay is done with hybrid shift or hybrid shift sms in mind
+enum ReplayMode
+{
+    None,
+    HybridShift,
+    HybridShiftSMS,
+};
+
 /** Packed path state. Contains all data from PathState in packed form.
     Default total size: 80 + (2*4) + (4-16) bytes.
 */
@@ -93,6 +101,10 @@ struct PathState
     HitInfo rcPrevVertexHit;   // daqi: save the previous vertex of rcVertex, used in hybrid shift replay, for later reconnection
     float3 rcPrevVertexWo; // daqi: save the outgoing direction at the previous vertex of rcVertex, used in hybrid shift replay, for later reconnection
 
+    //  For HybridShiftSMS reconnection
+    HitInfo rcPrevPrevVertexHit;
+    float3 rcPrevPrevVertexWo;
+
     float hitDist; // for NRD
 
     InteriorList interiorList;      ///< Interior list. Keeping track of a stack of materials with medium properties.
@@ -105,10 +117,25 @@ struct PathState
     bool     randomReplayIsNEE; // daqi: indicate the base path is a NEE path, therefore the random replay should also terminates as a NEE path
     bool     randomReplayIsEscaped; // daqi: indicate the base path is a escaped path, therefore the random replay should also terminates as a escaped path
     int      randomReplayLength; // daqi: the length of the random replay (same as the path length of the base path)
-    bool     useHybridShift; 
+    bool     useHybridShift;
     // this is used for hybrid shift or hybrid shift is being MIS'ed with (at both initial candidate generation and resampling)
-    bool     isReplayForHybridShift; // daqi: indicate that a random number replay is done with the hybrid shift in mind (invalidated if invertibility is violated)
     bool     isLastVertexClassifiedAsRough; // daqi: remembers if last vertex is classified as a diffuse vertex (used for specularskip in hybrid shift)
+
+    // daqi: indicate that a random number replay is done with the hybrid shift in mind (invalidated if invertibility is violated)
+    ReplayMode replayMode = ReplayMode::None;
+
+    bool isLastLastVertexClassifiedAsRough;
+
+    //  HybridSMS
+    float3 prevOrigin;
+
+    float3 wo;
+
+    HitInfo prevHit;
+    float3 prevWo;
+
+    HitInfo prevPrevHit;
+    float3 prevPrevWo;
 
     // Accessors
     float3 getCurrentThp() { return thp * prefixThp; }

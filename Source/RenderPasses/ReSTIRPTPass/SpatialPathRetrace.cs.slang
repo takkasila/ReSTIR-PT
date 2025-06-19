@@ -142,26 +142,41 @@ struct PathRetracePass
             if (!isValidPackedHitInfo(neighborPrimaryHitPacked)) continue;
             if (!isValidGeometry(centralPrimarySd, neighborPrimarySd)) continue;
 
-            HitInfo dstRcPrevVertexHit;
-            HitInfo dstRcPrevVertexHit2;
-            float3 dstRcPrevVertexWo;
-            float3 dstRcPrevVertexWo2;
-            float3 Tp;
-            float3 Tp2;
+            ReconnectionData centralReservoirReconnectionData;
+            ReconnectionData neighborReservoirReconnectionData;
 
             DebugPathData debugPathData1;
             DebugPathData debugPathData2;
+
             // write to memory
             if (centralReservoir.pathFlags.rcVertexLength() > 1)
             {
-                Tp = traceHybridShiftRays(params, false, neighborPrimaryHitPacked, neighborPrimarySd, centralReservoir, dstRcPrevVertexHit, dstRcPrevVertexWo, debugPathData1);
-                reconnectionDataBuffer[centralOffset].data[2 * i] = ReconnectionData(dstRcPrevVertexHit, dstRcPrevVertexWo, Tp);
+                traceHybridShiftRays(
+                    params,
+                    false,
+                    neighborPrimaryHitPacked,
+                    neighborPrimarySd,
+                    centralReservoir,
+                    centralReservoirReconnectionData,
+                    debugPathData1
+                );
+
+                reconnectionDataBuffer[centralOffset].data[2 * i] = centralReservoirReconnectionData;
             }
 
             if (neighborReservoir.pathFlags.rcVertexLength() > 1)
             {
-                Tp2 = traceHybridShiftRays(params, false, centralPrimaryHitPacked, centralPrimarySd, neighborReservoir, dstRcPrevVertexHit2, dstRcPrevVertexWo2, debugPathData2);
-                reconnectionDataBuffer[centralOffset].data[2 * i + 1] = ReconnectionData(dstRcPrevVertexHit2, dstRcPrevVertexWo2, Tp2);
+                traceHybridShiftRays(
+                    params,
+                    false,
+                    centralPrimaryHitPacked,
+                    centralPrimarySd,
+                    neighborReservoir,
+                    neighborReservoirReconnectionData,
+                    debugPathData2
+                );
+
+                reconnectionDataBuffer[centralOffset].data[2 * i + 1] = neighborReservoirReconnectionData;
             }
         }
     }

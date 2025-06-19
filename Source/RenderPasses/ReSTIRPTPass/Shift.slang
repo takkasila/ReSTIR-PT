@@ -81,6 +81,8 @@ float3 computeShiftedIntegrand_(const RestirPathTracerParams params, inout float
     }
     else if (ShiftMapping(kShiftStrategy) == ShiftMapping::Hybrid)
     {
+        //  dst: dst
+        //  src: src
         return computeShiftedIntegrandHybrid(params, usePrev, temporalUpdateForDynamicScene, dstJacobian, dstPrimaryHitPacked, dstPrimarySd, srcPrimarySd, srcReservoir, rcData, evalVisibility);
     }
 
@@ -88,6 +90,7 @@ float3 computeShiftedIntegrand_(const RestirPathTracerParams params, inout float
 }
 
 
+// Doing basic random replay
 float3 computeShiftedIntegrandRandomReplay(const RestirPathTracerParams params, bool usePrev, inout float dstJacobian, const PackedHitInfo dstPrimaryHitPacked, ShadingData dstPrimarySd, ShadingData srcPrimarySd,
     inout PathReservoir tempPathReservoir)
 {
@@ -200,20 +203,38 @@ float3 computeShiftedIntegrandHybrid(const RestirPathTracerParams params, bool u
     return Tp * rcTp;
 }
 
-float3 traceHybridShiftRays(const RestirPathTracerParams params, bool usePrev, const PackedHitInfo dstPrimaryHitPacked, const ShadingData dstPrimarySd,
-                            PathReservoir srcReservoir, inout HitInfo dstRcPrevVertexHit, inout float3 dstRcPrevVertexWo, inout DebugPathData debugPathData)
+void traceHybridShiftRays(
+    const RestirPathTracerParams params,
+    bool usePrev,
+    const PackedHitInfo dstPrimaryHitPacked,
+    const ShadingData dstPrimarySd,
+    PathReservoir srcReservoir,
+    inout ReconnectionData reconnectionData,    // dst
+    inout DebugPathData debugPathData
+)
 {
+    if (srcReservoir.weight == 0.f)
+    {
+        reconnectionData.pathThroughput = float3(0.f);
+        return;
+    }
+
     // usePrev means use previous frame data
-    if (srcReservoir.weight == 0.f) return 0.f;
 
     HitInfo dstPrimaryHit;
 
     dstPrimaryHit.unpack(dstPrimaryHitPacked);
     Ray ray = Ray(gScene.camera.getPosition(usePrev), -dstPrimarySd.V, 0, kRayTMax); // this ray can be arbitrary, does not affect results
 
-    float3 Tp = gPathTracer.traceRandomReplayPathHybridSimple(dstPrimaryHit, dstPrimarySd, ray, srcReservoir.pathFlags, srcReservoir.initRandomSeed, dstRcPrevVertexHit, dstRcPrevVertexWo, debugPathData);
-
-    return Tp;
+    gPathTracer.traceRandomReplayPathHybridSimple(
+        dstPrimaryHit,
+        dstPrimarySd,
+        ray,
+        srcReservoir.pathFlags,
+        srcReservoir.initRandomSeed,
+        reconnectionData,
+        debugPathData
+    );
 }
 
 
@@ -582,6 +603,8 @@ bool shiftAndMergeReservoir(const RestirPathTracerParams params, bool temporalUp
                                     const ShadingData srcPrimarySd, const PathReservoir srcReservoir, ReconnectionData rcData, bool evalVisibility, inout SampleGenerator sg, bool isSpatialReuse, float misWeight = 1.f, bool forceMerge = false)
 {
     PathReservoir tempPathReservoir = srcReservoir;
+    // dst: dst
+    // src: src
     float3 dstIntegrand = computeShiftedIntegrand_(params, dstJacobian, dstPrimaryHitPacked, dstPrimarySd, srcPrimarySd,
                                                             tempPathReservoir, rcData, evalVisibility, false, temporalUpdateForDynamicScene);
 

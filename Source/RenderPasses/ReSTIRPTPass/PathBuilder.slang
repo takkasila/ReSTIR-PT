@@ -30,6 +30,9 @@ struct PathBuilder
     int rcVertexLength = kMaximumPathLength;
     ReSTIRPathFlags pathFlags;
     float3 cachedJacobian = 1.f;
+    TriMeshHitInfo rcPrevVertexHit;
+    TriMeshHitInfo rcPrevPrevVertexHit;
+    float3 rcPrevPrevVertexWo = float3(0.f);
 
     [mutating]
     void init<S : ISampleGenerator>(inout S sg)
@@ -37,6 +40,8 @@ struct PathBuilder
         this.sg = TinyUniformSampleGenerator(jenkinsHash(sg.next()));
         rcVertexWi[0] = float3(0.f);
         rcVertexHit.instanceID = 0xffffffff;
+        rcPrevVertexHit.instanceID = 0xffffffff;
+        rcPrevPrevVertexHit.instanceID = 0xffffffff;
 #if BPR
         rcVertexWi[1] = float3(0.f);
 #endif
@@ -54,6 +59,7 @@ struct PathBuilder
         pathReservoir.M = 1;
     }
 
+    // addBsdfSampledLightVertex
     [mutating]
     bool addEscapeVertex(RestirPathTracerParams params, uint pathLength, float3 wi, float3 pathWeight, float3 postfixWeight, bool useHybridShift,
         float russianroulettePDF, float misWeight, float lightPdf, int lightType, inout PathReservoir pathReservoir, bool forceAdd = false)
@@ -84,6 +90,9 @@ struct PathBuilder
             pathReservoir.pathFlags.insertPathLength(pathLength); // excluding the NEE vertex
             pathReservoir.pathFlags.insertRcVertexLength(rcVertexLength);
 #else
+            // Try to add the current path in to the reservoir.
+            //  If accepted as a current reservoir value,
+            //  then copy the reset of path data.
             if (forceAdd || pathReservoir.add(pathWeight, russianroulettePDF, sg))
             {
                 selected = true;
@@ -95,6 +104,9 @@ struct PathBuilder
                 pathReservoir.F = pathWeight;
                 pathReservoir.rcVertexWi[0] = rcVertexWi[0];
                 pathReservoir.rcVertexHit = rcVertexHit;
+                pathReservoir.rcPrevVertexHit = rcPrevVertexHit;
+                pathReservoir.rcPrevPrevVertexHit = rcPrevPrevVertexHit;
+                pathReservoir.rcPrevPrevVertexWo = rcPrevPrevVertexWo;
 
                 pathReservoir.cachedJacobian = cachedJacobian;
 
@@ -114,6 +126,7 @@ struct PathBuilder
         return selected;
     }
 
+    // addNeeSampledLightVertex
     [mutating]
     bool addNeeVertex(RestirPathTracerParams params, uint pathLength, float3 wi, float3 pathWeight, float3 postfixWeight, bool useHybridShift,
         float russianroulettePDF, float misWeight, float lightPdf, int lightType, inout PathReservoir pathReservoir, bool forceAdd = false)
@@ -160,6 +173,9 @@ struct PathBuilder
                 pathReservoir.F = pathWeight;
                 pathReservoir.rcVertexWi[0] = rcVertexWi[0];
                 pathReservoir.rcVertexHit = rcVertexHit;
+                pathReservoir.rcPrevVertexHit = rcPrevVertexHit;
+                pathReservoir.rcPrevPrevVertexHit = rcPrevPrevVertexHit;
+                pathReservoir.rcPrevPrevVertexWo = rcPrevPrevVertexWo;
 
                 pathReservoir.cachedJacobian = cachedJacobian;
 
@@ -179,12 +195,17 @@ struct PathBuilder
         return selected;
     }
 
-    [mutating] void markEscapeVertexAsRcVertex(RestirPathTracerParams params, uint pathLength, inout PathReservoir pathReservoir, HitInfo hit, bool isDelta,
+    [mutating] void markEscapeVertexAsRcVertex(RestirPathTracerParams params, uint pathLength, inout PathReservoir pathReservoir, HitInfo hit, HitInfo prevHit, HitInfo prevPrevHit, float3 prevPrevPrevWo, bool isDelta,
         bool isTransmission, bool isSpecularBounce, float lightPdf, uint lightType, float3 rcVertexIrradiance, float3 rcVertexWi, float prevScatterPdf, float geometryFactor)
     {
         pathReservoir.pathFlags.insertRcVertexLength(pathLength);
 
         pathReservoir.rcVertexHit.initFromHitInfo(hit);
+
+        pathReservoir.rcPrevVertexHit.initFromHitInfo(prevHit);
+        pathReservoir.rcPrevPrevVertexHit.initFromHitInfo(prevPrevHit);
+        pathReservoir.rcPrevPrevVertexWo = prevPrevPrevWo;
+
         pathReservoir.pathFlags.insertIsDeltaEvent(isDelta, true);
         pathReservoir.pathFlags.insertIsTransmissionEvent(isTransmission, true);
         pathReservoir.pathFlags.insertIsSpecularBounce(isSpecularBounce, true);

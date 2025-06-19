@@ -6,6 +6,12 @@ BEGIN_NAMESPACE_FALCOR
 #ifdef HOST_CODE
     // for memcpy
     #include <cstring>
+
+    #define ALIGNAS(x) alignas(x)
+
+#else
+    #define ALIGNAS(x)
+
 #endif
 
 #define kMaxPathLength 15
@@ -14,7 +20,12 @@ BEGIN_NAMESPACE_FALCOR
 struct DebugPathData
 {
     uint vertexCount = 0;
-    bool hasRCVertex = false;
+    //  boolean padding:
+    //      - CPU: 1 B
+    //      - GPU: 4 B
+    //  We format CPU's to match with GPU's so that we can interpret them in CPU correctly.
+    ALIGNAS(4) bool hasRcVertex = false;
+    ALIGNAS(4) bool isRcDSD = false;
     uint rcVertexIndex = 0;
     float4 L = float4(0, 0, 0, 0);
     float4 vertices[kMaxVertices];
@@ -26,7 +37,8 @@ struct DebugPathData
     void init()
     {
         vertexCount = 0;
-        hasRCVertex = false;
+        hasRcVertex = false;
+        isRcDSD = false;
         rcVertexIndex = 0;
         L = float4(0, 0, 0, 0);
 
@@ -43,7 +55,8 @@ struct DebugPathData
     void deepCopy(DebugPathData srcDebugPathData)
     {
         vertexCount = srcDebugPathData.vertexCount;
-        hasRCVertex = srcDebugPathData.hasRCVertex;
+        hasRcVertex = srcDebugPathData.hasRcVertex;
+        isRcDSD = srcDebugPathData.isRcDSD;
         rcVertexIndex = srcDebugPathData.rcVertexIndex;
         L = srcDebugPathData.L;
         std::size_t floatArrSize = kMaxVertices * sizeof(float4);
@@ -57,7 +70,8 @@ struct DebugPathData
     [mutating] void init()
     {
         vertexCount = 0;
-        hasRCVertex = false;
+        hasRcVertex = false;
+        isRcDSD = false;
         rcVertexIndex = 0;
         L = float4(0, 0, 0, 0);
 
@@ -76,6 +90,7 @@ struct DebugPathData
 
 struct DebugVertexState
 {
+    float3 pos = float3(0, 0, 0);
     bool isSampledLight = false;
     float3 sampledLightPosition = float3(0, 0, 0);
     float3 sampledLightRadiance = float3(0, 0, 0);

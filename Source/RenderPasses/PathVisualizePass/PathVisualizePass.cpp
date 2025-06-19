@@ -48,18 +48,7 @@ namespace
         float4 color;
     };
 
-    const float kPyramidHeight = 1;     // Should always be 1 because it'll be normalized to fit new space.
-    const float kPyramidHalfWidth = 0.007;  // In world space. This value will not be normalized to fit new space.
-
     const uint kPyramidVertCount = 5;
-
-    float3 kPyramidVerts[kPyramidVertCount] = {
-        {-kPyramidHalfWidth, 0, kPyramidHalfWidth},
-        {kPyramidHalfWidth, 0, kPyramidHalfWidth},
-        {kPyramidHalfWidth, 0, -kPyramidHalfWidth},
-        {-kPyramidHalfWidth, 0, -kPyramidHalfWidth},
-        {0, kPyramidHeight, 0},
-    };
 
     //  Total number of debug paths.
     //      - canonical path
@@ -97,11 +86,168 @@ extern "C" __declspec(dllexport) void getPasses(Falcor::RenderPassLibrary& lib)
     lib.registerClass("PathVisualizePass", kDesc, PathVisualizePass::create);
 }
 
+//
+//  PUBLIC
+//
+
 PathVisualizePass::SharedPtr PathVisualizePass::create(RenderContext* pRenderContext, const Dictionary& dict)
 {
     SharedPtr pPass = SharedPtr(new PathVisualizePass(dict));
     return pPass;
 }
+
+std::string PathVisualizePass::getDesc() { return kDesc; }
+
+Dictionary PathVisualizePass::getScriptingDictionary()
+{
+    return Dictionary();
+}
+
+RenderPassReflection PathVisualizePass::reflect(const CompileData& compileData)
+{
+    // Define the required resources here
+    RenderPassReflection reflector;
+
+    reflector.addInput(kInputImg, "Input image");
+
+    reflector.addInput(kDepth, "Depth buffer");
+
+    reflector.addInput(kInputVBuffer, "Vertex buffer");
+
+    reflector.addOutput(kOutputImg, "Output image");
+
+    return reflector;
+}
+
+
+void PathVisualizePass::execute(RenderContext* pRenderContext, const RenderData& renderData)
+{
+    if (!mpScene)
+    {
+        return;
+    }
+
+    Texture::SharedPtr pInputImg = renderData[kInputImg]->asTexture();
+    Texture::SharedPtr pDepth = renderData[kDepth]->asTexture();
+    Texture::SharedPtr pOutputImg = renderData[kOutputImg]->asTexture();
+
+    assert(pInputImg && pDepth && pOutputImg);
+
+    //  Store running path data
+    {
+        InternalDictionary& renderDataDict = renderData.getDictionary();
+
+        //      Get current frame debug path data from ReSTIRPTPass
+        mCurrentFramePathBundle.basePath = *renderDataDict.getValue<DebugPathData*>("debugPathData");
+        mCurrentFramePathBundle.temporalCentralPath = *renderDataDict.getValue<DebugPathData*>("temporalCentralPathData");
+        mCurrentFramePathBundle.temporalTemporalPath = *renderDataDict.getValue<DebugPathData*>("temporalTemporalPathData");
+
+        filterCopyPathData();
+    }
+
+    // Create FBO
+    Fbo::SharedPtr pFbo = Fbo::create();
+
+    //  Render on top of input image by copying from input to the render target
+    pRenderContext->blit(pInputImg->getSRV(), pOutputImg->getRTV());
+
+    //  Bind render target
+    pFbo->attachColorTarget(pOutputImg, 0);
+
+    if (mRecreateRasterPass)
+    {
+        createRasterPass();
+        mRecreateRasterPass = false;
+    }
+
+    //	Bind data
+    GraphicsState::SharedPtr pRasterState = mpRasterPass->getState();
+
+    //		FBO
+    pRasterState->setFbo(pFbo);
+
+    //		Scene
+    mpRasterPass["gScene"] = mpScene->getParameterBlock();
+
+    //		Camera
+    const Camera::SharedPtr& pCamera = mpScene->getCamera();
+    pCamera->setShaderData(mpRasterPass["PerFrameCB"]["gCamera"]);
+
+    //		PixelDebug
+    mpRasterPass["PerFrameCB"]["gSelectedPixel"] = mSelectedCursorPosition;
+
+
+    // Enable pixel debug
+    const uint2 resolution = renderData.getDefaultTextureDims();
+    mpPixelDebug->beginFrame(pRenderContext, resolution);
+    mpPixelDebug->prepareProgram(mpRasterPass->getProgram(), mpRasterPass->getRootVar());
+
+    // Run the raster pass
+    mpRasterPass->drawIndexed(pRenderContext, mTotalIndices, 0, 0);
+
+    mpPixelDebug->endFrame(pRenderContext);
+
+}
+
+void PathVisualizePass::renderUI(Gui::Widgets& widget)
+{
+    bool isUpdateRenderData = false;
+    isUpdateRenderData |= widget.checkbox("Display canonical path", mIsDisplayBasePath);
+    isUpdateRenderData |= widget.checkbox("Display NEE segments", mIsDisplayNEESegments);
+    isUpdateRenderData |= widget.checkbox("Display central-reservoir temporal retrace path", mIsDisplayTemporalCentralPath);
+    isUpdateRenderData |= widget.checkbox("Display temporal-reservoir temporal retrace path", mIsDisplayTemporalTemporalPath);
+
+    isUpdateRenderData |= widget.var("Ray width", mRayWidth, 0.001f, 0.04f);
+
+    if (auto group = widget.group("Debugging", true))
+    {
+        if (group.button("Update Path value", false))
+        {
+            isUpdateRenderData = true;
+        }
+
+        mpPixelDebug->renderUI(group);
+    }
+
+    if (isUpdateRenderData)
+        updateRenderData();
+}
+
+void PathVisualizePass::setScene(RenderContext* pRenderContext, const Scene::SharedPtr& pScene)
+{
+    mpScene = pScene;
+}
+
+bool PathVisualizePass::onMouseEvent(const MouseEvent& mouseEvent)
+{
+    mSelectedCursorPosition = uint2(mouseEvent.screenPos);
+
+    return mpPixelDebug->onMouseEvent(mouseEvent);
+}
+
+bool PathVisualizePass::onKeyEvent(const KeyboardEvent& keyEvent)
+{
+    // shortcut key "u" to call updatePath,
+    if (keyEvent.key == KeyboardEvent::Key::U
+        && keyEvent.type == KeyboardEvent::Type::KeyReleased
+        && keyEvent.mods.isAltDown == false
+        && keyEvent.mods.isCtrlDown == false
+        && keyEvent.mods.isShiftDown == false)
+    {
+        //  If the reserved bundle is partially completed, then copy it to rendering
+        if (mReservedPathBundle.isPartiallyComplete)
+        {
+            mRenderedPathBundle.deepCopy(mReservedPathBundle);
+            updateRenderData();
+        }
+    }
+
+    return false;
+}
+
+//
+//  PRIVATE
+//
 
 PathVisualizePass::PathVisualizePass(const Dictionary& dict)
 {
@@ -132,35 +278,7 @@ void PathVisualizePass::createRasterPass()
 
     mpRasterPass = RasterPass::create(kRasterPassShaderFile, "vs", "ps", defines);
 
-    // Test
-    Vertex verts[1 * kPyramidVertCount];
-    uint indices[1 * kPyramidIndicesCount];
-    {
-
-        float3 A(0, 0, 0), B(0.1, 0, 0);
-
-        uint vertexOffset = 0;
-        uint indexOffset = 0;
-
-        // Construct change of basis mat
-        glm::mat4 M = computeTransformMatToLineSegment(A, B);
-
-        for (uint j = 0; j < kPyramidVertCount; j++)
-        {
-            verts[vertexOffset + j].pos = (M * float4(kPyramidVerts[j], 1)).xyz;
-            verts[vertexOffset + j].texCoord = float2(0.5, 0.5);
-            verts[vertexOffset + j].color = float4(1, 0, 0.5, 1);
-        }
-
-        for (uint j = 0; j < kPyramidIndicesCount; j++)
-        {
-            indices[indexOffset + j] = kPyramidIndices[j] + vertexOffset;
-        }
-
-        vertexOffset += kPyramidVertCount;
-        indexOffset += kPyramidIndicesCount;
-    }
-
+    // Allocate vertex buffer
     mpVertexBuffer = Buffer::create(
         kMaxVertexBufferSize,
         //sizeof(verts),
@@ -170,7 +288,7 @@ void PathVisualizePass::createRasterPass()
         //(void*)verts
     );
 
-    //  Create sample index buffer
+    //  Create index buffer
     mpIndexBuffer = Buffer::create(
         kMaxIndicesBufferSize,
         //sizeof(indices),
@@ -233,37 +351,42 @@ void PathVisualizePass::createRasterPass()
 
 void PathVisualizePass::filterCopyPathData()
 {
-    bool isNewRCVertex = mCurrentFramePathBundle.canonicalPath.hasRCVertex;
-
-    if (isNewRCVertex)
-    {
-        mBuildingPathBundle.clear();
-        mBuildingPathBundle.canonicalPath.deepCopy(mCurrentFramePathBundle.canonicalPath);
-    }
+    bool isNewRcVertex = mCurrentFramePathBundle.basePath.hasRcVertex;
 
     bool isUpdateReservedPath = false;
 
+    //  If there is a new reconnection vertex found then we reset currnetly
+    //      building bundle and start fresh.
+    if (isNewRcVertex)
+    {
+        mBuildingPathBundle.clear();
+        mBuildingPathBundle.basePath.deepCopy(mCurrentFramePathBundle.basePath);
+        mBuildingPathBundle.isPartiallyComplete = true;
+        isUpdateReservedPath = true;
+    }
+
     //  If mBuildingPathBundle is accepting retrace paths
-    if (!mBuildingPathBundle.isFullyCompleted)
+    if (!mBuildingPathBundle.isFullyComplete)
     {
         //  Temporal-Central
-        //      If Temporal-Central is still empyty and valid new path
+        //      If Temporal-Central is still empyty and valid new offset path is found
         if (mBuildingPathBundle.temporalCentralPath.vertexCount == 0
             && mCurrentFramePathBundle.temporalCentralPath.vertexCount > 0
             )
         {
             mBuildingPathBundle.temporalCentralPath.deepCopy(mCurrentFramePathBundle.temporalCentralPath);
-            mBuildingPathBundle.isPartiallyCompleted = true;
+            mBuildingPathBundle.isPartiallyComplete = true;
             isUpdateReservedPath = true;
         }
 
         //  Temporal-Temporal
+        //      If Temporal-Temporal is still empyty and valid new offset path is found
         if (mBuildingPathBundle.temporalTemporalPath.vertexCount == 0
             && mCurrentFramePathBundle.temporalTemporalPath.vertexCount > 0
             )
         {
             mBuildingPathBundle.temporalTemporalPath.deepCopy(mCurrentFramePathBundle.temporalTemporalPath);
-            mBuildingPathBundle.isPartiallyCompleted = true;
+            mBuildingPathBundle.isPartiallyComplete = true;
             isUpdateReservedPath = true;
         }
 
@@ -272,7 +395,7 @@ void PathVisualizePass::filterCopyPathData()
             && mBuildingPathBundle.temporalTemporalPath.vertexCount > 0
             )
         {
-            mReservedPathBundle.isFullyCompleted = true;
+            mReservedPathBundle.isFullyComplete = true;
         }
     }
 
@@ -284,8 +407,20 @@ void PathVisualizePass::filterCopyPathData()
 
 void PathVisualizePass::updateRenderData()
 {
-    if (!mRenderedPathBundle.isPartiallyCompleted)
+    if (!mRenderedPathBundle.isPartiallyComplete)
         return;
+
+    // Compute path geometry (pyramid)
+    float pyramidHeight = 1;     // Should always be 1 because it'll be normalized to fit new space.
+    float pyramidHalfWidth = mRayWidth / 2;  // In world space. This value will not be normalized to fit new space.
+
+    float3 pyramidVerts[kPyramidVertCount] = {
+        {-pyramidHalfWidth, 0, pyramidHalfWidth},
+        {pyramidHalfWidth, 0, pyramidHalfWidth},
+        {pyramidHalfWidth, 0, -pyramidHalfWidth},
+        {-pyramidHalfWidth, 0, -pyramidHalfWidth},
+        {0, pyramidHeight, 0},
+    };
 
     //
     // Construct path geometry
@@ -301,33 +436,48 @@ void PathVisualizePass::updateRenderData()
     float4 color;
     glm::mat4 M;
 
-    if (mIsDisplayCanonicalPath)
+    if (mIsDisplayBasePath)
     {
-        for (uint i = 0; i < mRenderedPathBundle.canonicalPath.vertexCount - 1; i++)
+        for (uint i = 0; i < mRenderedPathBundle.basePath.vertexCount - 1; i++)
         {
-            A = mRenderedPathBundle.canonicalPath.vertices[i].xyz;
-            B = mRenderedPathBundle.canonicalPath.vertices[i + 1].xyz;
+            A = mRenderedPathBundle.basePath.vertices[i].xyz;
+            B = mRenderedPathBundle.basePath.vertices[i + 1].xyz;
 
             // Construct change of basis mat
             M = computeTransformMatToLineSegment(A, B);
 
-            float t = i / float(mRenderedPathBundle.canonicalPath.vertexCount - 1);
+            float t = i / float(mRenderedPathBundle.basePath.vertexCount - 1);
             color = colorBegin + t * (colorEnd - colorBegin);
 
             // Vertex
             for (uint j = 0; j < kPyramidVertCount; j++)
             {
-                verts[vertexOffset + j].pos = (M * float4(kPyramidVerts[j], 1)).xyz;
+                verts[vertexOffset + j].pos = (M * float4(pyramidVerts[j], 1)).xyz;
 
                 // TODO: use proper tex coord
                 verts[vertexOffset + j].texCoord = float2(0.5, 0.5);
 
-                // If target vertex is an RC vertex, color code as red
-                if (i + 1 == mRenderedPathBundle.canonicalPath.rcVertexIndex)
+                //  Coloring
+                if (mRenderedPathBundle.basePath.isRcDSD)
                 {
-                    color = float4(1, 0, 0, 1);
+                    //  Check if this vertex is part of the DSD Rc chain
+                    if (i == mRenderedPathBundle.basePath.rcVertexIndex - 1
+                        || i == mRenderedPathBundle.basePath.rcVertexIndex - 2)
+                    {
+                        color = float4(1, 0, 0, 1);
+                    }
+
+                }
+                else
+                {
+                    // If target vertex is an RC vertex, color code as red
+                    if (i == mRenderedPathBundle.basePath.rcVertexIndex - 1)
+                    {
+                        color = float4(1, 0, 0, 1);
+                    }
                 }
                 verts[vertexOffset + j].color = color;
+
             }
 
             // Index
@@ -345,8 +495,8 @@ void PathVisualizePass::updateRenderData()
     if (mIsDisplayNEESegments)
     {
         bool hasAnNEE = std::any_of(
-            std::begin(mRenderedPathBundle.canonicalPath.isSampledLight),
-            std::begin(mRenderedPathBundle.canonicalPath.isSampledLight) + mRenderedPathBundle.canonicalPath.vertexCount,
+            std::begin(mRenderedPathBundle.basePath.isSampledLight),
+            std::begin(mRenderedPathBundle.basePath.isSampledLight) + mRenderedPathBundle.basePath.vertexCount,
             [](bool b) {return b; }
         );
         // Construct NEE segments geometry
@@ -354,16 +504,16 @@ void PathVisualizePass::updateRenderData()
         {
             // Gather indices of vertex that has NEE
             std::vector<uint> neeVertexIndex;
-            for (uint i = 0; i < mRenderedPathBundle.canonicalPath.vertexCount; i++)
+            for (uint i = 0; i < mRenderedPathBundle.basePath.vertexCount; i++)
             {
-                if (mRenderedPathBundle.canonicalPath.isSampledLight[i])
+                if (mRenderedPathBundle.basePath.isSampledLight[i])
                     neeVertexIndex.emplace_back(i);
             }
 
             for (uint i : neeVertexIndex)
             {
-                A = mRenderedPathBundle.canonicalPath.vertices[i].xyz;
-                B = mRenderedPathBundle.canonicalPath.sampledLightPosition[i].xyz;
+                A = mRenderedPathBundle.basePath.vertices[i].xyz;
+                B = mRenderedPathBundle.basePath.sampledLightPosition[i].xyz;
 
                 // Construct change of basis mat
                 M = computeTransformMatToLineSegment(A, B);
@@ -371,7 +521,7 @@ void PathVisualizePass::updateRenderData()
                 // Vertex
                 for (uint j = 0; j < kPyramidVertCount; j++)
                 {
-                    verts[vertexOffset + j].pos = (M * float4(kPyramidVerts[j], 1)).xyz;
+                    verts[vertexOffset + j].pos = (M * float4(pyramidVerts[j], 1)).xyz;
 
                     // TODO: use proper tex coord
                     verts[vertexOffset + j].texCoord = float2(0.5, 0.5);
@@ -394,8 +544,8 @@ void PathVisualizePass::updateRenderData()
     if (mIsDisplayTemporalCentralPath)
     {
         //  Construct central-reservoir temporal retrace path geometry
-        colorBegin = float4(0, 0, 1, 0.3);
-        colorEnd = float4(0, 0, 0, 0.3);
+        colorBegin = float4(152/255.0f, 78/255.0f, 163/255.0f, 0.5);
+        colorEnd = float4(0, 0, 0, 0.5);
         for (int i = 0; i < int(mRenderedPathBundle.temporalCentralPath.vertexCount) - 1; i++)
         {
             A = mRenderedPathBundle.temporalCentralPath.vertices[i].xyz;
@@ -410,7 +560,7 @@ void PathVisualizePass::updateRenderData()
             // Vertex
             for (uint j = 0; j < kPyramidVertCount; j++)
             {
-                verts[vertexOffset + j].pos = (M * float4(kPyramidVerts[j], 1)).xyz;
+                verts[vertexOffset + j].pos = (M * float4(pyramidVerts[j], 1)).xyz;
 
                 // TODO: use proper tex coord
                 verts[vertexOffset + j].texCoord = float2(0.5, 0.5);
@@ -433,8 +583,8 @@ void PathVisualizePass::updateRenderData()
     if (mIsDisplayTemporalTemporalPath)
     {
         //  Construct temporal-resevoir temporal retrace path geometry
-        colorBegin = float4(1, 1, 1, 0.3);
-        colorEnd = float4(0, 0, 0, 0.3);
+        colorBegin = float4(255/255.0f, 127/255.0f, 0, 0.5);
+        colorEnd = float4(0, 0, 0, 0.5);
         for (int i = 0; i < int(mRenderedPathBundle.temporalTemporalPath.vertexCount) - 1; i++)
         {
             A = mRenderedPathBundle.temporalTemporalPath.vertices[i].xyz;
@@ -449,7 +599,7 @@ void PathVisualizePass::updateRenderData()
             // Vertex
             for (uint j = 0; j < kPyramidVertCount; j++)
             {
-                verts[vertexOffset + j].pos = (M * float4(kPyramidVerts[j], 1)).xyz;
+                verts[vertexOffset + j].pos = (M * float4(pyramidVerts[j], 1)).xyz;
 
                 // TODO: use proper tex coord
                 verts[vertexOffset + j].texCoord = float2(0.5, 0.5);
@@ -498,148 +648,3 @@ glm::mat4 PathVisualizePass::computeTransformMatToLineSegment(float3 lineBegin, 
     return M;
 }
 
-std::string PathVisualizePass::getDesc() { return kDesc; }
-
-Dictionary PathVisualizePass::getScriptingDictionary()
-{
-    return Dictionary();
-}
-
-RenderPassReflection PathVisualizePass::reflect(const CompileData& compileData)
-{
-    // Define the required resources here
-    RenderPassReflection reflector;
-
-    reflector.addInput(kInputImg, "Input image");
-
-    reflector.addInput(kDepth, "Depth buffer");
-
-    reflector.addInput(kInputVBuffer, "Vertex buffer");
-
-    reflector.addOutput(kOutputImg, "Output image");
-
-    return reflector;
-}
-
-void PathVisualizePass::execute(RenderContext* pRenderContext, const RenderData& renderData)
-{
-    if (!mpScene)
-    {
-        return;
-    }
-
-    Texture::SharedPtr pInputImg = renderData[kInputImg]->asTexture();
-    Texture::SharedPtr pDepth = renderData[kDepth]->asTexture();
-    Texture::SharedPtr pOutputImg = renderData[kOutputImg]->asTexture();
-
-    assert(pInputImg && pDepth && pOutputImg);
-
-    //  Store running path data
-    {
-        InternalDictionary& renderDataDict = renderData.getDictionary();
-
-        //      Get current frame debug path data from ReSTIRPTPass
-        mCurrentFramePathBundle.canonicalPath = *renderDataDict.getValue<DebugPathData*>("debugPathData");
-        mCurrentFramePathBundle.temporalCentralPath = *renderDataDict.getValue<DebugPathData*>("temporalCentralPathData");
-        mCurrentFramePathBundle.temporalTemporalPath = *renderDataDict.getValue<DebugPathData*>("temporalTemporalPathData");
-
-        filterCopyPathData();
-    }
-
-    // Create FBO
-    Fbo::SharedPtr pFbo = Fbo::create();
-
-    //  Render on top of input image by copying from input to the render target
-    pRenderContext->blit(pInputImg->getSRV(), pOutputImg->getRTV());
-
-    //  Bind render target
-    pFbo->attachColorTarget(pOutputImg, 0);
-
-	if (mRecreateRasterPass)
-	{
-		createRasterPass();
-		mRecreateRasterPass = false;
-	}
-
-	//	Bind data
-	GraphicsState::SharedPtr pRasterState = mpRasterPass->getState();
-
-	//		FBO
-	pRasterState->setFbo(pFbo);
-
-	//		Scene
-	mpRasterPass["gScene"] = mpScene->getParameterBlock();
-
-	//		Camera
-	const Camera::SharedPtr& pCamera = mpScene->getCamera();
-	pCamera->setShaderData(mpRasterPass["PerFrameCB"]["gCamera"]);
-
-	//		PixelDebug
-	mpRasterPass["PerFrameCB"]["gSelectedPixel"] = mSelectedCursorPosition;
-
-
-	// Enable pixel debug
-	const uint2 resolution = renderData.getDefaultTextureDims();
-	mpPixelDebug->beginFrame(pRenderContext, resolution);
-	mpPixelDebug->prepareProgram(mpRasterPass->getProgram(), mpRasterPass->getRootVar());
-
-	// Run the raster pass
-    mpRasterPass->drawIndexed(pRenderContext, mTotalIndices, 0, 0);
-
-	mpPixelDebug->endFrame(pRenderContext);
-
-}
-
-void PathVisualizePass::renderUI(Gui::Widgets& widget)
-{
-    bool isUpdateRenderData = false;
-    isUpdateRenderData |= widget.checkbox("Display canonical path", mIsDisplayCanonicalPath);
-    isUpdateRenderData |= widget.checkbox("Display NEE segments", mIsDisplayNEESegments);
-    isUpdateRenderData |= widget.checkbox("Display central-reservoir temporal retrace path", mIsDisplayTemporalCentralPath);
-    isUpdateRenderData |= widget.checkbox("Display temporal-reservoir temporal retrace path", mIsDisplayTemporalTemporalPath);
-
-    if (auto group = widget.group("Debugging", true))
-    {
-        if (group.button("Update Path value", false))
-        {
-            isUpdateRenderData = true;
-        }
-
-        mpPixelDebug->renderUI(group);
-    }
-
-    if (isUpdateRenderData)
-        updateRenderData();
-}
-
-void PathVisualizePass::setScene(RenderContext* pRenderContext, const Scene::SharedPtr& pScene)
-{
-	mpScene = pScene;
-}
-
-bool PathVisualizePass::onMouseEvent(const MouseEvent& mouseEvent)
-{
-    mSelectedCursorPosition = uint2(mouseEvent.screenPos);
-
-	return mpPixelDebug->onMouseEvent(mouseEvent);
-}
-
-bool PathVisualizePass::onKeyEvent(const KeyboardEvent& keyEvent)
-{
-    // shortcut key "u" to call updatePath,
-    if (keyEvent.key == KeyboardEvent::Key::U
-        && keyEvent.type == KeyboardEvent::Type::KeyReleased
-        && keyEvent.mods.isAltDown == false
-        && keyEvent.mods.isCtrlDown == false
-        && keyEvent.mods.isShiftDown == false)
-    {
-        //  If the reserved bundle is partially completed, then copy it to rendering
-        if (mReservedPathBundle.isPartiallyCompleted)
-        {
-            mRenderedPathBundle.deepCopy(mReservedPathBundle);
-            updateRenderData();
-        }
-    }
-
-    return false;
-}

@@ -78,37 +78,37 @@ private:
 
     struct PathDataBundle
     {
-        DebugPathData canonicalPath;
+        DebugPathData basePath;
         DebugPathData temporalCentralPath;
         DebugPathData temporalTemporalPath;
-        bool isFullyCompleted = false;   // signify that the bundle is a "complete" package that satisfies all condition
-        bool isPartiallyCompleted = false;  // have a canonical path with atleast one of the retrace path
+        bool isFullyComplete = false;   // signify that the bundle is a "complete" package that satisfies all conditions
+        bool isPartiallyComplete = false;  // have atleast a base path
 
         void init()
         {
-            canonicalPath.init();
+            basePath.init();
             temporalCentralPath.init();
             temporalTemporalPath.init();
-            isFullyCompleted = false;
-            isPartiallyCompleted = false;
+            isFullyComplete = false;
+            isPartiallyComplete = false;
         }
 
         void clear()
         {
-            canonicalPath.vertexCount = 0;
+            basePath.vertexCount = 0;
             temporalCentralPath.vertexCount = 0;
             temporalTemporalPath.vertexCount = 0;
-            isFullyCompleted = false;
-            isPartiallyCompleted = false;
+            isFullyComplete = false;
+            isPartiallyComplete = false;
         }
 
         void deepCopy(PathDataBundle srcPathDataBundle)
         {
-            canonicalPath.deepCopy(srcPathDataBundle.canonicalPath);
+            basePath.deepCopy(srcPathDataBundle.basePath);
             temporalCentralPath.deepCopy(srcPathDataBundle.temporalCentralPath);
             temporalTemporalPath.deepCopy(srcPathDataBundle.temporalTemporalPath);
-            isFullyCompleted = srcPathDataBundle.isFullyCompleted;
-            isPartiallyCompleted = srcPathDataBundle.isPartiallyCompleted;
+            isFullyComplete = srcPathDataBundle.isFullyComplete;
+            isPartiallyComplete = srcPathDataBundle.isPartiallyComplete;
         }
 
     };
@@ -131,8 +131,9 @@ private:
 
     //  Options
 
-    bool mIsDisplayCanonicalPath = true;
+    bool mIsDisplayBasePath = true;
     bool mIsDisplayNEESegments = true;
     bool mIsDisplayTemporalCentralPath = true;
     bool mIsDisplayTemporalTemporalPath = true;
+    float mRayWidth = 0.014;
 };

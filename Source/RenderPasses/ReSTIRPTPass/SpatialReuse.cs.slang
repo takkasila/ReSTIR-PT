@@ -259,6 +259,8 @@ struct PathReusePass
         ///////////////////
         if (ReSTIRMISKind(kSpatialReSTIRMISKind) == ReSTIRMISKind::Talbot)
         {
+            //  Defaults by Temporal Reuse
+
             for (int i = -1; i < neighborCount; ++i)
             {
                 int2 neighborPixel = i == -1 ? pixel : getNextNeighborPixel(startIndex, pixel, i);
@@ -285,6 +287,9 @@ struct PathReusePass
                 }
                 else
                 {
+                    //  dst: central
+                    //  src: neighbor
+                    //  rcData: 
                     possibleToBeSelected = shiftAndMergeReservoir(params, false, dstJacobian, centralPrimaryHitPacked, centralPrimarySd, tempDstReservoir,
                         neighborPrimarySd, neighborReservoir, dummyRcData, true, sg, true, 1.f, true); // "true" means hypothetically selected as the sample
                 }
@@ -317,6 +322,8 @@ struct PathReusePass
                             if (!isValidGeometry(centralPrimarySd, tneighborPrimarySd)) continue;
 
                             float tneighborJacobian;
+                            //  dst: neighbor
+                            //  src: central
                             float3 tneighborIntegrand = computeShiftedIntegrand(params, tneighborJacobian, tneighborPrimaryHitPacked, tneighborPrimarySd,
                                 centralPrimarySd, tempDstReservoir, dummyRcData, true);
                             float p_ = PathReservoir::computeWeight(tneighborIntegrand) * tneighborJacobian;
@@ -339,6 +346,7 @@ struct PathReusePass
         /////////////////////
         else if (ReSTIRMISKind(kSpatialReSTIRMISKind) == ReSTIRMISKind::Pairwise)
         {
+            //  Defaults by Spatial reuse
             int validNeighborCount = 0;
             float canonicalWeight = 1;
 
@@ -369,6 +377,9 @@ struct PathReusePass
                 else
                     rcData = dummyRcData;
 
+                //  dst: neighbor
+                //  src: central
+                //  rc: central
                 float3 prefixIntegrand = computeShiftedIntegrand(params, prefixJacobian, neighborPrimaryHitPacked, neighborPrimarySd,
                     centralPrimarySd, centralReservoir, rcData, true);
 
@@ -385,6 +396,9 @@ struct PathReusePass
                 else
                     rcData = dummyRcData;
 
+                //  dst: central
+                //  src: neighbor
+                //  rc: central?
                 bool possibleToBeSelected = shiftAndMergeReservoir(params, false, dstJacobian, centralPrimaryHitPacked, centralPrimarySd, tempDstReservoir,
                     neighborPrimarySd, neighborReservoir, rcData, true, sg, true, 1.f, true); // "true" means hypothetically selected as the sample
 

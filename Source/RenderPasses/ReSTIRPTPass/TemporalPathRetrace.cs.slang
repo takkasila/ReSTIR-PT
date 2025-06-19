@@ -85,7 +85,7 @@ struct PathRetracePass
     */
     void ReSTIR(const uint2 pixel)
     {
-        print("TemporalPathRetrace.cs.slang: begin", 0);
+        print("Temporal path retrace: begin", 0);
 
         DebugPathData debugPathData1;
         DebugPathData debugPathData2;
@@ -133,15 +133,21 @@ struct PathRetracePass
 
         PathReservoir temporalReservoir = temporalReservoirs[params.getReservoirOffset(prevPixel)];
 
+        print("Central reservoir:", 0);
+        print("- rcVertexHit.instanceID", centralReservoir.rcVertexHit.instanceID);
+        print("- rcPrevVertexHit.instanceID", centralReservoir.rcPrevVertexHit.instanceID);
+        print("- rcPrevPrevVertexHit.instanceID", centralReservoir.rcPrevPrevVertexHit.instanceID);
+
+        print("temporalReservoir reservoir:", 0);
+        print("- rcVertexHit.instanceID", temporalReservoir.rcVertexHit.instanceID);
+        print("- rcPrevVertexHit.instanceID", temporalReservoir.rcPrevVertexHit.instanceID);
+        print("- rcPrevPrevVertexHit.instanceID", temporalReservoir.rcPrevPrevVertexHit.instanceID);
+
         // talbot MIS
         // compute mis weight for current pixel
 
-        HitInfo dstRcPrevVertexHit;
-        HitInfo dstRcPrevVertexHit2;
-        float3 dstRcPrevVertexWo;
-        float3 dstRcPrevVertexWo2;
-        float3 Tp;
-        float3 Tp2;
+        ReconnectionData centralReservoirReconnectionData;
+        ReconnectionData temporalReservoirReconnectionData;
 
         // write to memory
         if (centralReservoir.pathFlags.rcVertexLength() > 1)
@@ -149,8 +155,17 @@ struct PathRetracePass
             print("- traceHybridShiftRays centralReservoir", 0);
 
             //  Use previous frame data
-            Tp = traceHybridShiftRays(params, true, temporalPrimaryHitPacked, temporalPrimarySd, centralReservoir, dstRcPrevVertexHit, dstRcPrevVertexWo, debugPathData1);
-            reconnectionDataBuffer[centralOffset].data[0] = ReconnectionData(dstRcPrevVertexHit, dstRcPrevVertexWo, Tp);
+            traceHybridShiftRays(
+                params,
+                true,
+                temporalPrimaryHitPacked,
+                temporalPrimarySd,
+                centralReservoir,
+                centralReservoirReconnectionData,
+                debugPathData1
+            );
+
+            reconnectionDataBuffer[centralOffset].data[0] = centralReservoirReconnectionData;
 
             if (isDebug)
             {
@@ -159,8 +174,8 @@ struct PathRetracePass
                 print("- pathLength", centralReservoir.pathFlags.pathLength());
 
                 bool isValidRCD = (
-                    any(Tp > 0.f)
-                    && (dstRcPrevVertexHit.isValid())
+                    any(centralReservoirReconnectionData.pathThroughput > 0.f)
+                    && (centralReservoirReconnectionData.rcPrevHit.isValid())
                 );
 
                 if (isValidRCD)
@@ -180,14 +195,23 @@ struct PathRetracePass
         {
             print("- traceHybridShiftRays temporalReservoir", 0);
 
-            Tp2 = traceHybridShiftRays(params, false, centralPrimaryHitPacked, centralPrimarySd, temporalReservoir, dstRcPrevVertexHit2, dstRcPrevVertexWo2, debugPathData2);
-            reconnectionDataBuffer[centralOffset].data[1] = ReconnectionData(dstRcPrevVertexHit2, dstRcPrevVertexWo2, Tp2);
+            traceHybridShiftRays(
+                params,
+                false,
+                centralPrimaryHitPacked,
+                centralPrimarySd,
+                temporalReservoir,
+                temporalReservoirReconnectionData,
+                debugPathData2
+            );
+
+            reconnectionDataBuffer[centralOffset].data[1] = temporalReservoirReconnectionData;
 
             if (isDebug)
             {
                 bool isValidRCD = (
-                    any(Tp2 > 0.f)
-                    && (dstRcPrevVertexHit2.isValid())
+                    any(temporalReservoirReconnectionData.pathThroughput > 0.f)
+                    && (temporalReservoirReconnectionData.rcPrevHit.isValid())
                 );
 
                 if(isValidRCD)
@@ -203,8 +227,7 @@ struct PathRetracePass
 
             }
         }
-
-        print("TemporalPathRetrace.cs.slang: end", 0);
+        print("Temporal path retrace: end", 0);
     }
 
     /** Entry point for merge pass.

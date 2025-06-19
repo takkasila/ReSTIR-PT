@@ -24,23 +24,27 @@ void tracePath(uint pathID, inout PathReservoir giReservoir, uint sampleIdx)
     PathState path;
     gPathTracer.generatePath(pathID, path);
 
-    printSetPixel(path.getPixel());
-    logSetPixel(path.getPixel());
+    uint2 pixel = path.getPixel();
+
+    printSetPixel(pixel);
+    logSetPixel(pixel);
 
     uint2 selectedPixel = getSelctedPixelLog();
+    uint vertexCount = 0;
 
-
-    print("pixel", path.getPixel());
+    print("pixel", pixel);
     print("pathID", pathID);
-    print("", 0);
 
     while (path.isActive())
     {
         print("vertex", path.origin);
+        print("path.length", path.length);
 
-        if (all(selectedPixel == path.getPixel()))
+        //  vertex 0 at camera
+        if (path.length == 0 && all(selectedPixel == pixel))
         {
-            pixelDebugPathDataBuffer[0].vertices[(int)path.length] = float4(path.origin, 1);
+            pixelDebugPathDataBuffer[0].vertices[0] = float4(path.origin, 1);
+            vertexCount += 1;
         }
 
         if (path.isHit())
@@ -50,20 +54,25 @@ void tracePath(uint pathID, inout PathReservoir giReservoir, uint sampleIdx)
 
             gPathTracer.handleHit(path, debugVertexState);
 
-
-            if (all(selectedPixel == path.getPixel()))
+            //  Record path data for visualization
+            if (all(selectedPixel == pixel))
             {
-                pixelDebugPathDataBuffer[0].isSampledLight[(int)path.length] = debugVertexState.isSampledLight;
-                pixelDebugPathDataBuffer[0].sampledLightPosition[(int)path.length] = float4(debugVertexState.sampledLightPosition, 1);
-                pixelDebugPathDataBuffer[0].sampledLightRadiance[(int)path.length] = float4(debugVertexState.sampledLightRadiance, 1);
+                pixelDebugPathDataBuffer[0].vertices[vertexCount] = float4(debugVertexState.pos, 1);
+                pixelDebugPathDataBuffer[0].isSampledLight[vertexCount] = debugVertexState.isSampledLight;
+                pixelDebugPathDataBuffer[0].sampledLightPosition[vertexCount] = float4(debugVertexState.sampledLightPosition, 1);
+                pixelDebugPathDataBuffer[0].sampledLightRadiance[vertexCount] = float4(debugVertexState.sampledLightRadiance, 1);
+                vertexCount += 1;
             }
 
-
+            // After handle
             if (path.isTerminated())
             {
                 print("Terminated", 0);
                 break;
             }
+
+            //  Trace a new ray.
+            //      This also increases path.length
             gPathTracer.nextVertex(path);
         }
         else
@@ -72,33 +81,53 @@ void tracePath(uint pathID, inout PathReservoir giReservoir, uint sampleIdx)
             gPathTracer.handleMiss(path);
         }
 
-        print("", 0);
+        print("in loop path.pathReservoir.rcVertexHit.instanceID", path.pathReservoir.rcVertexHit.instanceID);
+
+        print("", 0);   // empty line
     }
 
     print("Path Radiance", path.L);
 
-
-    if(all(selectedPixel == path.getPixel()))
+    if (all(selectedPixel == pixel))
     {
+        pixelDebugPathDataBuffer[0].vertexCount = vertexCount;
+
+        pixelDebugPathDataBuffer[0].L = float4(path.L, 1);
+
+        //  Check if have RC vertex
         if (path.pathBuilder.rcVertexHit.instanceID == 0xffffffff)
         {
             print("Doesn't have RC vertex", 0);
-            pixelDebugPathDataBuffer[0].hasRCVertex = false;
+            pixelDebugPathDataBuffer[0].hasRcVertex = false;
         }
         else
         {
             print("Have RC vertex", 0);
-            pixelDebugPathDataBuffer[0].hasRCVertex = true;
+            pixelDebugPathDataBuffer[0].hasRcVertex = true;
             pixelDebugPathDataBuffer[0].rcVertexIndex = path.pathBuilder.rcVertexLength + 1;
+
+            bool isPrevRcVertexSpecular = path.pathBuilder.pathFlags.decodeIsSpecularBounce(true);
+
+            if (isPrevRcVertexSpecular)
+            {
+                // We have RC for HybridShiftSMS
+                print("- RC is DSD for HybridShift", 0);
+                pixelDebugPathDataBuffer[0].isRcDSD = true;
+            }
         }
 
-        pixelDebugPathDataBuffer[0].vertexCount = path.length + 1;
-
-        pixelDebugPathDataBuffer[0].L = float4(path.L, 1);
     }
 
     gPathTracer.finalize(path);
+
+    const uint reservoirIdx = gPathTracer.params.getReservoirOffset(pixel);
+
     gPathTracer.writeOutput(path, giReservoir, sampleIdx);
+
+    print("Output reservoir:", 0);
+    print("- rcVertexHit id:", gPathTracer.outputReservoirs[reservoirIdx].rcVertexHit.instanceID);
+    print("- rcPrevVertexHit id:", gPathTracer.outputReservoirs[reservoirIdx].rcPrevVertexHit.instanceID);
+    print("- rcPrevPrevVertexHit id:", gPathTracer.outputReservoirs[reservoirIdx].rcPrevPrevVertexHit.instanceID);
 }
 
 [numthreads(16, 16, 1)]

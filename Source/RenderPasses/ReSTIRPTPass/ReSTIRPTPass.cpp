@@ -90,6 +90,7 @@ namespace
         { (uint32_t)ShiftMapping::Reconnection, "Reconnection" },
         { (uint32_t)ShiftMapping::RandomReplay, "Random Replay" },
         { (uint32_t)ShiftMapping::Hybrid, "Hybrid" },
+        { (uint32_t)ShiftMapping::HybridShiftSMS, "Hybrid with Specular Manifold Sampling" },
     };
 
     const Gui::DropdownList kReSTIRMISList =
@@ -688,7 +689,7 @@ void ReSTIRPTPass::execute(RenderContext* pRenderContext, const RenderData& rend
         mStaticParams.shiftStrategy = ShiftMapping::Reconnection;
         mEnableSpatialReuse = true;
     }
-    if (mStaticParams.shiftStrategy == ShiftMapping::Hybrid)
+    if (mStaticParams.shiftStrategy == ShiftMapping::Hybrid || mStaticParams.shiftStrategy == ShiftMapping::HybridShiftSMS)
     {
         // the ray tracing pass happens before spatial/temporal reuse,
         // so currently hybrid shift is only implemented for Pairwise and Talbot
@@ -743,7 +744,8 @@ void ReSTIRPTPass::execute(RenderContext* pRenderContext, const RenderData& rend
             {
                 if (mEnableTemporalReuse && !skipTemporalReuse)
                 {
-                    if (mStaticParams.shiftStrategy == ShiftMapping::Hybrid)
+                    if (mStaticParams.shiftStrategy == ShiftMapping::Hybrid
+                        || mStaticParams.shiftStrategy == ShiftMapping::HybridShiftSMS)
                         PathRetracePass(pRenderContext, restir_i, renderData, true, 0);
                     // a separate pass to trace rays for hybrid shift/random number replay
                     PathReusePass(pRenderContext, restir_i, renderData, true, 0, !mEnableSpatialReuse);
@@ -760,7 +762,8 @@ void ReSTIRPTPass::execute(RenderContext* pRenderContext, const RenderData& rend
                 for (int spatialRoundId = 0; spatialRoundId < mNumSpatialRounds; spatialRoundId++)
                 {
                     // a separate pass to trace rays for hybrid shift/random number replay
-                    if (mStaticParams.shiftStrategy == ShiftMapping::Hybrid)
+                    if (mStaticParams.shiftStrategy == ShiftMapping::Hybrid
+                        ||mStaticParams.shiftStrategy == ShiftMapping::HybridShiftSMS)
                         PathRetracePass(pRenderContext, restir_i, renderData, false, spatialRoundId);
                     PathReusePass(pRenderContext, restir_i, renderData, false, spatialRoundId, spatialRoundId == mNumSpatialRounds - 1);
                 }
@@ -889,7 +892,7 @@ bool ReSTIRPTPass::renderRenderingUI(Gui::Widgets& widget)
             }
         }
 
-        if (mStaticParams.pathSamplingMode == PathSamplingMode::ReSTIR && mStaticParams.shiftStrategy == ShiftMapping::Hybrid)
+        if (mStaticParams.pathSamplingMode == PathSamplingMode::ReSTIR && (mStaticParams.shiftStrategy == ShiftMapping::Hybrid || mStaticParams.shiftStrategy == ShiftMapping::HybridShiftSMS))
         {
             if (auto group = widget.group("Local Strategies", true))
             {
@@ -1157,7 +1160,7 @@ void ReSTIRPTPass::updatePrograms()
 {
     if (mRecompile == false) return;
 
-    mStaticParams.rcDataOfflineMode = mSpatialNeighborCount > 3 && mStaticParams.shiftStrategy == ShiftMapping::Hybrid;
+    mStaticParams.rcDataOfflineMode = mSpatialNeighborCount > 3 && (mStaticParams.shiftStrategy == ShiftMapping::Hybrid || mStaticParams.shiftStrategy == ShiftMapping::HybridShiftSMS);
 
     auto defines = mStaticParams.getDefines(*this);
 
@@ -1200,18 +1203,22 @@ void ReSTIRPTPass::prepareResources(RenderContext* pRenderContext, const RenderD
 
     if (mStaticParams.pathSamplingMode != PathSamplingMode::PathTracing)
     {
+        uint32_t onlineReconnectionBufferSize = 408;
+        uint32_t offlineReconnectionBufferSize = 816;
 
-        if (mStaticParams.shiftStrategy == ShiftMapping::Hybrid && (!mReconnectionDataBuffer ||
-            mStaticParams.rcDataOfflineMode && mReconnectionDataBuffer->getElementSize() != 512 ||
-            !mStaticParams.rcDataOfflineMode && mReconnectionDataBuffer->getElementSize() != 256))
+        bool isHybridShift = mStaticParams.shiftStrategy == ShiftMapping::Hybrid || mStaticParams.shiftStrategy == ShiftMapping::HybridShiftSMS;
+
+        if ( isHybridShift
+            && (!mReconnectionDataBuffer ||
+            mStaticParams.rcDataOfflineMode && mReconnectionDataBuffer->getElementSize() != offlineReconnectionBufferSize ||
+            !mStaticParams.rcDataOfflineMode && mReconnectionDataBuffer->getElementSize() != onlineReconnectionBufferSize))
         {
             mReconnectionDataBuffer = Buffer::createStructured(var["reconnectionDataBuffer"], reservoirCount, Resource::BindFlags::ShaderResource | Resource::BindFlags::UnorderedAccess, Buffer::CpuAccess::None, nullptr, false);
-            //printf("rcDataSize size: %d\n", mReconnectionDataBuffer->getElementSize());
         }
-        if (mStaticParams.shiftStrategy != ShiftMapping::Hybrid)
+        if (!isHybridShift)
             mReconnectionDataBuffer = nullptr;
 
-        uint32_t baseReservoirSize = 88;
+        uint32_t baseReservoirSize = 136;
         uint32_t pathTreeReservoirSize = 128;
 
         if (mpOutputReservoirs &&
@@ -1220,7 +1227,6 @@ void ReSTIRPTPass::prepareResources(RenderContext* pRenderContext, const RenderD
                 mpTemporalReservoirs.size() != mStaticParams.samplesPerPixel && mStaticParams.pathSamplingMode != PathSamplingMode::PathReuse))
         {
             mpOutputReservoirs = Buffer::createStructured(var["outputReservoirs"], reservoirCount, Resource::BindFlags::ShaderResource | Resource::BindFlags::UnorderedAccess, Buffer::CpuAccess::None, nullptr, false);
-            //printf("reservoir size: %d\n", mpOutputReservoirs->getElementSize());
 
             if (mStaticParams.pathSamplingMode != PathSamplingMode::PathReuse)
             {
@@ -1603,9 +1609,7 @@ void ReSTIRPTPass::endFrame(RenderContext* pRenderContext, const RenderData& ren
 
     mVarsChanged = false;
 
-    // Get and store path data
-
-    // Copy debugPathData
+    // Pass debugPathData onto renderData dict
     DebugPathData* debugPathData = static_cast<DebugPathData*>( mpPixelDebugPathBuffer->map(Buffer::MapType::Read) );
     mDebugPathData = *debugPathData;
     renderData.getDictionary()["debugPathData"] = &mDebugPathData;
@@ -1937,6 +1941,7 @@ Program::DefineList ReSTIRPTPass::StaticParams::getDefines(const ReSTIRPTPass& o
 
     defines.add("RCDATA_PATH_NUM", rcDataOfflineMode ? "12" : "6");
     defines.add("RCDATA_PAD_SIZE", rcDataOfflineMode ? "2" : "1");
+    // defines.add("IS_ONLINE", rcDataOfflineMode ? "1" : "0");
 
     return defines;
 }
