@@ -1369,14 +1369,15 @@ struct PathTracer
         }
         else if (PathSamplingMode(kPathSamplingMode) != PathSamplingMode::PathTracing
                 // Should this be != ReplayMode::None instead?
-             && path.replayMode == ReplayMode::HybridShift )
+             && path.replayMode != ReplayMode::None )
         {
             // Currently tracing random number replay path for hybrid shift
-            print("- Doing random replay for hybrid shift", 0);
+            print("- Check hybrid shift invertibility (DD)", 0);
 
             bool invertible = true;
             bool shouldTerminate = false;
 
+            //  Check if current offset path passes criteria to be a RC -- a.k.a. invertible
             // daqi: check situation where invertibility is violated
             if (path.length >= 1 && path.length <= path.pathBuilder.rcVertexLength - 1)
             {
@@ -1386,21 +1387,37 @@ struct PathTracer
                     {
                         // method 2
                         //non-invertible if this bounce is an NEE bounce for the base path but the current vertex is not connectible in base path but is connectible in offset path
-                        if (terminateRandomReplayForNEE && isCurrentVertexClassifiedAsRough && isLastVertexAcceptableForRcPrev) invertible = false;
-                        //non-invertible because current vertex will be assigned as a diffuse bounce by connecting to the reconnection vertex
-                        if (path.length == path.pathBuilder.rcVertexLength - 1 && isLastVertexAcceptableForRcPrev) invertible = false;
+                        if (terminateRandomReplayForNEE
+                            && isCurrentVertexClassifiedAsRough
+                            && isLastVertexAcceptableForRcPrev)
+                            invertible = false;
 
-                        if (params.localStrategyType & (uint)LocalStrategy::DistanceCondition && !isFarField) invertible = true;
+                        //non-invertible because current vertex will be assigned as a diffuse bounce by connecting to the reconnection vertex
+                        if (path.length == path.pathBuilder.rcVertexLength - 1
+                            && isLastVertexAcceptableForRcPrev)
+                            invertible = false;
+
+                        if (params.localStrategyType & (uint)LocalStrategy::DistanceCondition
+                            && !isFarField)
+                            invertible = true;
                     }
                     else
                     {
-                        if (params.localStrategyType & (uint)LocalStrategy::DistanceCondition && isFarField) invertible = false;
+                        if (params.localStrategyType & (uint)LocalStrategy::DistanceCondition
+                            && isFarField)
+                            invertible = false;
                     }
                 }
                 else
                 {
-                    if (!(params.localStrategyType & (uint)LocalStrategy::DistanceCondition && !isFarField ||
-                        params.localStrategyType & (uint)LocalStrategy::RoughnessCondition && !(/*supportsNEE &&*/ isCurrentVertexClassifiedAsRough && isLastVertexAcceptableForRcPrev)))
+                    if (!(
+                        params.localStrategyType & (uint)LocalStrategy::DistanceCondition
+                        && !isFarField
+                        || params.localStrategyType & (uint)LocalStrategy::RoughnessCondition
+                        && !(/*supportsNEE &&*/
+                            isCurrentVertexClassifiedAsRough
+                            && isLastVertexAcceptableForRcPrev)
+                    ))
                         invertible = false;
                 }
             }
@@ -1449,13 +1466,16 @@ struct PathTracer
                 return;
             }
         }
-        else if (PathSamplingMode(kPathSamplingMode) != PathSamplingMode::PathTracing
-            && path.replayMode == ReplayMode::HybridShiftSMS)
-        {
-            // TODO: Currently tracing random replay for Hybrid shift with Specular Manifold Sampling
-            print("-- Doing random replay for hybrid shift SMS", 0);
 
-            //  Check invertibility
+        if (PathSamplingMode(kPathSamplingMode) != PathSamplingMode::PathTracing
+             && path.replayMode != ReplayMode::HybridShiftSMS )
+        {
+            print("- Check hybrid shift invertibility (DSD)", 0);
+
+            // Check if current path have is eligible to be an RC, a.k.a invertible.
+            // Basically we are at v_i = rc_index - 2, assume v_i + 1 to be specular
+
+            // Do we also need to care for terminateRandomReplayForNEE? probably yes
 
         }
 
