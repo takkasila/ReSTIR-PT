@@ -1368,8 +1368,7 @@ struct PathTracer
             }
         }
         else if (PathSamplingMode(kPathSamplingMode) != PathSamplingMode::PathTracing
-                // Should this be != ReplayMode::None instead?
-             && path.replayMode != ReplayMode::None )
+             && path.replayMode == ReplayMode::HybridShift )
         {
             // Currently tracing random number replay path for hybrid shift
             print("- Check hybrid shift invertibility (DD)", 0);
@@ -1377,8 +1376,9 @@ struct PathTracer
             bool invertible = true;
             bool shouldTerminate = false;
 
-            //  Check if current offset path passes criteria to be a RC -- a.k.a. invertible
             // daqi: check situation where invertibility is violated
+            //  Checking if we could find a even earlier RC than the base path's,
+            //  If we can, then offset path is non-invertible.
             if (path.length >= 1 && path.length <= path.pathBuilder.rcVertexLength - 1)
             {
                 if (kSeparatePathBSDF)
@@ -1386,23 +1386,34 @@ struct PathTracer
                     if (params.localStrategyType & (uint)LocalStrategy::RoughnessCondition)
                     {
                         // method 2
-                        //non-invertible if this bounce is an NEE bounce for the base path but the current vertex is not connectible in base path but is connectible in offset path
+                        //non-invertible if this bounce is an NEE bounce for the base path, which means the current vertex is not connectible in base path, but it now is connectible in offset path
+                        // 1. the current vertex in the base path is terminated as NEE
+                        // 2. the current vertex can also be considered as a RC in offset path
                         if (terminateRandomReplayForNEE
                             && isCurrentVertexClassifiedAsRough
                             && isLastVertexAcceptableForRcPrev)
                             invertible = false;
 
-                        //non-invertible because current vertex will be assigned as a diffuse bounce by connecting to the reconnection vertex
+                        // non-invertible because current vertex will be assigned as a diffuse bounce by connecting to the reconnection vertex - ???
+                        //  1. Next vertex is a RC in base path
+                        //  2. Previous vertex is rough
+                        //  3. If current vertex is:
+                        //      - Rough: Then it should be considered a RC, which means it's earlier than base path. But shouldn't we also check if it's also close field?
+                        //      - Specular: Then it can't connect to the RC in base path, thus non-invertible.
+                        //      In both cases, the shift is non-invertible.
+                        //      Is this correct?
                         if (path.length == path.pathBuilder.rcVertexLength - 1
                             && isLastVertexAcceptableForRcPrev)
                             invertible = false;
 
+                        //  Close field with prev vertex. Which means the current vertex can't be an earlier RC than base path.
                         if (params.localStrategyType & (uint)LocalStrategy::DistanceCondition
                             && !isFarField)
                             invertible = true;
                     }
                     else
                     {
+                        // Far field with prev vertex, which means current vertex can be considered as a RC earlier than the base path.
                         if (params.localStrategyType & (uint)LocalStrategy::DistanceCondition
                             && isFarField)
                             invertible = false;
@@ -1410,10 +1421,12 @@ struct PathTracer
                 }
                 else
                 {
+                    // If current vertex pass both distance condition and roughness condition, then it can be considered as a RC earlier than the base path.
                     if (!(
                         params.localStrategyType & (uint)LocalStrategy::DistanceCondition
                         && !isFarField
-                        || params.localStrategyType & (uint)LocalStrategy::RoughnessCondition
+                        ||
+                        params.localStrategyType & (uint)LocalStrategy::RoughnessCondition
                         && !(/*supportsNEE &&*/
                             isCurrentVertexClassifiedAsRough
                             && isLastVertexAcceptableForRcPrev)
@@ -1422,13 +1435,16 @@ struct PathTracer
                 }
             }
 
-            // daqi: if next vertex is rcVertex and the shift is still invertible, then we should terminate
             if (path.length == path.pathBuilder.rcVertexLength - 1 && invertible)
             {
-                // not possible to generate a diffuse bounce
+                // daqi: not possible to generate a diffuse bounce
+
+                // Check if the current vertex can connect to the RC in base path
+                //  i.e. is it rough. If it is not, then it is non-invertible.
                 if (params.localStrategyType & (uint)LocalStrategy::RoughnessCondition &&
                         (kSeparatePathBSDF && (path.pathBuilder.pathFlags.decodeIsSpecularBounce(true) ? sd.linearRoughness <= params.specularRoughnessThreshold : !hasRoughComponent(sd, 1.f)) ||
-                        !kSeparatePathBSDF && !isCurrentVertexClassifiedAsRough))
+                        !kSeparatePathBSDF && !isCurrentVertexClassifiedAsRough
+                ))
                 {
                     // daqi: invalidate the shift
                     invertible = false;
@@ -1436,6 +1452,7 @@ struct PathTracer
                 // daqi: near field rejection case is checked in computeShiftedIntegrandReconnection in shift.slang
                 else
                 {
+                    // daqi: if next vertex is rcVertex and the shift is still invertible, then we should terminate
                     shouldTerminate = true;
                 }
             }
@@ -1468,7 +1485,7 @@ struct PathTracer
         }
 
         if (PathSamplingMode(kPathSamplingMode) != PathSamplingMode::PathTracing
-             && path.replayMode != ReplayMode::HybridShiftSMS )
+             && path.replayMode == ReplayMode::HybridShiftSMS )
         {
             print("- Check hybrid shift invertibility (DSD)", 0);
 
@@ -1476,6 +1493,62 @@ struct PathTracer
             // Basically we are at v_i = rc_index - 2, assume v_i + 1 to be specular
 
             // Do we also need to care for terminateRandomReplayForNEE? probably yes
+
+            // bool isFarFieldDS = length(path.prevOrigin - pathPrevPrevOrigin) >= params.nearFieldDistance;
+            // bool isFarFieldSD = length(path.origin - path.prevOrigin) >= params.nearFieldDistance;
+            // bool isFarFieldDD = length(path.origin - pathPrevPrevOrigin) >= params.nearFieldDistance;
+
+            // bool passDistanceCondDSD = isFarFieldDS && isFarFieldSD && isFarFieldDD;
+
+            // canConnectSMS = (
+            //     path.length >= 2 // at least 3 surface interactions
+            //                 && path.length < path.pathBuilder.rcVertexLength
+            //     && isDSDPath
+            //     && (
+            //         !(params.localStrategyType & (uint)LocalStrategy::DistanceCondition)
+            //         ||
+            //         passDistanceCondDSD
+            //     )
+            // );
+
+
+            // if (path.length >= 1 && path.length <= path.pathBuilder.rcVertexLength - 2)
+            // {
+            //     if (kSeparatePathBSDF)
+            //     {
+            //         if (params.localStrategyType & (uint)LocalStrategy::RoughnessCondition)
+            //         {
+            //         }
+            //     }
+            //     else
+            //     {
+
+            //     }
+            // }
+
+            bool invertible = true;
+            bool shouldTerminate = false;
+
+            bool isPreviousRcSpecular = path.pathBuilder.pathFlags.decodeIsSpecularBounce(true);
+
+            int rcVertexLength = path.pathBuilder.rcVertexLength - 1;
+            if( isPreviousRcSpecular )
+            {
+                // RC is DD
+                if (path.length >= 1 && path.length <= )
+
+
+                // 1. Check if found an earlier connection than RC
+                if( )
+
+                // 2. Check connectibility with the RC
+
+            }
+            else
+            {
+                // RC is DSD case
+
+            }
 
         }
 

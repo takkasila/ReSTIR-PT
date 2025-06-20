@@ -190,6 +190,10 @@ struct PathRetracePass
                 debugCentralResevoirPathDataBuffer[0] = debugPathData1;
             }
         }
+        else
+        {
+            print("- centralReservoir doesn't have RC. rcVertexLength =", centralReservoir.pathFlags.rcVertexLength());
+        }
 
         if (temporalReservoir.pathFlags.rcVertexLength() > 1)
         {
