@@ -201,7 +201,6 @@ struct ReconnectionData
 struct PixelReconnectionData
 {
     ReconnectionData data[RCDATA_PATH_NUM];
-    float4 padding[RCDATA_PAD_SIZE]; //pad to 256 bytes
 }
 
 

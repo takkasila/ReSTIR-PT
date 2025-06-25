@@ -1940,7 +1940,7 @@ Program::DefineList ReSTIRPTPass::StaticParams::getDefines(const ReSTIRPTPass& o
     defines.add("SEPARATE_PATH_BSDF", separatePathBSDF ? "1" : "0");
 
     defines.add("RCDATA_PATH_NUM", rcDataOfflineMode ? "12" : "6");
-    defines.add("RCDATA_PAD_SIZE", rcDataOfflineMode ? "2" : "1");
+    // defines.add("RCDATA_PAD_SIZE", rcDataOfflineMode ? "2" : "1");
     // defines.add("IS_ONLINE", rcDataOfflineMode ? "1" : "0");
 
     return defines;

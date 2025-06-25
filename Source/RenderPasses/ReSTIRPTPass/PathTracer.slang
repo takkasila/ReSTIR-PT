@@ -1135,9 +1135,11 @@ struct PathTracer
 
 #endif
 
-                if (selectedCurrentPath) print("-- added current path into reservoir", 0);
+                if (selectedCurrentPath)
+                    print("-- added current path into reservoir", 0);
 
                 // daqi: if current escaped vertex has path.length >= 2, then it can be used as a rcVertex
+                //  Why not path.length >= 1 ?
                 if (selectedCurrentPath
                     && path.replayMode == ReplayMode::HybridShift
                     && path.length >= 2
@@ -1150,8 +1152,12 @@ struct PathTracer
                     bool isFarField = length(sd.posW - path.origin) >= params.nearFieldDistance;
                     bool isLastVertexAcceptableForRcPrev = path.isLastVertexClassifiedAsRough;
 
-                    //  This essentially means if(distanceConditionPass && roughnessConditionPass)
-                    if (!(params.localStrategyType & (uint)LocalStrategy::DistanceCondition && !isFarField || params.localStrategyType & (uint)LocalStrategy::RoughnessCondition && !isLastVertexAcceptableForRcPrev))
+                    //  This essentially means if(isLastVertexAcceptableForRcPrev || (distanceConditionPass && roughnessConditionPass))
+                    if (!(
+                        params.localStrategyType & (uint)LocalStrategy::DistanceCondition && !isFarField
+                        || params.localStrategyType & (uint)LocalStrategy::RoughnessCondition
+                        && !isLastVertexAcceptableForRcPrev
+                    ))
                     {
                         if (path.replayMode == ReplayMode::None)
                         {
@@ -1187,16 +1193,27 @@ struct PathTracer
                         {
                             // non-invertible case
 
-                            // If currently doing random number replay for HybridShift and found that the current escape vertex is suitable for an RCVertex then remove the path contribution.
-                            //  Why???
+                            // 1. Current doing random number replay for HybridShift
+                            // 2. At a termination vertex based on base path
+                            // 3. The current vertex is suitable to be a RC. Which is earlier than the base path. Thus, this path should be invalidated.
                             path.L = 0.f;
+
+                            print("--- offset path is non-invertible", 0);
                         }
                     }
 
+                }
+                else if (selectedCurrentPath
+                    && path.replayMode == ReplayMode::HybridShiftSMS
+                    && path.length >= 3
+                    && path.length < path.pathBuilder.rcVertexLength
+                )
+                {
                     // TODO: Add support for HybridShiftSMS
                     // Conditions:
                     //  1. ShiftMapping::HybridShiftSMS
                     //  2. path.isLastLastVertexClassifiedAsRough
+
                 }
             }
 
@@ -1270,19 +1287,29 @@ struct PathTracer
 
         // daqi: if we are not doing a hybrid shift replay, we should check if current vertex satisfy the condition to be used as a rcVertex
 
+        // Previously was
+        // 1. Not path.isReplayForHybridShift -> either
+        //      1. Tracing base path (useRandomReplay = False)
+        //      2. Tracing offset path for randomreplay reuse
+        // 2. and Not path tracing
         if (path.replayMode == ReplayMode::None && PathSamplingMode(kPathSamplingMode) != PathSamplingMode::PathTracing)
         {
             print("- Considering if current vertex can be a RC", 0);
 
             bool isNearField = !isFarField;
             bool atLeastOneSpecularVertex = !(isCurrentVertexClassifiedAsRough && isLastVertexAcceptableForRcPrev);
-            bool canConnect = (path.length >= 1 && path.length < path.pathBuilder.rcVertexLength &&
+            bool canConnect = (
+                path.length >= 1
+                && path.length < path.pathBuilder.rcVertexLength
+                &&
                 (!(
                     params.localStrategyType & (uint)LocalStrategy::DistanceCondition &&
                         isNearField
-                ||
+                    ||
                     params.localStrategyType & (uint)LocalStrategy::RoughnessCondition &&
-                        atLeastOneSpecularVertex)));
+                        atLeastOneSpecularVertex
+                ))
+            );
 
             bool isDSDPath = (isCurrentVertexClassifiedAsRough
                 && !path.isLastVertexClassifiedAsRough
@@ -1294,7 +1321,7 @@ struct PathTracer
             bool canConnectSMS = false;
 
             if (isDSDPath
-                && (path.replayMode == ReplayMode::HybridShiftSMS)
+                && (ShiftMapping(kShiftStrategy) == ShiftMapping::HybridShiftSMS)
             )
             {
 
@@ -1322,11 +1349,12 @@ struct PathTracer
             //  - not HybridShift or HybridShiftSMS and at primary hit
             //  - or ShiftMapping::HybridShift and canConnect
             //  - or ShiftMapping::HybridShiftSMS and canConnectSMS
-            if (
-                ((path.replayMode == ReplayMode::None) && path.length == 1)
-                || ((path.replayMode == ReplayMode::HybridShift) && canConnect)
-                || ((path.replayMode == ReplayMode::HybridShiftSMS) && canConnectSMS)
-            )
+            bool conditions =
+                ((ShiftMapping(kShiftStrategy) == ShiftMapping::Reconnection || ShiftMapping(kShiftStrategy) == ShiftMapping::RandomReplay) && path.length == 1)
+                || ((ShiftMapping(kShiftStrategy) == ShiftMapping::Hybrid) && canConnect)
+                || ((ShiftMapping(kShiftStrategy) == ShiftMapping::HybridShiftSMS) && canConnectSMS);
+
+            if (conditions)
             {
                 print("-- setting is_rcVertex = true", 0);
 
@@ -1341,12 +1369,12 @@ struct PathTracer
 
                 float3 disp = path.prevOrigin - sd.posW;
 
-                if (path.replayMode == ReplayMode::HybridShift)
+                if (ShiftMapping(kShiftStrategy) == ShiftMapping::Hybrid)
                 {
                     // daqi: save geometry term as part of cachedJacobian
                     path.pathBuilder.cachedJacobian.z = abs(dot(sd.faceN, sd.V)) / dot(disp, disp);
                 }
-                else if (path.replayMode == ReplayMode::HybridShiftSMS)
+                else if (ShiftMapping(kShiftStrategy) == ShiftMapping::HybridShiftSMS)
                 {
                     // TODO: HybridSMS cache Jacobian
                     path.pathBuilder.rcPrevVertexHit.initFromHitInfo(path.prevHit);
@@ -1359,7 +1387,11 @@ struct PathTracer
                 }
 
                 // daqi: save the current path length as the rcVertex length
-                if (canConnect || canConnectSMS || (path.replayMode != ReplayMode::None))
+                if (
+                    canConnect
+                    || canConnectSMS
+                    || ((ShiftMapping(kShiftStrategy) == ShiftMapping::Reconnection || ShiftMapping(kShiftStrategy) == ShiftMapping::RandomReplay))
+                )
                 {
                     print("-- save the current path length as the rcVertex length", 0);
 
@@ -1368,7 +1400,7 @@ struct PathTracer
             }
         }
         else if (PathSamplingMode(kPathSamplingMode) != PathSamplingMode::PathTracing
-             && path.replayMode == ReplayMode::HybridShift )
+            && path.replayMode == ReplayMode::HybridShift )
         {
             // Currently tracing random number replay path for hybrid shift
             print("- Check hybrid shift invertibility (DD)", 0);
@@ -1485,7 +1517,7 @@ struct PathTracer
         }
 
         if (PathSamplingMode(kPathSamplingMode) != PathSamplingMode::PathTracing
-             && path.replayMode == ReplayMode::HybridShiftSMS )
+            && path.replayMode == ReplayMode::HybridShiftSMS )
         {
             print("- Check hybrid shift invertibility (DSD)", 0);
 
@@ -1531,6 +1563,8 @@ struct PathTracer
 
             bool isPreviousRcSpecular = path.pathBuilder.pathFlags.decodeIsSpecularBounce(true);
 
+            /*
+
             int rcVertexLength = path.pathBuilder.rcVertexLength - 1;
             if( isPreviousRcSpecular )
             {
@@ -1549,6 +1583,8 @@ struct PathTracer
                 // RC is DSD case
 
             }
+
+            */
 
         }
 
@@ -1734,6 +1770,7 @@ struct PathTracer
 
         // forbid current vertex being rcVertex
         //      kSeparatePathBSDF is true when not PathSamplingMode::PathReuse
+        //  TODO: Check cases for HybridShiftSMS
         if (kSeparatePathBSDF && params.localStrategyType & (uint)LocalStrategy::RoughnessCondition)
         {
             bool seenAsConnectible = !path.isSpecularBounce() || sd.linearRoughness > params.specularRoughnessThreshold;
@@ -1761,6 +1798,7 @@ struct PathTracer
             }
             else if (
                 path.replayMode == ReplayMode::None
+                && ShiftMapping(kShiftStrategy) == ShiftMapping::Hybrid
                 && !seenAsConnectible
             )
             {
@@ -1773,7 +1811,7 @@ struct PathTracer
                 }
             }
 
-            if (path.replayMode != ReplayMode::None)
+            if (ShiftMapping(kShiftStrategy) == ShiftMapping::Hybrid)
                 isCurrentVertexClassifiedAsRough = seenAsConnectible;
         }
 
@@ -1792,7 +1830,7 @@ struct PathTracer
         }
 
         // Update path history for HybridSMS
-        if (path.replayMode == ReplayMode::HybridShiftSMS)
+        if (ShiftMapping(kShiftStrategy) == ShiftMapping::HybridShiftSMS)
         {
             if(path.length >= 1)
             {
@@ -1939,11 +1977,14 @@ struct PathTracer
                 bool selectedCurrentPath = path.pathBuilder.addEscapeVertex(params, path.length, path.dir, Lr, path.thp * Le * misWeight,
                     path.russianRoulettePdf, misWeight, lightPdf, (uint)LightSampleType::EnvMap, path.pathReservoir, path.enableRandomReplay);
 #endif
-                print("- is selected current path as escape", selectedCurrentPath);
+                print("- is selected current path as escaped", selectedCurrentPath);
 
                 // daqi: if current escaped vertex has path.length >= 2, then it can be used as a rcVertex
+
+                // TODO: Support HybridShiftSMS
+
                 if (selectedCurrentPath
-                    && (path.replayMode == ReplayMode::HybridShift)
+                    && ShiftMapping(kShiftStrategy) == ShiftMapping::HybridShiftSMS
                     && path.length >= 1
                     && path.length + 1 < path.pathBuilder.rcVertexLength
                 )
