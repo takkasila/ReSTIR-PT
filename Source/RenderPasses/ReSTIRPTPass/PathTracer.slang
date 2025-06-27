@@ -1521,9 +1521,6 @@ struct PathTracer
         {
             print("- Check hybrid shift invertibility (DSD)", 0);
 
-            // Check if current path have is eligible to be an RC, a.k.a invertible.
-            // Basically we are at v_i = rc_index - 2, assume v_i + 1 to be specular
-
             // Do we also need to care for terminateRandomReplayForNEE? probably yes
 
             // bool isFarFieldDS = length(path.prevOrigin - pathPrevPrevOrigin) >= params.nearFieldDistance;
@@ -1563,28 +1560,90 @@ struct PathTracer
 
             bool isPreviousRcSpecular = path.pathBuilder.pathFlags.decodeIsSpecularBounce(true);
 
-            /*
+            bool isEnableDistanceCondition = params.localStrategyType & (uint)LocalStrategy::DistanceCondition;
 
-            int rcVertexLength = path.pathBuilder.rcVertexLength - 1;
+            bool isEnableRoughnessCondition = params.localStrategyType & (uint)LocalStrategy::RoughnessCondition;
+
             if( isPreviousRcSpecular )
             {
+                //
                 // RC is DD
-                if (path.length >= 1 && path.length <= )
-
+                //
 
                 // 1. Check if found an earlier connection than RC
-                if( )
+                if (
+                    path.length >= 1
+                    && path.length <= path.pathBuilder.rcVertexLength - 1
+                )
+                {
+                    // Check if current vertex could be considered as a RC
+                    bool passDistanceCondition = !isEnableDistanceCondition || isFarField;
+
+                    bool atLeastOneSpecularVertex = !(isCurrentVertexClassifiedAsRough && isLastVertexAcceptableForRcPrev);
+                    bool passRoughnessCondition = !isEnableRoughnessCondition || atLeastOneSpecularVertex;
+
+                    bool canConnect = passDistanceCondition && passRoughnessCondition;
+
+                    if (canConnect)
+                    {
+                        // Found an ealier RC than base path
+                        invertible = false;
+                    }
+                }
 
                 // 2. Check connectibility with the RC
+                if (path.length == path.pathBuilder.rcVertexLength - 1)
+                {
+                    if (!isEnableRoughnessCondition || isCurrentVertexClassifiedAsRough)
+                    {
+                        shouldTerminate = true;
+                    }
+                    else
+                    {
+                        invertible = false;
+                    }
+                }
 
+                // Early termination flag
+                if (terminateRandomReplayForNEE)
+                {
+                    shouldTerminate = true;
+                }
+
+                // 3. Check if should terminate
+                if (invertible)
+                {
+                    if(shouldTerminate)
+                    {
+                        // We have a good offset path ready for reconnection
+                        path.rcPrevVertexHit = path.hit;
+                        path.rcPrevVertexWo = sd.V;
+                        path.terminate();
+                        print("--- Found some good shit 1", 0);
+                        return;
+                    }
+                }
+                else
+                {
+                    // Offset path is non-invertible. Terminate and return.
+                    invalidateAndTerminateReplayPath(path);
+                    print("--- Found some good shit 2", 0);
+                    return;
+                }
             }
             else
             {
-                // RC is DSD case
+                //
+                // RC is DSD
+                //
+
+                // 1. Check if found an earlier connection than RC
+
+                // 2. Check connectibility with the RC
+
+                // 3. Check if should terminate
 
             }
-
-            */
 
         }
 
