@@ -1325,11 +1325,11 @@ struct PathTracer
             )
             {
 
-                bool isFarFieldDS = length(path.prevOrigin - pathPrevPrevOrigin) >= params.nearFieldDistance;
-                bool isFarFieldSD = length(path.origin - path.prevOrigin) >= params.nearFieldDistance;
-                bool isFarFieldDD = length(path.origin - pathPrevPrevOrigin) >= params.nearFieldDistance;
+                bool isFarField_1_2 = length(path.prevOrigin - pathPrevPrevOrigin) >= params.nearFieldDistance;
+                bool isFarField_2_3 = length(path.origin - path.prevOrigin) >= params.nearFieldDistance;
+                bool isFarField_1_3 = length(path.origin - pathPrevPrevOrigin) >= params.nearFieldDistance;
 
-                bool passDistanceCondDSD = isFarFieldDS && isFarFieldSD && isFarFieldDD;
+                bool passDistanceCondDSD = isFarField_1_2 && isFarField_2_3 && isFarField_1_3;
 
                 canConnectSMS = (
                     path.length >= 2    // at least 3 surface interactions
@@ -1521,40 +1521,6 @@ struct PathTracer
         {
             print("- Check hybrid shift invertibility (DSD)", 0);
 
-            // Do we also need to care for terminateRandomReplayForNEE? probably yes
-
-            // bool isFarFieldDS = length(path.prevOrigin - pathPrevPrevOrigin) >= params.nearFieldDistance;
-            // bool isFarFieldSD = length(path.origin - path.prevOrigin) >= params.nearFieldDistance;
-            // bool isFarFieldDD = length(path.origin - pathPrevPrevOrigin) >= params.nearFieldDistance;
-
-            // bool passDistanceCondDSD = isFarFieldDS && isFarFieldSD && isFarFieldDD;
-
-            // canConnectSMS = (
-            //     path.length >= 2 // at least 3 surface interactions
-            //                 && path.length < path.pathBuilder.rcVertexLength
-            //     && isDSDPath
-            //     && (
-            //         !(params.localStrategyType & (uint)LocalStrategy::DistanceCondition)
-            //         ||
-            //         passDistanceCondDSD
-            //     )
-            // );
-
-
-            // if (path.length >= 1 && path.length <= path.pathBuilder.rcVertexLength - 2)
-            // {
-            //     if (kSeparatePathBSDF)
-            //     {
-            //         if (params.localStrategyType & (uint)LocalStrategy::RoughnessCondition)
-            //         {
-            //         }
-            //     }
-            //     else
-            //     {
-
-            //     }
-            // }
-
             bool invertible = true;
             bool shouldTerminate = false;
 
@@ -1582,9 +1548,7 @@ struct PathTracer
                     bool atLeastOneSpecularVertex = !(isCurrentVertexClassifiedAsRough && isLastVertexAcceptableForRcPrev);
                     bool passRoughnessCondition = !isEnableRoughnessCondition || atLeastOneSpecularVertex;
 
-                    bool canConnect = passDistanceCondition && passRoughnessCondition;
-
-                    if (canConnect)
+                    if (passDistanceCondition && passRoughnessCondition)
                     {
                         // Found an ealier RC than base path
                         invertible = false;
@@ -1619,7 +1583,7 @@ struct PathTracer
                         path.rcPrevVertexHit = path.hit;
                         path.rcPrevVertexWo = sd.V;
                         path.terminate();
-                        print("--- Found some good shit 1", 0);
+                        print("--- Found good offset path DD", 0);
                         return;
                     }
                 }
@@ -1627,7 +1591,7 @@ struct PathTracer
                 {
                     // Offset path is non-invertible. Terminate and return.
                     invalidateAndTerminateReplayPath(path);
-                    print("--- Found some good shit 2", 0);
+                    print("--- Invalidate offset path DD", 0);
                     return;
                 }
             }
@@ -1638,11 +1602,86 @@ struct PathTracer
                 //
 
                 // 1. Check if found an earlier connection than RC
+                if (
+                    path.length >= 2
+                    && path.length <= path.pathBuilder.rcVertexLength - 1
+                )
+                {
+                    bool isFarField_1_2 = length(path.prevOrigin - pathPrevPrevOrigin) >= params.nearFieldDistance;
+                    bool isFarField_2_3 = length(path.origin - path.prevOrigin) >= params.nearFieldDistance;
+                    bool isFarField_1_3 = length(path.origin - pathPrevPrevOrigin) >= params.nearFieldDistance;
+
+                    bool passDistanceCondition = !isEnableDistanceCondition || (isFarField_1_2 && isFarField_2_3 && isFarField_1_3);
+
+                    bool passRoughnessCondition = !isEnableRoughnessCondition || (isCurrentVertexClassifiedAsRough && path.isLastLastVertexClassifiedAsRough);
+
+                    if(passDistanceCondition && passRoughnessCondition)
+                    {
+                        // Found an earlier RC
+                        invertible = false;
+                    }
+                }
 
                 // 2. Check connectibility with the RC
+                if (path.length == path.pathBuilder.rcVertexLength - 1)
+                {
+                    if (!isEnableRoughnessCondition || !isCurrentVertexClassifiedAsRough)
+                    {
+                        //  Can connect to base path RC
+                        shouldTerminate = true;
+                    }
+                    else
+                    {
+                        invertible = false;
+                    }
+                }
+
+                /*
+                if (path.length == path.pathBuilder.rcVertexLength - 2)
+                {
+                    if(isCurrentVertexClassifiedAsRough)
+                    {
+                        // Assume that next vertex is a specular due to random number replay and can connect to RC
+                        shouldTerminate = true;
+                        // 1. Save current as rc prev prev.
+                        path.rcPrevPrevVertexHit = path.hit;
+                        path.rcPrevPrevVertexWo = path.wo;
+                        // 2. Copy base path rc prev as this rc prev.
+                        // path.rcPrevVertexHit = ...
+                        // path.rcPrevVertexWo = ...
+                        // We don't actually have this data... We need to signify it for reuse.
+                    }
+                }
+                */
+
+                    // Early termination flag
+                if (terminateRandomReplayForNEE)
+                {
+                    shouldTerminate = true;
+                }
 
                 // 3. Check if should terminate
-
+                if (invertible)
+                {
+                    if (shouldTerminate)
+                    {
+                        // We have a good offset path ready for reconnection
+                        path.rcPrevVertexHit = path.hit;
+                        path.rcPrevVertexWo = sd.V;
+                        path.rcPrevPrevVertexHit = path.prevHit;
+                        path.rcPrevPrevVertexWo = path.prevWo;
+                        path.terminate();
+                        print("--- Found good offset path DSD", 0);
+                        return;
+                    }
+                }
+                else
+                {
+                    // Offset path is non-invertible. Terminate and return.
+                    invalidateAndTerminateReplayPath(path);
+                    print("--- Invalidate offset path DSD", 0);
+                    return;
+                }
             }
 
         }
