@@ -165,6 +165,21 @@ struct PathRetracePass
                 debugPathData1
             );
 
+            // Check if the case of need to fill in DSD data
+            if (
+                // RC is DSD
+                && centralReservoir.pathFlags.decodeIsSpecularBounce(true)
+                // Valid RC
+                any(centralReservoirReconnectionData.pathThroughput > 0.f)
+                // Specular vertex has been assumed (rcPrevHit)
+                && !centralReservoirReconnectionData.rcPrevHit.isValid()
+            )
+            {
+                print("- Filling in assumed reconnectionData.rcPrevHit", 0);
+                centralReservoirReconnectionData.rcPrevHit = centralReservoir.rcPrevVertexHit.getHitInfo();
+            }
+
+            // Set to buffer
             reconnectionDataBuffer[centralOffset].data[0] = centralReservoirReconnectionData;
 
             if (isDebug)
@@ -173,19 +188,14 @@ struct PathRetracePass
                 print("- rcVertexLength", centralReservoir.pathFlags.rcVertexLength());
                 print("- pathLength", centralReservoir.pathFlags.pathLength());
 
-                bool isValidRCD = (
-                    any(centralReservoirReconnectionData.pathThroughput > 0.f)
-                    && (centralReservoirReconnectionData.rcPrevHit.isValid())
-                );
-
-                if (isValidRCD)
-                {
-                    // Add a RC vertex at the end
-                    TriangleHit centralReservoirRCVertexHit = centralReservoir.rcVertexHit.getHitInfo().getTriangleHit();
-                    VertexData rcVertex = gScene.getVertexData(centralReservoirRCVertexHit);
-                    debugPathData1.vertices[debugPathData1.vertexCount] = float4(rcVertex.posW, 1);
-                    debugPathData1.vertexCount += 1;
-                }
+                // if (isValidRCD)
+                // {
+                //     // Add a RC vertex at the end
+                //     TriangleHit centralReservoirRCVertexHit = centralReservoir.rcVertexHit.getHitInfo().getTriangleHit();
+                //     VertexData rcVertex = gScene.getVertexData(centralReservoirRCVertexHit);
+                //     debugPathData1.vertices[debugPathData1.vertexCount] = float4(rcVertex.posW, 1);
+                //     debugPathData1.vertexCount += 1;
+                // }
 
                 debugCentralResevoirPathDataBuffer[0] = debugPathData1;
             }
@@ -209,10 +219,29 @@ struct PathRetracePass
                 debugPathData2
             );
 
+            // Check if the case of need to fill in DSD data
+            if (
+                // RC is DSD
+                && temporalReservoir.pathFlags.decodeIsSpecularBounce(true)
+                // Valid RC
+                any(temporalReservoirReconnectionData.pathThroughput > 0.f)
+                // Specular vertex has been assumed (rcPrevHit)
+                && !temporalReservoirReconnectionData.rcPrevHit.isValid()
+            )
+            {
+                print("- Filling in assumed reconnectionData.rcPrevHit", 0);
+                temporalReservoirReconnectionData.rcPrevHit = temporalReservoir.rcPrevVertexHit.getHitInfo();
+            }
+
             reconnectionDataBuffer[centralOffset].data[1] = temporalReservoirReconnectionData;
 
             if (isDebug)
             {
+                print("- debugPathData1.vertexCount", debugPathData1.vertexCount);
+                print("- rcVertexLength", temporalReservoir.pathFlags.rcVertexLength());
+                print("- pathLength", temporalReservoir.pathFlags.pathLength());
+
+                /*
                 bool isValidRCD = (
                     any(temporalReservoirReconnectionData.pathThroughput > 0.f)
                     && (temporalReservoirReconnectionData.rcPrevHit.isValid())
@@ -226,6 +255,7 @@ struct PathRetracePass
                     debugPathData2.vertices[debugPathData2.vertexCount] = float4(rcVertex.posW, 1);
                     debugPathData2.vertexCount += 1;
                 }
+                */
 
                 debugTemporalResevoirPathDataBuffer[0] = debugPathData2;
 

@@ -112,6 +112,8 @@ struct PathRetracePass
     */
     void ReSTIR(const uint2 pixel)
     {
+        print("Spatial path retrace: begin", 0);
+
         // TODO: How to seed efficiently?
         var sg = TinyUniformSampleGenerator(pixel, (kCandidateSamples + 1 + gNumSpatialRounds) * params.seed + kCandidateSamples + 1 + gSpatialRoundId);
 
@@ -151,6 +153,8 @@ struct PathRetracePass
             // write to memory
             if (centralReservoir.pathFlags.rcVertexLength() > 1)
             {
+                print("- traceHybridShiftRays centralReservoir", 0);
+
                 traceHybridShiftRays(
                     params,
                     false,
@@ -161,11 +165,27 @@ struct PathRetracePass
                     debugPathData1
                 );
 
+                // Check if the case of need to fill in DSD data
+                if (
+                    // RC is DSD
+                    centralReservoir.pathFlags.decodeIsSpecularBounce(true)
+                    // Valid RC
+                    && any(centralReservoirReconnectionData.pathThroughput > 0.f)
+                    // Specular vertex has been assumed (rcPrevHit)
+                    && !centralReservoirReconnectionData.rcPrevHit.isValid()
+                )
+                {
+                    print("- Filling in assumed reconnectionData.rcPrevHit", 0);
+                    centralReservoirReconnectionData.rcPrevHit = centralReservoir.rcPrevVertexHit.getHitInfo();
+                }
+
                 reconnectionDataBuffer[centralOffset].data[2 * i] = centralReservoirReconnectionData;
             }
 
             if (neighborReservoir.pathFlags.rcVertexLength() > 1)
             {
+                print("- traceHybridShiftRays neighborReservoir", 0);
+
                 traceHybridShiftRays(
                     params,
                     false,
@@ -176,9 +196,25 @@ struct PathRetracePass
                     debugPathData2
                 );
 
+                // Check if the case of need to fill in DSD data
+                if (
+                    // RC is DSD
+                    neighborReservoir.pathFlags.decodeIsSpecularBounce(true)
+                    // Valid RC
+                    && any(neighborReservoirReconnectionData.pathThroughput > 0.f)
+                    // Specular vertex has been assumed (rcPrevHit)
+                    && !neighborReservoirReconnectionData.rcPrevHit.isValid()
+                )
+                {
+                    print("- Filling in assumed reconnectionData.rcPrevHit", 0);
+                    neighborReservoirReconnectionData.rcPrevHit = neighborReservoir.rcPrevVertexHit.getHitInfo();
+                }
+
                 reconnectionDataBuffer[centralOffset].data[2 * i + 1] = neighborReservoirReconnectionData;
             }
         }
+
+        print("Spatial path retrace: end", 0);
     }
 
     /** Entry point for merge pass.

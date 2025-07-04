@@ -1530,11 +1530,12 @@ struct PathTracer
 
             bool isEnableRoughnessCondition = params.localStrategyType & (uint)LocalStrategy::RoughnessCondition;
 
-            if( isPreviousRcSpecular )
+            if( !isPreviousRcSpecular )
             {
                 //
                 // RC is DD
                 //
+                print("-- RC is DD case", 0);
 
                 // 1. Check if found an earlier connection than RC
                 if (
@@ -1600,6 +1601,7 @@ struct PathTracer
                 //
                 // RC is DSD
                 //
+                print("-- RC is DSD case", 0);
 
                 // 1. Check if found an earlier connection than RC
                 if (
@@ -1636,11 +1638,11 @@ struct PathTracer
                     }
                 }
 
-                /*
                 if (path.length == path.pathBuilder.rcVertexLength - 2)
                 {
                     if(isCurrentVertexClassifiedAsRough)
                     {
+                        print("--- Assuming rcPrevVertex is specular", 0);
                         // Assume that next vertex is a specular due to random number replay and can connect to RC
                         shouldTerminate = true;
                         // 1. Save current as rc prev prev.
@@ -1649,12 +1651,11 @@ struct PathTracer
                         // 2. Copy base path rc prev as this rc prev.
                         // path.rcPrevVertexHit = ...
                         // path.rcPrevVertexWo = ...
-                        // We don't actually have this data... We need to signify it for reuse.
+                        // Because we doesn't have this data during retrace, it needs to be handled by upper level traceRandomReplayPathHybridSimple(). In there we will check ReconnectionData.rcPrevHit.isValid()
                     }
                 }
-                */
 
-                    // Early termination flag
+                // Early termination flag
                 if (terminateRandomReplayForNEE)
                 {
                     shouldTerminate = true;
@@ -2311,8 +2312,6 @@ struct PathTracer
         //  If the reservoir have RC, return infomation of the vertex before RC
         if (pathFlags.rcVertexLength() <= pathFlags.pathLength() || isRcVertexEscapedVertex)
         {
-            reconnectionData.rcPrevHit = path.rcPrevVertexHit;
-            reconnectionData.rcPrevWo = path.rcPrevVertexWo;
             L = path.getCurrentThp();
 
             //  If RC vertex is part of DSD chain
@@ -2320,9 +2319,31 @@ struct PathTracer
 
             if(isPrevRcVertexSpecular)
             {
+                // DSD RC
                 print("--- RC vertex is for HybridSMS", 0);
-                // rcPrevPrevHit = path.rcPrevPrevVertexHit;
-                // rcPrevPrevHitWo = path.rcPrevPrevVertexWo;
+
+                reconnectionData.rcPrevPrevHit = path.rcPrevPrevVertexHit;
+                reconnectionData.rcPrevPrevWo = path.rcPrevPrevVertexWo;
+
+                // Check if rcPrevHit has been assumed or not
+                if (path.length == pathFlags.rcVertexLength() - 1)
+                {
+                    // Wasn't assumed
+                    reconnectionData.rcPrevHit = path.rcPrevVertexHit;
+                    reconnectionData.rcPrevWo = path.rcPrevVertexWo;
+                }
+                /*
+                else
+                {
+                    // Copy from base path. Needs to be handled by the caller
+                }
+                */
+            }
+            else
+            {
+                // DD RC
+                reconnectionData.rcPrevHit = path.rcPrevVertexHit;
+                reconnectionData.rcPrevWo = path.rcPrevVertexWo;
             }
 
         }
