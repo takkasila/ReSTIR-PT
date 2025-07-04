@@ -197,14 +197,44 @@ struct PathRetracePass
                 print("- rcVertexLength", centralReservoir.pathFlags.rcVertexLength());
                 print("- pathLength", centralReservoir.pathFlags.pathLength());
 
-                // if (isValidRCD)
-                // {
-                //     // Add a RC vertex at the end
-                //     TriangleHit centralReservoirRCVertexHit = centralReservoir.rcVertexHit.getHitInfo().getTriangleHit();
-                //     VertexData rcVertex = gScene.getVertexData(centralReservoirRCVertexHit);
-                //     debugPathData1.vertices[debugPathData1.vertexCount] = float4(rcVertex.posW, 1);
-                //     debugPathData1.vertexCount += 1;
-                // }
+                // Fill in RC data into debugData
+                if (any(centralReservoirReconnectionData.pathThroughput > 0.f))
+                {
+                    debugPathData1.hasRcVertex = true;
+
+                    if (centralReservoir.pathFlags.decodeIsSpecularBounce(true))
+                    {
+                        // DSD RC
+                        debugPathData1.isRcDSD = true;
+
+                        debugPathData1.vertexCount = centralReservoir.pathFlags.rcVertexLength() + 2;
+
+                        // RC
+
+                        TriangleHit rcVertexHit = centralReservoir.rcVertexHit.getHitInfo().getTriangleHit();
+                        VertexData rcVertex = gScene.getVertexData(rcVertexHit);
+
+                        debugPathData1.vertices[debugPathData1.vertexCount - 1] = float4(rcVertex.posW, 1);
+
+                        // RC Prev
+
+                        TriangleHit rcPrevVertexHit = centralReservoir.rcPrevVertexHit.getHitInfo().getTriangleHit();
+                        VertexData rcPrevVertex = gScene.getVertexData(rcPrevVertexHit);
+
+                        debugPathData1.vertices[debugPathData1.vertexCount - 1] = float4(rcPrevVertex.posW, 1);
+                    }
+                    else
+                    {
+                        // DD RC
+                        debugPathData1.isRcDSD = false;
+                        debugPathData1.vertexCount = centralReservoir.pathFlags.rcVertexLength() + 2;
+
+                        TriangleHit rcVertexHit = centralReservoir.rcVertexHit.getHitInfo().getTriangleHit();
+                        VertexData rcVertex = gScene.getVertexData(rcVertexHit);
+
+                        debugPathData1.vertices[debugPathData1.vertexCount - 1] = float4(rcVertex.posW, 1);
+                    }
+                }
 
                 debugCentralResevoirPathDataBuffer[0] = debugPathData1;
             }
@@ -255,25 +285,48 @@ struct PathRetracePass
 
             if (isDebug)
             {
-                print("- debugPathData1.vertexCount", debugPathData1.vertexCount);
+                print("- debugPathData2.vertexCount", debugPathData2.vertexCount);
                 print("- rcVertexLength", temporalReservoir.pathFlags.rcVertexLength());
                 print("- pathLength", temporalReservoir.pathFlags.pathLength());
 
-                /*
-                bool isValidRCD = (
-                    any(temporalReservoirReconnectionData.pathThroughput > 0.f)
-                    && (temporalReservoirReconnectionData.rcPrevHit.isValid())
-                );
-
-                if(isValidRCD)
+                // Fill in RC data into debugData
+                if (any(temporalReservoirReconnectionData.pathThroughput > 0.f))
                 {
-                    // Add RC vertex at the end
-                    TriangleHit temporalReservoirRCVertexHit = temporalReservoir.rcVertexHit.getHitInfo().getTriangleHit();
-                    VertexData rcVertex = gScene.getVertexData(temporalReservoirRCVertexHit);
-                    debugPathData2.vertices[debugPathData2.vertexCount] = float4(rcVertex.posW, 1);
-                    debugPathData2.vertexCount += 1;
+                    debugPathData2.hasRcVertex = true;
+
+                    if (temporalReservoir.pathFlags.decodeIsSpecularBounce(true))
+                    {
+                        // DSD RC
+                        debugPathData2.isRcDSD = true;
+
+                        debugPathData2.vertexCount = temporalReservoir.pathFlags.rcVertexLength() + 2;
+
+                        // RC
+
+                        TriangleHit rcVertexHit = temporalReservoir.rcVertexHit.getHitInfo().getTriangleHit();
+                        VertexData rcVertex = gScene.getVertexData(rcVertexHit);
+
+                        debugPathData2.vertices[debugPathData2.vertexCount - 1] = float4(rcVertex.posW, 1);
+
+                        // RC Prev
+
+                        TriangleHit rcPrevVertexHit = temporalReservoir.rcPrevVertexHit.getHitInfo().getTriangleHit();
+                        VertexData rcPrevVertex = gScene.getVertexData(rcPrevVertexHit);
+
+                        debugPathData2.vertices[debugPathData2.vertexCount - 1] = float4(rcPrevVertex.posW, 1);
+                    }
+                    else
+                    {
+                        // DD RC
+                        debugPathData2.isRcDSD = false;
+                        debugPathData2.vertexCount = temporalReservoir.pathFlags.rcVertexLength() + 2;
+
+                        TriangleHit rcVertexHit = temporalReservoir.rcVertexHit.getHitInfo().getTriangleHit();
+                        VertexData rcVertex = gScene.getVertexData(rcVertexHit);
+
+                        debugPathData2.vertices[debugPathData2.vertexCount - 1] = float4(rcVertex.posW, 1);
+                    }
                 }
-                */
 
                 debugTemporalResevoirPathDataBuffer[0] = debugPathData2;
 
