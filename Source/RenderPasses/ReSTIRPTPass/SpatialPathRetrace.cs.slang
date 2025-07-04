@@ -177,6 +177,15 @@ struct PathRetracePass
                 {
                     print("- Filling in assumed reconnectionData.rcPrevHit", 0);
                     centralReservoirReconnectionData.rcPrevHit = centralReservoir.rcPrevVertexHit.getHitInfo();
+
+                    // Compute rcPrevWo
+                    TriangleHit rcPrevHit = centralReservoir.rcPrevVertexHit.getHitInfo().getTriangleHit();
+                    float3 rcPrevVertexPos = gScene.getVertexData(rcPrevHit).posW;
+
+                    TriangleHit rcPrevPrevHit = centralReservoir.rcPrevPrevVertexHit.getHitInfo().getTriangleHit();
+                    float3 rcPrevPrevVertexPos = gScene.getVertexData(rcPrevPrevHit).posW;
+
+                    centralReservoirReconnectionData.rcPrevWo = normalize(rcPrevPrevVertexPos - rcPrevVertexPos);
                 }
 
                 reconnectionDataBuffer[centralOffset].data[2 * i] = centralReservoirReconnectionData;
@@ -208,6 +217,15 @@ struct PathRetracePass
                 {
                     print("- Filling in assumed reconnectionData.rcPrevHit", 0);
                     neighborReservoirReconnectionData.rcPrevHit = neighborReservoir.rcPrevVertexHit.getHitInfo();
+
+                    // Compute rcPrevWo
+                    TriangleHit rcPrevHit = neighborReservoir.rcPrevVertexHit.getHitInfo().getTriangleHit();
+                    float3 rcPrevVertexPos = gScene.getVertexData(rcPrevHit).posW;
+
+                    TriangleHit rcPrevPrevHit = neighborReservoir.rcPrevPrevVertexHit.getHitInfo().getTriangleHit();
+                    float3 rcPrevPrevVertexPos = gScene.getVertexData(rcPrevPrevHit).posW;
+
+                    neighborReservoirReconnectionData.rcPrevWo = normalize(rcPrevPrevVertexPos - rcPrevVertexPos);
                 }
 
                 reconnectionDataBuffer[centralOffset].data[2 * i + 1] = neighborReservoirReconnectionData;

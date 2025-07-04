@@ -1515,8 +1515,7 @@ struct PathTracer
                 return;
             }
         }
-
-        if (PathSamplingMode(kPathSamplingMode) != PathSamplingMode::PathTracing
+        else if (PathSamplingMode(kPathSamplingMode) != PathSamplingMode::PathTracing
             && path.replayMode == ReplayMode::HybridShiftSMS )
         {
             print("- Check hybrid shift invertibility (DSD)", 0);
@@ -1622,6 +1621,8 @@ struct PathTracer
                         // Found an earlier RC
                         invertible = false;
                     }
+
+                    // Should we check for early DD reconnection? Does it make sense?
                 }
 
                 // 2. Check connectibility with the RC
@@ -2301,6 +2302,7 @@ struct PathTracer
             if (path.length != pathFlags.pathLength())
             {
                 reconnectionData.pathThroughput = float3(0.f);
+                debugPathData.vertexCount = 0;
                 return;
             }
         }
@@ -2350,6 +2352,7 @@ struct PathTracer
         else // this branch is the case where rcVertex does not exist (or infinitely far)
         {
             L = path.L;
+            debugPathData.vertexCount = 0;
         }
 
         print("-- traceRandomReplayPathHybridSimple: end", 0);

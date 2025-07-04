@@ -220,7 +220,6 @@ void traceHybridShiftRays(
     }
 
     // usePrev means use previous frame data
-
     HitInfo dstPrimaryHit;
 
     dstPrimaryHit.unpack(dstPrimaryHitPacked);

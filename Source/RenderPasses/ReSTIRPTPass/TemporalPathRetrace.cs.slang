@@ -168,15 +168,24 @@ struct PathRetracePass
             // Check if the case of need to fill in DSD data
             if (
                 // RC is DSD
-                && centralReservoir.pathFlags.decodeIsSpecularBounce(true)
+                centralReservoir.pathFlags.decodeIsSpecularBounce(true)
                 // Valid RC
-                any(centralReservoirReconnectionData.pathThroughput > 0.f)
+                && any(centralReservoirReconnectionData.pathThroughput > 0.f)
                 // Specular vertex has been assumed (rcPrevHit)
                 && !centralReservoirReconnectionData.rcPrevHit.isValid()
             )
             {
                 print("- Filling in assumed reconnectionData.rcPrevHit", 0);
                 centralReservoirReconnectionData.rcPrevHit = centralReservoir.rcPrevVertexHit.getHitInfo();
+
+                // Compute rcPrevWo
+                TriangleHit rcPrevHit = centralReservoir.rcPrevVertexHit.getHitInfo().getTriangleHit();
+                float3 rcPrevVertexPos = gScene.getVertexData(rcPrevHit).posW;
+
+                TriangleHit rcPrevPrevHit = centralReservoir.rcPrevPrevVertexHit.getHitInfo().getTriangleHit();
+                float3 rcPrevPrevVertexPos = gScene.getVertexData(rcPrevPrevHit).posW;
+
+                centralReservoirReconnectionData.rcPrevWo = normalize(rcPrevPrevVertexPos - rcPrevVertexPos);
             }
 
             // Set to buffer
@@ -222,15 +231,24 @@ struct PathRetracePass
             // Check if the case of need to fill in DSD data
             if (
                 // RC is DSD
-                && temporalReservoir.pathFlags.decodeIsSpecularBounce(true)
+                temporalReservoir.pathFlags.decodeIsSpecularBounce(true)
                 // Valid RC
-                any(temporalReservoirReconnectionData.pathThroughput > 0.f)
+                && any(temporalReservoirReconnectionData.pathThroughput > 0.f)
                 // Specular vertex has been assumed (rcPrevHit)
                 && !temporalReservoirReconnectionData.rcPrevHit.isValid()
             )
             {
                 print("- Filling in assumed reconnectionData.rcPrevHit", 0);
                 temporalReservoirReconnectionData.rcPrevHit = temporalReservoir.rcPrevVertexHit.getHitInfo();
+
+                // Compute rcPrevWo
+                TriangleHit rcPrevHit = temporalReservoir.rcPrevVertexHit.getHitInfo().getTriangleHit();
+                float3 rcPrevVertexPos = gScene.getVertexData(rcPrevHit).posW;
+
+                TriangleHit rcPrevPrevHit = temporalReservoir.rcPrevPrevVertexHit.getHitInfo().getTriangleHit();
+                float3 rcPrevPrevVertexPos = gScene.getVertexData(rcPrevPrevHit).posW;
+
+                temporalReservoirReconnectionData.rcPrevWo = normalize(rcPrevPrevVertexPos - rcPrevVertexPos);
             }
 
             reconnectionDataBuffer[centralOffset].data[1] = temporalReservoirReconnectionData;
