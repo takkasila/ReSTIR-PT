@@ -461,8 +461,7 @@ void PathVisualizePass::updateRenderData()
                 if (mRenderedPathBundle.basePath.isRcDSD)
                 {
                     //  Check if this vertex is part of the DSD Rc chain
-                    if (i == mRenderedPathBundle.basePath.rcVertexIndex - 1
-                        || i == mRenderedPathBundle.basePath.rcVertexIndex - 2)
+                    if (i == mRenderedPathBundle.basePath.rcVertexIndex - 2 || i == mRenderedPathBundle.basePath.rcVertexIndex - 1)
                     {
                         color = float4(1, 0, 0, 1);
                     }
@@ -490,7 +489,6 @@ void PathVisualizePass::updateRenderData()
             indexOffset += kPyramidIndicesCount;
         }
     }
-
 
     if (mIsDisplayNEESegments)
     {
@@ -564,6 +562,24 @@ void PathVisualizePass::updateRenderData()
 
                 // TODO: use proper tex coord
                 verts[vertexOffset + j].texCoord = float2(0.5, 0.5);
+
+                // Coloring
+                if (mRenderedPathBundle.temporalCentralPath.isRcDSD)
+                {
+                    // Check if this vertex is part of the DSD RC chain
+                    if (i == mRenderedPathBundle.temporalCentralPath.rcVertexIndex - 2 || i == mRenderedPathBundle.temporalCentralPath.rcVertexIndex - 1)
+                    {
+                        color = float4(1, 0, 0, 0.5);
+                    }
+                }
+                else
+                {
+                    // If target vertex is an RC vertex, color code as red
+                    if (i == mRenderedPathBundle.temporalCentralPath.rcVertexIndex - 1)
+                    {
+                        color = float4(1, 0, 0, 0.5);
+                    }
+                }
                 verts[vertexOffset + j].color = color;
             }
 
@@ -577,8 +593,6 @@ void PathVisualizePass::updateRenderData()
             indexOffset += kPyramidIndicesCount;
         }
     }
-
-
 
     if (mIsDisplayTemporalTemporalPath)
     {
@@ -603,6 +617,24 @@ void PathVisualizePass::updateRenderData()
 
                 // TODO: use proper tex coord
                 verts[vertexOffset + j].texCoord = float2(0.5, 0.5);
+
+                // Coloring
+                if (mRenderedPathBundle.temporalTemporalPath.isRcDSD)
+                {
+                    // Check if this vertex is part of the DSD RC chain
+                    if (i == mRenderedPathBundle.temporalTemporalPath.rcVertexIndex - 2 || i == mRenderedPathBundle.temporalTemporalPath.rcVertexIndex - 1)
+                    {
+                        color = float4(1, 0, 0, 0.5);
+                    }
+                }
+                else
+                {
+                    // If target vertex is an RC vertex, color code as red
+                    if (i == mRenderedPathBundle.temporalTemporalPath.rcVertexIndex - 1)
+                    {
+                        color = float4(1, 0, 0, 0.5);
+                    }
+                }
                 verts[vertexOffset + j].color = color;
             }
 

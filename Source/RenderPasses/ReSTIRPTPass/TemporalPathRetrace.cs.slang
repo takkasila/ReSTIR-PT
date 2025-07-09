@@ -216,12 +216,14 @@ struct PathRetracePass
 
                         debugPathData1.vertices[debugPathData1.vertexCount - 1] = float4(rcVertex.posW, 1);
 
+                        debugPathData1.rcVertexIndex = debugPathData1.vertexCount - 1;
+
                         // RC Prev
 
                         TriangleHit rcPrevVertexHit = centralReservoir.rcPrevVertexHit.getHitInfo().getTriangleHit();
                         VertexData rcPrevVertex = gScene.getVertexData(rcPrevVertexHit);
 
-                        debugPathData1.vertices[debugPathData1.vertexCount - 1] = float4(rcPrevVertex.posW, 1);
+                        debugPathData1.vertices[debugPathData1.vertexCount - 2] = float4(rcPrevVertex.posW, 1);
                     }
                     else
                     {
@@ -233,6 +235,8 @@ struct PathRetracePass
                         VertexData rcVertex = gScene.getVertexData(rcVertexHit);
 
                         debugPathData1.vertices[debugPathData1.vertexCount - 1] = float4(rcVertex.posW, 1);
+
+                        debugPathData1.rcVertexIndex = debugPathData1.vertexCount - 1;
                     }
                 }
 
@@ -308,12 +312,14 @@ struct PathRetracePass
 
                         debugPathData2.vertices[debugPathData2.vertexCount - 1] = float4(rcVertex.posW, 1);
 
+                        debugPathData2.rcVertexIndex = debugPathData2.vertexCount - 1;
+
                         // RC Prev
 
                         TriangleHit rcPrevVertexHit = temporalReservoir.rcPrevVertexHit.getHitInfo().getTriangleHit();
                         VertexData rcPrevVertex = gScene.getVertexData(rcPrevVertexHit);
 
-                        debugPathData2.vertices[debugPathData2.vertexCount - 1] = float4(rcPrevVertex.posW, 1);
+                        debugPathData2.vertices[debugPathData2.vertexCount - 2] = float4(rcPrevVertex.posW, 1);
                     }
                     else
                     {
@@ -325,6 +331,8 @@ struct PathRetracePass
                         VertexData rcVertex = gScene.getVertexData(rcVertexHit);
 
                         debugPathData2.vertices[debugPathData2.vertexCount - 1] = float4(rcVertex.posW, 1);
+
+                        debugPathData2.rcVertexIndex = debugPathData2.vertexCount - 1;
                     }
                 }
 
