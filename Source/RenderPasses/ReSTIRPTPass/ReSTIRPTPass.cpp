@@ -1300,6 +1300,17 @@ void ReSTIRPTPass::prepareResources(RenderContext* pRenderContext, const RenderD
         mpTemporalTemporalPathDataBuffer = Buffer::createStructured(var["pixelDebugPathDataBuffer"], 1);
     }
 
+
+    if (!mpSpatialCentralPathDataBuffer)
+    {
+        mpSpatialCentralPathDataBuffer = Buffer::createStructured(var["pixelDebugPathDataBuffer"], 1);
+    }
+
+    if (!mpSpatialNeighborPathDataBuffer)
+    {
+        mpSpatialNeighborPathDataBuffer = Buffer::createStructured(var["pixelDebugPathDataBuffer"], 1);
+    }
+
 }
 
 
@@ -1615,6 +1626,7 @@ void ReSTIRPTPass::endFrame(RenderContext* pRenderContext, const RenderData& ren
     renderData.getDictionary()["debugPathData"] = &mDebugPathData;
     mpPixelDebugPathBuffer->unmap();
 
+    //  Temporal retrace paths
     DebugPathData* temporalCentralPathData = static_cast<DebugPathData*>(mpTemporalCentralPathDataBuffer->map(Buffer::MapType::Read));
     mTemporalCentralPathData = *temporalCentralPathData;
     renderData.getDictionary()["temporalCentralPathData"] = &mTemporalCentralPathData;
@@ -1625,6 +1637,16 @@ void ReSTIRPTPass::endFrame(RenderContext* pRenderContext, const RenderData& ren
     renderData.getDictionary()["temporalTemporalPathData"] = &mTemporalTemporalPathData;
     mpTemporalTemporalPathDataBuffer->unmap();
 
+    //  Spatial retrace paths
+    DebugPathData* spatialCentralPathData = static_cast<DebugPathData*>(mpSpatialCentralPathDataBuffer->map(Buffer::MapType::Read));
+    mSpatialCentralPathData = *spatialCentralPathData;
+    renderData.getDictionary()["spatialCentralPathData"] = &mSpatialCentralPathData;
+    mpSpatialCentralPathDataBuffer->unmap();
+
+    DebugPathData* spatialNeighborPathData = static_cast<DebugPathData*>(mpSpatialNeighborPathDataBuffer->map(Buffer::MapType::Read));
+    mSpatialNeighborPathData = *spatialNeighborPathData;
+    renderData.getDictionary()["spatialNeighborPathData"] = &mSpatialNeighborPathData;
+    mpSpatialNeighborPathDataBuffer->unmap();
 }
 
 void ReSTIRPTPass::generatePaths(RenderContext* pRenderContext, const RenderData& renderData, int sampleId)
@@ -1862,6 +1884,9 @@ void ReSTIRPTPass::PathRetracePass(RenderContext* pRenderContext, uint32_t resti
         var["gSmallWindowRadius"] = mSmallWindowRestirWindowRadius;
         var["gSpatialReusePattern"] = mStaticParams.pathSamplingMode == PathSamplingMode::PathReuse ? (uint32_t)mPathReusePattern : (uint32_t)mSpatialReusePattern;
         var["gFeatureBasedRejection"] = mFeatureBasedRejection;
+
+        var["debugCentralResevoirPathDataBuffer"] = mpSpatialCentralPathDataBuffer;
+        var["debugNeighborResevoirPathDataBuffer"] = mpSpatialNeighborPathDataBuffer;
     }
 
     pass["gScene"] = mpScene->getParameterBlock();

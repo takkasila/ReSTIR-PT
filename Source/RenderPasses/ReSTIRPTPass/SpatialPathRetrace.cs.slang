@@ -36,6 +36,9 @@ struct PathRetracePass
     RWStructuredBuffer<PathReservoir> temporalReservoirs;
     RWStructuredBuffer<PixelReconnectionData> reconnectionDataBuffer;
 
+    RWStructuredBuffer<DebugPathData> debugCentralResevoirPathDataBuffer;
+    RWStructuredBuffer<DebugPathData> debugNeighborResevoirPathDataBuffer;
+
     int gSpatialRoundId;
     int  gNumSpatialRounds;
     uint gSpatialReusePattern;
@@ -105,6 +108,84 @@ struct PathRetracePass
         return neighborPixel;
     }
 
+    void detectAndfillInAssumedSpecularVertex(PathReservoir reservoir, inout ReconnectionData reconnectionData)
+    {
+        // Check if the case of need to fill in DSD data
+        if (
+            // RC is DSD
+            reservoir.pathFlags.decodeIsSpecularBounce(true)
+            // Valid RC
+            && any(reconnectionData.pathThroughput > 0.f)
+            // Specular vertex has been assumed (rcPrevHit)
+            && !reconnectionData.rcPrevHit.isValid()
+        )
+        {
+            reconnectionData.rcPrevHit = reservoir.rcPrevVertexHit.getHitInfo();
+
+            // Compute rcPrevWo
+            TriangleHit rcPrevHit = reservoir.rcPrevVertexHit.getHitInfo().getTriangleHit();
+            float3 rcPrevVertexPos = gScene.getVertexData(rcPrevHit).posW;
+
+            TriangleHit rcPrevPrevHit = reservoir.rcPrevPrevVertexHit.getHitInfo().getTriangleHit();
+            float3 rcPrevPrevVertexPos = gScene.getVertexData(rcPrevPrevHit).posW;
+
+            reconnectionData.rcPrevWo = normalize(rcPrevPrevVertexPos - rcPrevVertexPos);
+        }
+    }
+
+    void fillDebugPathData(
+        ReconnectionData reconnectionData
+        , PathReservoir reservoir
+        , inout DebugPathData debugPathData
+        , in RWStructuredBuffer<DebugPathData> debugPathDataBuffer
+    )
+    {
+        // Fill in RC data into debugData
+        if (any(reconnectionData.pathThroughput > 0.f))
+        {
+            debugPathData.hasRcVertex = true;
+
+            if (reservoir.pathFlags.decodeIsSpecularBounce(true))
+            {
+                // DSD RC
+                debugPathData.isRcDSD = true;
+
+                debugPathData.vertexCount = reservoir.pathFlags.rcVertexLength() + 2;
+
+                // RC
+
+                TriangleHit rcVertexHit = reservoir.rcVertexHit.getHitInfo().getTriangleHit();
+                VertexData rcVertex = gScene.getVertexData(rcVertexHit);
+
+                debugPathData.vertices[debugPathData.vertexCount - 1] = float4(rcVertex.posW, 1);
+
+                debugPathData.rcVertexIndex = debugPathData.vertexCount - 1;
+
+                // RC Prev
+
+                TriangleHit rcPrevVertexHit = reservoir.rcPrevVertexHit.getHitInfo().getTriangleHit();
+                VertexData rcPrevVertex = gScene.getVertexData(rcPrevVertexHit);
+
+                debugPathData.vertices[debugPathData.vertexCount - 2] = float4(rcPrevVertex.posW, 1);
+            }
+            else
+            {
+                // DD RC
+                debugPathData.isRcDSD = false;
+                debugPathData.vertexCount = reservoir.pathFlags.rcVertexLength() + 2;
+
+                TriangleHit rcVertexHit = reservoir.rcVertexHit.getHitInfo().getTriangleHit();
+                VertexData rcVertex = gScene.getVertexData(rcVertexHit);
+
+                debugPathData.vertices[debugPathData.vertexCount - 1] = float4(rcVertex.posW, 1);
+
+                debugPathData.rcVertexIndex = debugPathData.vertexCount - 1;
+            }
+        }
+
+        debugPathDataBuffer[0] = debugPathData;
+    }
+
     /*
     * Build a reservoir of paths whose suffix can be merged to a pixel's prefix.
     * This method is optimized for small windows such that we can run the entire
@@ -113,6 +194,18 @@ struct PathRetracePass
     void ReSTIR(const uint2 pixel)
     {
         print("Spatial path retrace: begin", 0);
+
+        DebugPathData debugPathData1;
+        DebugPathData debugPathData2;
+        debugPathData1.init();
+        debugPathData2.init();
+
+        bool isDebug = all(getSelctedPixelLog() == pixel);
+        if (isDebug)
+        {
+            debugCentralResevoirPathDataBuffer[0] = debugPathData1;
+            debugNeighborResevoirPathDataBuffer[0] = debugPathData2;
+        }
 
         // TODO: How to seed efficiently?
         var sg = TinyUniformSampleGenerator(pixel, (kCandidateSamples + 1 + gNumSpatialRounds) * params.seed + kCandidateSamples + 1 + gSpatialRoundId);
@@ -147,9 +240,6 @@ struct PathRetracePass
             ReconnectionData centralReservoirReconnectionData;
             ReconnectionData neighborReservoirReconnectionData;
 
-            DebugPathData debugPathData1;
-            DebugPathData debugPathData2;
-
             // write to memory
             if (centralReservoir.pathFlags.rcVertexLength() > 1)
             {
@@ -166,29 +256,16 @@ struct PathRetracePass
                 );
 
                 // Check if the case of need to fill in DSD data
-                if (
-                    // RC is DSD
-                    centralReservoir.pathFlags.decodeIsSpecularBounce(true)
-                    // Valid RC
-                    && any(centralReservoirReconnectionData.pathThroughput > 0.f)
-                    // Specular vertex has been assumed (rcPrevHit)
-                    && !centralReservoirReconnectionData.rcPrevHit.isValid()
-                )
-                {
-                    print("- Filling in assumed reconnectionData.rcPrevHit", 0);
-                    centralReservoirReconnectionData.rcPrevHit = centralReservoir.rcPrevVertexHit.getHitInfo();
+                detectAndfillInAssumedSpecularVertex(centralReservoir, centralReservoirReconnectionData);
 
-                    // Compute rcPrevWo
-                    TriangleHit rcPrevHit = centralReservoir.rcPrevVertexHit.getHitInfo().getTriangleHit();
-                    float3 rcPrevVertexPos = gScene.getVertexData(rcPrevHit).posW;
-
-                    TriangleHit rcPrevPrevHit = centralReservoir.rcPrevPrevVertexHit.getHitInfo().getTriangleHit();
-                    float3 rcPrevPrevVertexPos = gScene.getVertexData(rcPrevPrevHit).posW;
-
-                    centralReservoirReconnectionData.rcPrevWo = normalize(rcPrevPrevVertexPos - rcPrevVertexPos);
-                }
-
+                // Set to buffer
                 reconnectionDataBuffer[centralOffset].data[2 * i] = centralReservoirReconnectionData;
+
+                if (isDebug)
+                {
+                    // Fill in RC data into debugData
+                    fillDebugPathData(centralReservoirReconnectionData, centralReservoir, debugPathData1, debugCentralResevoirPathDataBuffer);
+                }
             }
 
             if (neighborReservoir.pathFlags.rcVertexLength() > 1)
@@ -206,6 +283,19 @@ struct PathRetracePass
                 );
 
                 // Check if the case of need to fill in DSD data
+                detectAndfillInAssumedSpecularVertex(neighborReservoir, neighborReservoirReconnectionData);
+
+                // Set to buffer
+                reconnectionDataBuffer[centralOffset].data[2 * i + 1] = neighborReservoirReconnectionData;
+
+                if (isDebug)
+                {
+                    // Fill in RC data into debugData
+                    fillDebugPathData(neighborReservoirReconnectionData, neighborReservoir, debugPathData2, debugNeighborResevoirPathDataBuffer);
+                }
+
+                /*
+                // Check i the case of need to fill in DSD data
                 if (
                     // RC is DSD
                     neighborReservoir.pathFlags.decodeIsSpecularBounce(true)
@@ -227,8 +317,8 @@ struct PathRetracePass
 
                     neighborReservoirReconnectionData.rcPrevWo = normalize(rcPrevPrevVertexPos - rcPrevVertexPos);
                 }
+                */
 
-                reconnectionDataBuffer[centralOffset].data[2 * i + 1] = neighborReservoirReconnectionData;
             }
         }
 

@@ -234,5 +234,10 @@ private:
     Buffer::SharedPtr               mpTemporalTemporalPathDataBuffer;
     DebugPathData                   mTemporalTemporalPathData;
 
+    Buffer::SharedPtr               mpSpatialCentralPathDataBuffer;
+    DebugPathData                   mSpatialCentralPathData;
+    Buffer::SharedPtr               mpSpatialNeighborPathDataBuffer;
+    DebugPathData                   mSpatialNeighborPathData;
+
     uint nFrameSinceLastRCVertex = 0;
 };

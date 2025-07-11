@@ -81,6 +81,9 @@ private:
         DebugPathData basePath;
         DebugPathData temporalCentralPath;
         DebugPathData temporalTemporalPath;
+        DebugPathData spatialCentralPath;
+        DebugPathData spatialNeighborPath;
+
         bool isFullyComplete = false;   // signify that the bundle is a "complete" package that satisfies all conditions
         bool isPartiallyComplete = false;  // have atleast a base path
 
@@ -89,6 +92,8 @@ private:
             basePath.init();
             temporalCentralPath.init();
             temporalTemporalPath.init();
+            spatialCentralPath.init();
+            spatialNeighborPath.init();
             isFullyComplete = false;
             isPartiallyComplete = false;
         }
@@ -98,6 +103,8 @@ private:
             basePath.vertexCount = 0;
             temporalCentralPath.vertexCount = 0;
             temporalTemporalPath.vertexCount = 0;
+            spatialCentralPath.vertexCount = 0;
+            spatialNeighborPath.vertexCount = 0;
             isFullyComplete = false;
             isPartiallyComplete = false;
         }
@@ -107,6 +114,8 @@ private:
             basePath.deepCopy(srcPathDataBundle.basePath);
             temporalCentralPath.deepCopy(srcPathDataBundle.temporalCentralPath);
             temporalTemporalPath.deepCopy(srcPathDataBundle.temporalTemporalPath);
+            spatialCentralPath.deepCopy(srcPathDataBundle.spatialCentralPath);
+            spatialNeighborPath.deepCopy(srcPathDataBundle.spatialNeighborPath);
             isFullyComplete = srcPathDataBundle.isFullyComplete;
             isPartiallyComplete = srcPathDataBundle.isPartiallyComplete;
         }
@@ -135,5 +144,7 @@ private:
     bool mIsDisplayNEESegments = true;
     bool mIsDisplayTemporalCentralPath = true;
     bool mIsDisplayTemporalTemporalPath = true;
+    bool mIsDisplaySpatialCentralPath = true;
+    bool mIsDisplaySpatialNeighborPath = true;
     float mRayWidth = 0.014;
 };

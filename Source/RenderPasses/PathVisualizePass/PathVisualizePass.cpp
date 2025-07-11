@@ -141,6 +141,8 @@ void PathVisualizePass::execute(RenderContext* pRenderContext, const RenderData&
         mCurrentFramePathBundle.basePath = *renderDataDict.getValue<DebugPathData*>("debugPathData");
         mCurrentFramePathBundle.temporalCentralPath = *renderDataDict.getValue<DebugPathData*>("temporalCentralPathData");
         mCurrentFramePathBundle.temporalTemporalPath = *renderDataDict.getValue<DebugPathData*>("temporalTemporalPathData");
+        mCurrentFramePathBundle.spatialCentralPath = *renderDataDict.getValue<DebugPathData*>("spatialCentralPathData");
+        mCurrentFramePathBundle.spatialNeighborPath = *renderDataDict.getValue<DebugPathData*>("spatialNeighborPathData");
 
         filterCopyPathData();
     }
@@ -194,8 +196,10 @@ void PathVisualizePass::renderUI(Gui::Widgets& widget)
     bool isUpdateRenderData = false;
     isUpdateRenderData |= widget.checkbox("Display canonical path", mIsDisplayBasePath);
     isUpdateRenderData |= widget.checkbox("Display NEE segments", mIsDisplayNEESegments);
-    isUpdateRenderData |= widget.checkbox("Display central-reservoir temporal retrace path", mIsDisplayTemporalCentralPath);
-    isUpdateRenderData |= widget.checkbox("Display temporal-reservoir temporal retrace path", mIsDisplayTemporalTemporalPath);
+    isUpdateRenderData |= widget.checkbox("Display temporal central-reservoir retrace path", mIsDisplayTemporalCentralPath);
+    isUpdateRenderData |= widget.checkbox("Display temporal temporal-reservoir retrace path", mIsDisplayTemporalTemporalPath);
+    isUpdateRenderData |= widget.checkbox("Display spatial central-reservoir retrace path", mIsDisplaySpatialCentralPath);
+    isUpdateRenderData |= widget.checkbox("Display spatial neighbor-reservoir retrace path", mIsDisplaySpatialNeighborPath);
 
     isUpdateRenderData |= widget.var("Ray width", mRayWidth, 0.001f, 0.04f);
 
@@ -390,9 +394,33 @@ void PathVisualizePass::filterCopyPathData()
             isUpdateReservedPath = true;
         }
 
+        //  Spatial-Central
+        //      If Spatial-Central is still empyty and valid new offset path is found
+        if (mBuildingPathBundle.spatialCentralPath.vertexCount == 0
+            && mCurrentFramePathBundle.spatialCentralPath.vertexCount > 0
+            )
+        {
+            mBuildingPathBundle.spatialCentralPath.deepCopy(mCurrentFramePathBundle.spatialCentralPath);
+            mBuildingPathBundle.isPartiallyComplete = true;
+            isUpdateReservedPath = true;
+        }
+
+        //  Spatial-Central
+        //      If Spatial-Central is still empyty and valid new offset path is found
+        if (mBuildingPathBundle.spatialNeighborPath.vertexCount == 0
+            && mCurrentFramePathBundle.spatialNeighborPath.vertexCount > 0
+            )
+        {
+            mBuildingPathBundle.spatialNeighborPath.deepCopy(mCurrentFramePathBundle.spatialNeighborPath);
+            mBuildingPathBundle.isPartiallyComplete = true;
+            isUpdateReservedPath = true;
+        }
+
         //  If all retrace paths are filled then the bundle is fully completed
         if (mBuildingPathBundle.temporalCentralPath.vertexCount > 0
             && mBuildingPathBundle.temporalTemporalPath.vertexCount > 0
+            && mBuildingPathBundle.spatialCentralPath.vertexCount > 0
+            && mBuildingPathBundle.spatialNeighborPath.vertexCount > 0
             )
         {
             mReservedPathBundle.isFullyComplete = true;
@@ -539,20 +567,22 @@ void PathVisualizePass::updateRenderData()
         }
     }
 
-    if (mIsDisplayTemporalCentralPath)
+    auto constructOffsetPath = [&vertexOffset, &indexOffset, pyramidVerts, verts, indices](
+        const DebugPathData &offsetPath, const float4 &colorBegin, const float4 &colorEnd)
     {
-        //  Construct central-reservoir temporal retrace path geometry
-        colorBegin = float4(152/255.0f, 78/255.0f, 163/255.0f, 0.5);
-        colorEnd = float4(0, 0, 0, 0.5);
-        for (int i = 0; i < int(mRenderedPathBundle.temporalCentralPath.vertexCount) - 1; i++)
+        float4 color;
+        float3 A, B;
+        glm::mat4 M;
+
+        for (int i = 0; i < int(offsetPath.vertexCount) - 1; i++)
         {
-            A = mRenderedPathBundle.temporalCentralPath.vertices[i].xyz;
-            B = mRenderedPathBundle.temporalCentralPath.vertices[i + 1].xyz;
+            A = offsetPath.vertices[i].xyz;
+            B = offsetPath.vertices[i + 1].xyz;
 
             // Construct change of basis mat
             M = computeTransformMatToLineSegment(A, B);
 
-            float t = i / float(mRenderedPathBundle.temporalCentralPath.vertexCount - 1);
+            float t = i / float(offsetPath.vertexCount - 1);
             color = colorBegin + t * (colorEnd - colorBegin);
 
             // Vertex
@@ -564,10 +594,10 @@ void PathVisualizePass::updateRenderData()
                 verts[vertexOffset + j].texCoord = float2(0.5, 0.5);
 
                 // Coloring
-                if (mRenderedPathBundle.temporalCentralPath.isRcDSD)
+                if (offsetPath.isRcDSD)
                 {
                     // Check if this vertex is part of the DSD RC chain
-                    if (i == mRenderedPathBundle.temporalCentralPath.rcVertexIndex - 2 || i == mRenderedPathBundle.temporalCentralPath.rcVertexIndex - 1)
+                    if (i == offsetPath.rcVertexIndex - 2 || i == offsetPath.rcVertexIndex - 1)
                     {
                         color = float4(1, 0, 0, 0.5);
                     }
@@ -575,7 +605,7 @@ void PathVisualizePass::updateRenderData()
                 else
                 {
                     // If target vertex is an RC vertex, color code as red
-                    if (i == mRenderedPathBundle.temporalCentralPath.rcVertexIndex - 1)
+                    if (i == offsetPath.rcVertexIndex - 1)
                     {
                         color = float4(1, 0, 0, 0.5);
                     }
@@ -592,6 +622,20 @@ void PathVisualizePass::updateRenderData()
             vertexOffset += kPyramidVertCount;
             indexOffset += kPyramidIndicesCount;
         }
+    };
+
+
+    if (mIsDisplayTemporalCentralPath)
+    {
+        //  Construct central-reservoir temporal retrace path geometry
+        colorBegin = float4(152/255.0f, 78/255.0f, 163/255.0f, 0.5);
+        colorEnd = float4(0, 0, 0, 0.5);
+
+        constructOffsetPath(
+            mRenderedPathBundle.temporalCentralPath,
+            colorBegin,
+            colorEnd
+        );
     }
 
     if (mIsDisplayTemporalTemporalPath)
@@ -599,54 +643,38 @@ void PathVisualizePass::updateRenderData()
         //  Construct temporal-resevoir temporal retrace path geometry
         colorBegin = float4(255/255.0f, 127/255.0f, 0, 0.5);
         colorEnd = float4(0, 0, 0, 0.5);
-        for (int i = 0; i < int(mRenderedPathBundle.temporalTemporalPath.vertexCount) - 1; i++)
-        {
-            A = mRenderedPathBundle.temporalTemporalPath.vertices[i].xyz;
-            B = mRenderedPathBundle.temporalTemporalPath.vertices[i + 1].xyz;
 
-            // Construct change of basis mat
-            M = computeTransformMatToLineSegment(A, B);
+        constructOffsetPath(
+            mRenderedPathBundle.temporalTemporalPath,
+            colorBegin,
+            colorEnd
+        );
+    }
 
-            float t = i / float(mRenderedPathBundle.temporalTemporalPath.vertexCount - 1);
-            color = colorBegin + t * (colorEnd - colorBegin);
+    if (mIsDisplaySpatialCentralPath)
+    {
+        //  Construct temporal-resevoir temporal retrace path geometry
+        colorBegin = float4(31 / 255.0f, 120 / 255.0f, 180 / 255.0f, 0.5);
+        colorEnd = float4(0, 0, 0, 0.5);
 
-            // Vertex
-            for (uint j = 0; j < kPyramidVertCount; j++)
-            {
-                verts[vertexOffset + j].pos = (M * float4(pyramidVerts[j], 1)).xyz;
+        constructOffsetPath(
+            mRenderedPathBundle.spatialCentralPath,
+            colorBegin,
+            colorEnd
+        );
+    }
 
-                // TODO: use proper tex coord
-                verts[vertexOffset + j].texCoord = float2(0.5, 0.5);
+    if (mIsDisplaySpatialNeighborPath)
+    {
+        //  Construct temporal-resevoir temporal retrace path geometry
+        colorBegin = float4(166 / 255.0f, 206 / 255.0f, 227 / 255.0f, 0.5);
+        colorEnd = float4(0, 0, 0, 0.5);
 
-                // Coloring
-                if (mRenderedPathBundle.temporalTemporalPath.isRcDSD)
-                {
-                    // Check if this vertex is part of the DSD RC chain
-                    if (i == mRenderedPathBundle.temporalTemporalPath.rcVertexIndex - 2 || i == mRenderedPathBundle.temporalTemporalPath.rcVertexIndex - 1)
-                    {
-                        color = float4(1, 0, 0, 0.5);
-                    }
-                }
-                else
-                {
-                    // If target vertex is an RC vertex, color code as red
-                    if (i == mRenderedPathBundle.temporalTemporalPath.rcVertexIndex - 1)
-                    {
-                        color = float4(1, 0, 0, 0.5);
-                    }
-                }
-                verts[vertexOffset + j].color = color;
-            }
-
-            // Index
-            for (uint j = 0; j < kPyramidIndicesCount; j++)
-            {
-                indices[indexOffset + j] = kPyramidIndices[j] + vertexOffset;
-            }
-
-            vertexOffset += kPyramidVertCount;
-            indexOffset += kPyramidIndicesCount;
-        }
+        constructOffsetPath(
+            mRenderedPathBundle.spatialNeighborPath,
+            colorBegin,
+            colorEnd
+        );
     }
 
     mTotalIndices = indexOffset;
