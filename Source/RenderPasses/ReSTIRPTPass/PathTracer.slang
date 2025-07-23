@@ -2059,7 +2059,10 @@ struct PathTracer
             }
 
             // daqi: here we are adding the path terminated with an escaped vertex
-            if ((!path.enableRandomReplay || terminateRandomReplayForEscape) && PathSamplingMode(kPathSamplingMode) != PathSamplingMode::PathTracing)
+            if (
+                (!path.enableRandomReplay || terminateRandomReplayForEscape)
+                && PathSamplingMode(kPathSamplingMode) != PathSamplingMode::PathTracing
+            )
             {
 #if BPR
                 if (path.length > path.pathBuilder.rcVertexLength)
@@ -2084,7 +2087,7 @@ struct PathTracer
                 // TODO: Support HybridShiftSMS
 
                 if (selectedCurrentPath
-                    && ShiftMapping(kShiftStrategy) == ShiftMapping::HybridShiftSMS
+                    && (ShiftMapping(kShiftStrategy) == ShiftMapping::Hybrid || ShiftMapping(kShiftStrategy) == ShiftMapping::HybridShiftSMS)
                     && path.length >= 1
                     && path.length + 1 < path.pathBuilder.rcVertexLength
                 )
@@ -2094,17 +2097,86 @@ struct PathTracer
                     print("-- isLastVertexAcceptableForRcPrev", isLastVertexAcceptableForRcPrev);
 
                     // daqi: in the case of escaped to infinitely far, we always satisfy the far field requirement
-                    if (!(params.localStrategyType & (uint)LocalStrategy::RoughnessCondition && !isLastVertexAcceptableForRcPrev))
+                    if (
+                        !params.localStrategyType & (uint)LocalStrategy::RoughnessCondition
+                        || isLastVertexAcceptableForRcPrev
+                    )
                     {
-                        // non-invertible case
-                        if (path.replayMode == ReplayMode::HybridShift)
+                        // The escaping vertex can be an RC
+
+                        if (path.replayMode != ReplayMode::None)
                         {
+                            // We are tracing random replay path and have found an RC vertex before the base path.
+                            // Therefore, we need to invalidate this offset, random replay path.
                             print("-- non-invertiable case", 0);
 
                             path.L = 0.f;
                         }
                         else
                         {
+                            // We are tracing base path and found a new RC
+
+                            print("-- mark escaped as RC vertex", 0);
+                            // we found an RC vertex!
+                            // set rcVertexLength to current length (this will make rcVertexLength = reseroivr.pathLength + 1)
+                            HitInfo dummyHit = HitInfo();
+                            path.pathBuilder.markEscapeVertexAsRcVertex(
+                                params,
+                                path.length + 1,
+                                path.pathReservoir,
+                                dummyHit,
+                                path.prevHit,
+                                path.prevPrevHit,
+                                path.prevPrevWo,
+                                path.isDelta(),
+                                path.isTransmission(),
+                                path.isSpecularBounce(),
+                                lightPdf,
+                                (uint)LightSampleType::EnvMap,
+                                Le,
+                                path.dir,
+                                path.prevScatterPdf,
+                                1.f
+                            );
+                        }
+                    }
+                }
+
+                if (selectedCurrentPath
+                    && ShiftMapping(kShiftStrategy) == ShiftMapping::HybridShiftSMS
+                    && path.length >= 2
+                    && path.length + 1 < path.pathBuilder.rcVertexLength
+                )
+                {
+                    bool isDSDPath = !path.isLastVertexClassifiedAsRough && path.isLastLastVertexClassifiedAsRough;
+
+                    bool isFarField_1_2 = length(path.prevOrigin - path.origin) >= params.nearFieldDistance;
+
+                    bool canConnectSMS = (
+                        isDSDPath
+                        && (
+                            !(params.localStrategyType & (uint)LocalStrategy::DistanceCondition)
+                            ||
+                            isFarField_1_2
+                        )
+                    );
+
+
+                    if (canConnectSMS)
+                    {
+                        // The escaping vertex can be an RC
+
+                        if (path.replayMode != ReplayMode::None)
+                        {
+                            // We are tracing random replay path and have found an RC vertex before the base path.
+                            // Therefore, we need to invalidate this offset, random replay path.
+                            print("-- non-invertiable case", 0);
+
+                            path.L = 0.f;
+                        }
+                        else
+                        {
+                            // We are tracing base path and found a new RC
 
                             print("-- mark escaped as RC vertex", 0);
                             // we found an RC vertex!
