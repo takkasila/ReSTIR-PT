@@ -84,12 +84,13 @@ struct PathReusePass
     */
     void ReSTIR(const uint2 pixel)
     {
+        print("Temporal path reuse: begin", 0);
+
         var sg = TinyUniformSampleGenerator(pixel, (kCandidateSamples + 1 + gNumSpatialRounds) * params.seed + kCandidateSamples);
 
         // Compute offset into per-sample buffers. All samples are stored consecutively at this offset.
         const uint centralOffset = params.getReservoirOffset(pixel);
         PathReservoir dstReservoir = outputReservoirs[centralOffset];
-        PathReservoir centralReservoir = dstReservoir;
         float currentM = dstReservoir.M;
         float3 initialColor = dstReservoir.F * dstReservoir.weight;
 
@@ -145,6 +146,10 @@ struct PathReusePass
             ///////////////////
             if (ReSTIRMISKind(kTemporalReSTIRMISKind) == ReSTIRMISKind::Talbot)
             {
+                // Note:
+                //  - dstReservoir is base path's
+                //  - temporalReservoir is offset path's
+
                 static const int curSampleId = -1;
                 static const int prevSampleId = 0;
 
@@ -159,6 +164,7 @@ struct PathReusePass
 
                     if (i == curSampleId)
                     {
+                        // Connecting to itself. No reconnection data.
                         tempDstReservoir = outputReservoirs[centralOffset];
                         dstJacobian = 1.f;
                         possibleToBeSelected = tempDstReservoir.weight > 0;
@@ -166,11 +172,27 @@ struct PathReusePass
                     else
                     {
                         ReconnectionData rcData;
-                        if (ShiftMapping(kShiftStrategy) == ShiftMapping::Hybrid && temporalReservoir.pathFlags.rcVertexLength() > 1)
+                        if (
+                            (
+                                // Is doing hybrid shift mapping
+                                ShiftMapping(kShiftStrategy) == ShiftMapping::Hybrid
+                                || ShiftMapping(kShiftStrategy) == ShiftMapping::HybridShiftSMS
+                            )
+                            //  And the retrace was successful.
+                            //  Why don't we just check the ReconnectionData directly? Is it because of doing PathReuse without ReSTIR?
+                            && temporalReservoir.pathFlags.rcVertexLength() > 1
+                        )
                             rcData = reconnectionDataBuffer[centralOffset].data[1];
                         else
+                        {
+                            print("- Dummy RC 1", 0);
                             rcData = dummyRcData;
+                        }
 
+                        //  Try shifting and merging into the base path's reservoir.
+                        //  If successful, the new value will be saved in the
+                        //  temporary reservoir "tempDstReservoir" to be used
+                        //  in computeShiftedIntegrand()
                         possibleToBeSelected = shiftAndMergeReservoir(params, doTemporalUpdateForDynamicScene, dstJacobian, centralPrimaryHitPacked, centralPrimarySd, tempDstReservoir,
                             temporalPrimarySd, temporalReservoir, rcData, true, sg, false, 1.f, true); // "true" means hypothetically selected as the sample
                     }
@@ -198,10 +220,20 @@ struct PathReusePass
                                 float tneighborJacobian;
 
                                 ReconnectionData rcData;
-                                if (ShiftMapping(kShiftStrategy) == ShiftMapping::Hybrid && tempDstReservoir.pathFlags.rcVertexLength() > 1)
+                                if (
+                                    (
+                                        // Is doing hybrid shift mapping
+                                        ShiftMapping(kShiftStrategy) == ShiftMapping::Hybrid
+                                        || ShiftMapping(kShiftStrategy) == ShiftMapping::HybridShiftSMS
+                                    )
+                                    && tempDstReservoir.pathFlags.rcVertexLength() > 1
+                                )
                                     rcData = reconnectionDataBuffer[centralOffset].data[0];
                                 else
+                                {
                                     rcData = dummyRcData;
+                                    print("- Dummy RC 2", 0);
+                                }
 
                                 float3 tneighborIntegrand = computeShiftedIntegrand(params, tneighborJacobian, temporalPrimaryHitPacked, temporalPrimarySd,
                                     centralPrimarySd, tempDstReservoir, rcData, true, true); //usePrev
@@ -216,6 +248,7 @@ struct PathReusePass
                     if (i == curSampleId) neighborReservoir = tempDstReservoir;
                     else neighborReservoir = temporalReservoir;
 
+                    // Finally merge into base reservoir (dstReservoir)
                     mergeReservoirWithResamplingMIS(params, tempDstReservoir.F, dstJacobian, dstReservoir, tempDstReservoir, neighborReservoir, sg, false, misWeight);
                 }
 
@@ -310,6 +343,8 @@ struct PathReusePass
                 outputColor[pixel] += float4(color / kSamplesPerPixel, 1.f);
             }
         }
+
+        print("Temporal path reuse: end", 0);
     }
 
     /** Entry point for merge pass.

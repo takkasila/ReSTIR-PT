@@ -83,7 +83,46 @@ float3 computeShiftedIntegrand_(const RestirPathTracerParams params, inout float
     {
         //  dst: dst
         //  src: src
-        return computeShiftedIntegrandHybrid(params, usePrev, temporalUpdateForDynamicScene, dstJacobian, dstPrimaryHitPacked, dstPrimarySd, srcPrimarySd, srcReservoir, rcData, evalVisibility);
+        print("- rcData.rcPrevHit.isValid()", rcData.rcPrevHit.isValid());
+        print("- rcData.pathThroughput", rcData.pathThroughput);
+
+        float3 tmp = computeShiftedIntegrandHybrid(params, usePrev, temporalUpdateForDynamicScene, dstJacobian, dstPrimaryHitPacked, dstPrimarySd, srcPrimarySd, srcReservoir, rcData, evalVisibility);
+
+        print("- integrand", tmp);
+
+        return tmp;
+    }
+    else if (ShiftMapping(kShiftStrategy) == ShiftMapping::HybridShiftSMS)
+    {
+        // return 1.f;
+        bool isDSD = rcData.rcPrevPrevHit.isValid();
+        print("- rcData.rcPrevPrevHit.isValid()", rcData.rcPrevPrevHit.isValid());
+        print("- rcData.rcPrevHit.isValid()", rcData.rcPrevHit.isValid());
+        print("- rcData.pathThroughput", rcData.pathThroughput);
+
+        // Checking for isValid is not enough because of the dummy rc.
+        // Need to find a better way to tell which type
+
+        if(isDSD)
+        {
+            print("-- Doing DSD RC in HybridShiftSMS", 0);
+            // TODO:
+            return 1.f;
+        }
+        else
+        {
+            print("-- Doing DD RC in HybridShiftSMS", 0);
+
+            // Something is actually broken here
+
+            return 1.f;
+            // DD reconnection
+            float3 tmp = computeShiftedIntegrandHybrid(params, usePrev, temporalUpdateForDynamicScene, dstJacobian, dstPrimaryHitPacked, dstPrimarySd, srcPrimarySd, srcReservoir, rcData, evalVisibility);
+
+            print("- integrand", tmp);
+
+            return tmp;
+        }
     }
 
     return 1.f;
@@ -138,6 +177,7 @@ float3 computeShiftedIntegrandHybrid(const RestirPathTracerParams params, bool u
 
     if (srcReservoir.pathFlags.rcVertexLength() == 1)
     {
+        print("--- case 1", 0);
         Tp = 1.f;
         dstRcPrevVertexHit.setValid();
         dstRcPrevVertexWo = 1.f; // this value doesn't matter, as long as it is not all 0
@@ -157,6 +197,8 @@ float3 computeShiftedIntegrandHybrid(const RestirPathTracerParams params, bool u
     }
     else
     {
+        print("--- case 2", 0);
+
         dstRcPrevVertexHit = rcData.rcPrevHit;
         dstRcPrevVertexWo = rcData.rcPrevWo;
         Tp = rcData.pathThroughput;

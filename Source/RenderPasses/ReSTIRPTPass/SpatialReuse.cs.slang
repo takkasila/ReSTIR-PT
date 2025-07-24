@@ -150,6 +150,8 @@ struct PathReusePass
 
     void ReSTIR(const uint2 pixel)
     {
+        print("Spatial path reuse: begin", 0);
+
         var sg = TinyUniformSampleGenerator(pixel, (kCandidateSamples + 1 + gNumSpatialRounds) * params.seed + kCandidateSamples + 1 + gSpatialRoundId);
 
         // Compute offset into per-sample buffers. All samples are stored consecutively at this offset.
@@ -289,7 +291,7 @@ struct PathReusePass
                 {
                     //  dst: central
                     //  src: neighbor
-                    //  rcData: 
+                    //  rcData:
                     possibleToBeSelected = shiftAndMergeReservoir(params, false, dstJacobian, centralPrimaryHitPacked, centralPrimarySd, tempDstReservoir,
                         neighborPrimarySd, neighborReservoir, dummyRcData, true, sg, true, 1.f, true); // "true" means hypothetically selected as the sample
                 }
@@ -648,6 +650,7 @@ struct PathReusePass
             }
         }
 
+        print("Spatial path reuse: end", 0);
     }
 
     /** Entry point for merge pass.

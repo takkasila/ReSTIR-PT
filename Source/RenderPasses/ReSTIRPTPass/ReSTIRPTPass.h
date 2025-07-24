@@ -130,6 +130,7 @@ private:
         mParams = RestirPathTracerParams();
         mEnableTemporalReuse = true;
         mEnableSpatialReuse = true;
+        //mEnableSpatialReuse = false;
         mSpatialReusePattern = SpatialReusePattern::Default;
         mPathReusePattern = PathReusePattern::NRooksShift;
         mSmallWindowRestirWindowRadius = 2;
