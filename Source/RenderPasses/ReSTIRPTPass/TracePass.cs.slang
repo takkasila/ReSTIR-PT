@@ -128,6 +128,18 @@ void tracePath(uint pathID, inout PathReservoir giReservoir, uint sampleIdx)
     print("- rcVertexHit id:", gPathTracer.outputReservoirs[reservoirIdx].rcVertexHit.instanceID);
     print("- rcPrevVertexHit id:", gPathTracer.outputReservoirs[reservoirIdx].rcPrevVertexHit.instanceID);
     print("- rcPrevPrevVertexHit id:", gPathTracer.outputReservoirs[reservoirIdx].rcPrevPrevVertexHit.instanceID);
+
+    bool isDelta1 = giReservoir.pathFlags.decodeIsDeltaEvent(true);
+    bool isDelta2 = giReservoir.pathFlags.decodeIsDeltaEvent(false);
+
+    if(isDelta1 || isDelta2)
+    {
+        print("- base path does have some delta", (isDelta1 ? 1 : 0) | (isDelta2 ? 2 : 0));
+    }
+    else
+    {
+        print("- base path does not have delta", 0);
+    }
 }
 
 [numthreads(16, 16, 1)]

@@ -466,7 +466,7 @@ void PathVisualizePass::updateRenderData()
 
     if (mIsDisplayBasePath)
     {
-        for (uint i = 0; i < mRenderedPathBundle.basePath.vertexCount - 1; i++)
+        for (uint i = 0; int(i) < int(mRenderedPathBundle.basePath.vertexCount) - 1; i++)
         {
             A = mRenderedPathBundle.basePath.vertices[i].xyz;
             B = mRenderedPathBundle.basePath.vertices[i + 1].xyz;

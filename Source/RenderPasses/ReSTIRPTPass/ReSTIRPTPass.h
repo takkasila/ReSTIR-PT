@@ -129,8 +129,8 @@ private:
         mStaticParams = StaticParams();
         mParams = RestirPathTracerParams();
         mEnableTemporalReuse = true;
-        mEnableSpatialReuse = true;
-        //mEnableSpatialReuse = false;
+        //mEnableSpatialReuse = true;
+        mEnableSpatialReuse = false;
         mSpatialReusePattern = SpatialReusePattern::Default;
         mPathReusePattern = PathReusePattern::NRooksShift;
         mSmallWindowRestirWindowRadius = 2;
@@ -173,7 +173,8 @@ private:
 
     // params below
     bool                            mEnableTemporalReuse = true;
-    bool                            mEnableSpatialReuse = true;
+    //bool                            mEnableSpatialReuse = true;
+    bool                            mEnableSpatialReuse = false;
     SpatialReusePattern             mSpatialReusePattern = SpatialReusePattern::Default;
     PathReusePattern                mPathReusePattern = PathReusePattern::NRooksShift;
     uint32_t                        mSmallWindowRestirWindowRadius = 2;

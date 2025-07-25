@@ -83,44 +83,52 @@ float3 computeShiftedIntegrand_(const RestirPathTracerParams params, inout float
     {
         //  dst: dst
         //  src: src
-        print("- rcData.rcPrevHit.isValid()", rcData.rcPrevHit.isValid());
-        print("- rcData.pathThroughput", rcData.pathThroughput);
+        print("--- rcData.rcPrevHit.isValid()", rcData.rcPrevHit.isValid());
+        print("--- rcData.pathThroughput", rcData.pathThroughput);
 
         float3 tmp = computeShiftedIntegrandHybrid(params, usePrev, temporalUpdateForDynamicScene, dstJacobian, dstPrimaryHitPacked, dstPrimarySd, srcPrimarySd, srcReservoir, rcData, evalVisibility);
 
-        print("- integrand", tmp);
+        print("--- integrand", tmp);
 
         return tmp;
     }
     else if (ShiftMapping(kShiftStrategy) == ShiftMapping::HybridShiftSMS)
     {
-        // return 1.f;
         bool isDSD = rcData.rcPrevPrevHit.isValid();
-        print("- rcData.rcPrevPrevHit.isValid()", rcData.rcPrevPrevHit.isValid());
-        print("- rcData.rcPrevHit.isValid()", rcData.rcPrevHit.isValid());
-        print("- rcData.pathThroughput", rcData.pathThroughput);
+        print("--- rcData.rcPrevPrevHit.isValid()", rcData.rcPrevPrevHit.isValid());
+        print("--- rcData.rcPrevHit.isValid()", rcData.rcPrevHit.isValid());
+        print("--- rcData.pathThroughput", rcData.pathThroughput);
 
         // Checking for isValid is not enough because of the dummy rc.
         // Need to find a better way to tell which type
 
         if(isDSD)
         {
-            print("-- Doing DSD RC in HybridShiftSMS", 0);
+            print("--- Doing DSD RC in HybridShiftSMS", 0);
             // TODO:
-            return 1.f;
+            return 0.f;
         }
         else
         {
-            print("-- Doing DD RC in HybridShiftSMS", 0);
+            print("--- Doing DD RC in HybridShiftSMS", 0);
 
             // Something is actually broken here
 
-            return 1.f;
+            // return 0.f; // got a normal image
+            // return 1.f; // got a normal image
+
             // DD reconnection
             float3 tmp = computeShiftedIntegrandHybrid(params, usePrev, temporalUpdateForDynamicScene, dstJacobian, dstPrimaryHitPacked, dstPrimarySd, srcPrimarySd, srcReservoir, rcData, evalVisibility);
 
-            print("- integrand", tmp);
+            print("--- integrand", tmp);
 
+            if (any(isnan(tmp)) || any(isinf(tmp)))
+            {
+                print("--- the integrand is weird:", tmp);
+            }
+
+            // tmp = float3(0.0f);  // got normal image
+            // tmp = float3(1.0f);  // got white-capped image
             return tmp;
         }
     }
@@ -161,11 +169,16 @@ float3 computeShiftedIntegrandHybrid(const RestirPathTracerParams params, bool u
 {
     dstJacobian = 0.f;
 
-    if (tempPathReservoir.weight == 0.f) return 0.f;
+    if (tempPathReservoir.weight == 0.f)
+    {
+        print("---- invalid reservoir", 0);
+        return 0.f;
+    }
 
     dstJacobian = 1.f;
 
-    HitInfo dstPrimaryHit; dstPrimaryHit.unpack(dstPrimaryHitPacked);
+    HitInfo dstPrimaryHit;
+    dstPrimaryHit.unpack(dstPrimaryHitPacked);
     Ray ray = Ray(gScene.camera.getPosition(usePrev), -dstPrimarySd.V, 0, kRayTMax);
     bool isRcVertexEscapedVertex = tempPathReservoir.pathFlags.pathLength() + 1 == tempPathReservoir.pathFlags.rcVertexLength();
 
@@ -177,7 +190,10 @@ float3 computeShiftedIntegrandHybrid(const RestirPathTracerParams params, bool u
 
     if (srcReservoir.pathFlags.rcVertexLength() == 1)
     {
-        print("--- case 1", 0);
+        print("---- case RC == v2", 0);
+
+        // Dummy RC comes here
+
         Tp = 1.f;
         dstRcPrevVertexHit.setValid();
         dstRcPrevVertexWo = 1.f; // this value doesn't matter, as long as it is not all 0
@@ -189,30 +205,56 @@ float3 computeShiftedIntegrandHybrid(const RestirPathTracerParams params, bool u
             bool isLastVertexClassifiedAsRough = kSeparatePathBSDF ?
                 (isSpecularBounce ? dstPrimarySd.linearRoughness > params.specularRoughnessThreshold : hasRoughComponent(dstPrimarySd, 1.f)) :
                 classifyAsRough(dstPrimarySd, params.specularRoughnessThreshold);
+
             if (!isLastVertexClassifiedAsRough)
             {
+                // RcPrevVertex is specular. Invalidate
+                print("----- Invalidate shift", 0);
                 Tp = 0.f;
             }
         }
     }
     else
     {
-        print("--- case 2", 0);
+        print("---- case RC >= v3", 0);
 
         dstRcPrevVertexHit = rcData.rcPrevHit;
         dstRcPrevVertexWo = rcData.rcPrevWo;
         Tp = rcData.pathThroughput;
+
+        if (all(Tp == float3(1.0f)))
+        {
+            print("----- Something is wrong", 0);
+            print("----- dstRcPrevVertexHit", dstRcPrevVertexHit.isValid());
+            print("----- dstRcPrevVertexWo", dstRcPrevVertexWo);
+            print("----- Tp", Tp);
+        }
     }
 
     float3 rcTp = 1.f;
 
     // the reconnection vertex exists
-    if (any(Tp > 0.f) && (dstRcPrevVertexHit.isValid() && (srcReservoir.pathFlags.rcVertexLength() <= srcReservoir.pathFlags.pathLength() || isRcVertexEscapedVertex)))
+    if (
+        any(Tp > 0.f)
+        && (
+            dstRcPrevVertexHit.isValid()
+            && (srcReservoir.pathFlags.rcVertexLength() <= srcReservoir.pathFlags.pathLength() || isRcVertexEscapedVertex)
+        )
+    )
     {
-        // invalid shift
-        if (all(dstRcPrevVertexWo == 0.f)) return 0.f;
+
+        if (all(dstRcPrevVertexWo == 0.f))
+            // Invalid shift
+            return 0.f;
         else
         {
+            // Test
+            // return 0.f;
+
+            print("---- Computing shifted integrand hybrid", 0);
+
+
+            // Valid shift. Compute shifted integrand
             ShadingData dstRcPrevVertexSd = dstPrimarySd;
             ShadingData srcRcPrevVertexSd = srcPrimarySd;
 
@@ -233,6 +275,10 @@ float3 computeShiftedIntegrandHybrid(const RestirPathTracerParams params, bool u
                 srcReservoir.rcVertexWi[id] = tempPathReservoir.rcVertexWi[id];
             }
 
+            print("----- dstRcPrevVertexSd", dstRcPrevVertexSd.posW);
+            print("----- srcRcPrevVertexSd", srcRcPrevVertexSd.posW);
+
+            // Why is rcTp always 0 for HybridSMS?
             rcTp = computeShiftedIntegrandReconnection(params, reconnectionJacobian, dstRcPrevVertexSd, srcRcPrevVertexSd, srcReservoir,
                 evalVisibility, true, srcReservoir.pathFlags.rcVertexLength() > 1);
 
@@ -241,6 +287,9 @@ float3 computeShiftedIntegrandHybrid(const RestirPathTracerParams params, bool u
             tempPathReservoir.cachedJacobian = srcReservoir.cachedJacobian;
         }
     }
+
+    print("---- Tp", Tp);
+    print("---- rcTp", rcTp);
 
     return Tp * rcTp;
 }
@@ -470,6 +519,8 @@ float3 computeShiftedIntegrandReconnection(const RestirPathTracerParams params, 
 
     if (!rcVertexHitExists)
     {
+
+        print("------ rcVertex does not exists", 0);
         float3 dstIntegrand = 0.f;
         // are we having a infinite light as rcVertex?
         if (kUseMIS && srcReservoir.pathFlags.lightType() == (uint)PathTracer::LightSampleType::EnvMap && srcReservoir.pathFlags.pathLength() + 1 == rcVertexLength && !srcReservoir.pathFlags.lastVertexNEE())
@@ -492,12 +543,16 @@ float3 computeShiftedIntegrandReconnection(const RestirPathTracerParams params, 
         if (useCachedJacobian)
             srcReservoir.cachedJacobian = dstCachedJacobian;
 
+        print("------ rcVertex does not exists", 0);
+
         // fill in rcVertex0 information
         if (isJacobianInvalid(dstJacobian)) dstJacobian = 0.f;
         if (any(isnan(dstIntegrand) || isinf(dstIntegrand))) return 0.f;
 
         return dstIntegrand;
     }
+
+    print("------ rcVertex does exists", 0);
 
     bool isRcVertexFinal = srcReservoir.pathFlags.pathLength() == rcVertexLength;
     bool isRcVertexEscapedVertex = srcReservoir.pathFlags.pathLength() + 1 == rcVertexLength && !srcReservoir.pathFlags.lastVertexNEE();
@@ -507,7 +562,14 @@ float3 computeShiftedIntegrandReconnection(const RestirPathTracerParams params, 
     bool isDelta2 = srcReservoir.pathFlags.decodeIsDeltaEvent(false);
 
     // delta bounce before/after rcVertex (if isRcVertexNEE, deltaAfterRc won't be set)
-    if (isDelta1 || isDelta2) return 0.f;
+    print("------ path flags ", srcReservoir.pathFlags.flags);
+    if (isDelta1 || isDelta2)
+    {
+        print("------ is delta", (isDelta1 ? 1 : 0) | (isDelta2 ? 2 : 0));
+        return 0.f;
+    }
+
+    print("------ is not delta", 0);
 
     ShadingData rcVertexSd = loadShadingDataWithPrevVertexPosition(rcVertexHit, dstPrimarySd.posW, false);
 
@@ -525,6 +587,7 @@ float3 computeShiftedIntegrandReconnection(const RestirPathTracerParams params, 
         if (!isFarField) return 0.f;
     }
 
+    print("------ is far field", 0);
 
     dstCachedJacobian.z = shifted_cosine / shifted_dist2;
     float Jacobian;
@@ -538,6 +601,8 @@ float3 computeShiftedIntegrandReconnection(const RestirPathTracerParams params, 
     }
     if (isJacobianInvalid(Jacobian)) return 0.f;
 
+    print("------ valid jacobian 1", 0);
+
     // assuming BSDF sampling
     assert(kUseBSDFSampling);
 
@@ -550,6 +615,8 @@ float3 computeShiftedIntegrandReconnection(const RestirPathTracerParams params, 
     Jacobian *= dstPDF1 / srcPDF1;
 
     if (isJacobianInvalid(Jacobian)) return 0.f;
+
+    print("------ valid jacobian 2", 0);
 
     float3 dstF1 = evalBSDFCosine(dstPrimarySd, dstConnectionV, allowedSampledTypes1);
 
@@ -578,6 +645,8 @@ float3 computeShiftedIntegrandReconnection(const RestirPathTracerParams params, 
 
     // connection point behind surface
     if (all(dstF1 == 0.f) || all(dstF2 == 0.f)) return 0.f;
+
+    print("------ valid connection point", 0);
 
     //////
     float3 dstIntegrandNoF1 = dstF2 / dstPDF2 * rcVertexIrradiance;
@@ -611,6 +680,9 @@ float3 computeShiftedIntegrandReconnection(const RestirPathTracerParams params, 
 
     if (isJacobianInvalid(Jacobian)) return 0.f;
 
+    print("------ valid jacobian 3", 0);
+
+
     // Evaluate visibility: vertex 1 <-> vertex 2 (reconnection vertex).
     if (evalVisibility)
     {
@@ -619,7 +691,11 @@ float3 computeShiftedIntegrandReconnection(const RestirPathTracerParams params, 
             return 0.f;
     }
 
+    print("------ visible", 0);
+
     if (any(isnan(dstIntegrand) || isinf(dstIntegrand))) return 0.f;
+
+    print("------ dstIntegrand is valid", 0);
 
     if (params.rejectShiftBasedOnJacobian)
     {
@@ -634,7 +710,12 @@ float3 computeShiftedIntegrandReconnection(const RestirPathTracerParams params, 
     dstJacobian = Jacobian;
 
     if (useCachedJacobian)
+    {
         srcReservoir.cachedJacobian = dstCachedJacobian;
+        print("------ use cache jacobian", dstCachedJacobian);
+    }
+
+    print("------ dstIntegrand", dstIntegrand);
 
     return dstIntegrand;
 }

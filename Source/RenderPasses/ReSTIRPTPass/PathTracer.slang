@@ -1348,11 +1348,14 @@ struct PathTracer
             // If either
             //  - not HybridShift or HybridShiftSMS and at primary hit
             //  - or ShiftMapping::HybridShift and canConnect
-            //  - or ShiftMapping::HybridShiftSMS and canConnectSMS
-            bool conditions =
-                ((ShiftMapping(kShiftStrategy) == ShiftMapping::Reconnection || ShiftMapping(kShiftStrategy) == ShiftMapping::RandomReplay) && path.length == 1)
+            //  - or ShiftMapping::HybridShiftSMS and (canConnectSMS or canConnect)
+            bool isNotHybrid = ShiftMapping(kShiftStrategy) == ShiftMapping::Reconnection || ShiftMapping(kShiftStrategy) == ShiftMapping::RandomReplay;
+
+            bool conditions = (
+                (isNotHybrid && (path.length == 1))
                 || ((ShiftMapping(kShiftStrategy) == ShiftMapping::Hybrid) && canConnect)
-                || ((ShiftMapping(kShiftStrategy) == ShiftMapping::HybridShiftSMS) && canConnectSMS);
+                || ((ShiftMapping(kShiftStrategy) == ShiftMapping::HybridShiftSMS) && (canConnectSMS || canConnect))
+            );
 
             if (conditions)
             {
@@ -1369,12 +1372,12 @@ struct PathTracer
 
                 float3 disp = path.prevOrigin - sd.posW;
 
-                if (ShiftMapping(kShiftStrategy) == ShiftMapping::Hybrid)
+                if (canConnect)
                 {
                     // daqi: save geometry term as part of cachedJacobian
                     path.pathBuilder.cachedJacobian.z = abs(dot(sd.faceN, sd.V)) / dot(disp, disp);
                 }
-                else if (ShiftMapping(kShiftStrategy) == ShiftMapping::HybridShiftSMS)
+                else if (canConnectSMS)
                 {
                     // TODO: HybridSMS cache Jacobian
                     path.pathBuilder.rcPrevVertexHit.initFromHitInfo(path.prevHit);
@@ -1387,16 +1390,10 @@ struct PathTracer
                 }
 
                 // daqi: save the current path length as the rcVertex length
-                if (
-                    canConnect
-                    || canConnectSMS
-                    || ((ShiftMapping(kShiftStrategy) == ShiftMapping::Reconnection || ShiftMapping(kShiftStrategy) == ShiftMapping::RandomReplay))
-                )
-                {
-                    print("-- save the current path length as the rcVertex length", 0);
 
-                    path.pathBuilder.rcVertexLength = path.length;
-                }
+                print("-- save the current path length as the rcVertex length", 0);
+
+                path.pathBuilder.rcVertexLength = path.length;
             }
         }
         else if (PathSamplingMode(kPathSamplingMode) != PathSamplingMode::PathTracing

@@ -155,6 +155,9 @@ struct PathReusePass
 
                 for (int i = curSampleId; i <= prevSampleId; i++)
                 {
+
+                    print("- round", i);
+
                     float p_sum = 0;
                     float p_self = 0;
 
@@ -182,10 +185,13 @@ struct PathReusePass
                             //  Why don't we just check the ReconnectionData directly? Is it because of doing PathReuse without ReSTIR?
                             && temporalReservoir.pathFlags.rcVertexLength() > 1
                         )
+                        {
+                            print("-- have RC 1", 0);
                             rcData = reconnectionDataBuffer[centralOffset].data[1];
+                        }
                         else
                         {
-                            print("- Dummy RC 1", 0);
+                            print("-- Dummy RC 1", 0);
                             rcData = dummyRcData;
                         }
 
@@ -197,10 +203,14 @@ struct PathReusePass
                             temporalPrimarySd, temporalReservoir, rcData, true, sg, false, 1.f, true); // "true" means hypothetically selected as the sample
                     }
 
+                    print("-- possibleToBeSelected:", possibleToBeSelected);
+
                     if (possibleToBeSelected)
                     {
                         for (int j = curSampleId; j <= prevSampleId; ++j)
                         {
+                            print("--- j", j);
+
                             if (j == curSampleId)
                             {
                                 float cur_p = PathReservoir::toScalar(tempDstReservoir.F) * currentM;
@@ -228,11 +238,14 @@ struct PathReusePass
                                     )
                                     && tempDstReservoir.pathFlags.rcVertexLength() > 1
                                 )
+                                {
+                                    print("--- have RC 2", 0);
                                     rcData = reconnectionDataBuffer[centralOffset].data[0];
+                                }
                                 else
                                 {
                                     rcData = dummyRcData;
-                                    print("- Dummy RC 2", 0);
+                                    print("--- Dummy RC 2", 0);
                                 }
 
                                 float3 tneighborIntegrand = computeShiftedIntegrand(params, tneighborJacobian, temporalPrimaryHitPacked, temporalPrimarySd,
@@ -358,8 +371,6 @@ struct PathReusePass
 
         printSetPixel(pixel);
         logSetPixel(pixel);
-
-        print("Enter TemporalReuse!", 0);
 
         ReSTIR(pixel);
     }
