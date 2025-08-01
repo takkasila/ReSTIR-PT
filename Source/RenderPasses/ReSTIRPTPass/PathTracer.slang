@@ -1141,12 +1141,11 @@ struct PathTracer
                 // daqi: if current escaped vertex has path.length >= 2, then it can be used as a rcVertex
                 //  Why not path.length >= 1 ?
                 if (selectedCurrentPath
-                    && path.replayMode == ReplayMode::HybridShift
+                    && (ShiftMapping(kShiftStrategy) == ShiftMapping::Hybrid)
                     && path.length >= 2
                     && path.length < path.pathBuilder.rcVertexLength
                 )
                 {
-                    // insert path flags
 
                     // daqi: ideally, this should use a smaller nearFieldDistance than the default threshold
                     bool isFarField = length(sd.posW - path.origin) >= params.nearFieldDistance;
@@ -1161,6 +1160,7 @@ struct PathTracer
                     {
                         if (path.replayMode == ReplayMode::None)
                         {
+                            // We can connect to emissive surface as a RC
 
                             print("--- the escaped vertex is also a RC", 0);
 
@@ -1178,6 +1178,8 @@ struct PathTracer
                                 path.prevHit,
                                 path.prevPrevHit,
                                 path.prevPrevWo,
+                                true, // isDD
+                                false, // isDSD
 	                            path.isDelta(),
 	                            path.isTransmission(),
 	                            path.isSpecularBounce(),
@@ -1189,7 +1191,7 @@ struct PathTracer
 	                            geometryFactor
                             );
                         }
-                        else
+                        else if (path.replayMode == ReplayMode::HybridShiftSMS)
                         {
                             // non-invertible case
 
@@ -1204,7 +1206,7 @@ struct PathTracer
 
                 }
                 else if (selectedCurrentPath
-                    && path.replayMode == ReplayMode::HybridShiftSMS
+                    && (ShiftMapping(kShiftStrategy) == ShiftMapping::HybridShiftSMS)
                     && path.length >= 3
                     && path.length < path.pathBuilder.rcVertexLength
                 )
@@ -1213,7 +1215,6 @@ struct PathTracer
                     // Conditions:
                     //  1. ShiftMapping::HybridShiftSMS
                     //  2. path.isLastLastVertexClassifiedAsRough
-
                 }
             }
 
@@ -1296,19 +1297,25 @@ struct PathTracer
         {
             print("- Considering if current vertex can be a RC", 0);
 
-            bool isNearField = !isFarField;
             bool atLeastOneSpecularVertex = !(isCurrentVertexClassifiedAsRough && isLastVertexAcceptableForRcPrev);
+
             bool canConnect = (
                 path.length >= 1
                 && path.length < path.pathBuilder.rcVertexLength
                 &&
-                (!(
-                    params.localStrategyType & (uint)LocalStrategy::DistanceCondition &&
-                        isNearField
-                    ||
-                    params.localStrategyType & (uint)LocalStrategy::RoughnessCondition &&
-                        atLeastOneSpecularVertex
-                ))
+                (
+                    (
+                        !(params.localStrategyType & (uint)LocalStrategy::DistanceCondition)
+                        ||
+                        isFarField
+                    )
+                    &&
+                    (
+                        !(params.localStrategyType & (uint)LocalStrategy::RoughnessCondition)
+                        ||
+                        !atLeastOneSpecularVertex
+                    )
+                )
             );
 
             bool isDSDPath = (isCurrentVertexClassifiedAsRough
@@ -1349,7 +1356,7 @@ struct PathTracer
             //  - not HybridShift or HybridShiftSMS and at primary hit
             //  - or ShiftMapping::HybridShift and canConnect
             //  - or ShiftMapping::HybridShiftSMS and (canConnectSMS or canConnect)
-            bool isNotHybrid = ShiftMapping(kShiftStrategy) == ShiftMapping::Reconnection || ShiftMapping(kShiftStrategy) == ShiftMapping::RandomReplay;
+            bool isNotHybrid = (ShiftMapping(kShiftStrategy) == ShiftMapping::Reconnection) || (ShiftMapping(kShiftStrategy) == ShiftMapping::RandomReplay);
 
             bool conditions = (
                 (isNotHybrid && (path.length == 1))
@@ -1376,6 +1383,9 @@ struct PathTracer
                 {
                     // daqi: save geometry term as part of cachedJacobian
                     path.pathBuilder.cachedJacobian.z = abs(dot(sd.faceN, sd.V)) / dot(disp, disp);
+                    path.pathBuilder.pathFlags.insertIsDD(true);
+                    path.pathBuilder.pathFlags.insertIsDSD(false);
+
                 }
                 else if (canConnectSMS)
                 {
@@ -1383,6 +1393,9 @@ struct PathTracer
                     path.pathBuilder.rcPrevVertexHit.initFromHitInfo(path.prevHit);
                     path.pathBuilder.rcPrevPrevVertexHit.initFromHitInfo(path.prevPrevHit);
                     path.pathBuilder.rcPrevPrevVertexWo = path.prevPrevWo;
+                    path.pathBuilder.pathFlags.insertIsDD(false);
+                    path.pathBuilder.pathFlags.insertIsDSD(true);
+
 
                     print("--- pathBuilder.rcVertexHit.instanceID", path.pathBuilder.rcVertexHit.instanceID);
                     print("--- pathBuilder.rcPrevVertexHit.instanceID", path.pathBuilder.rcPrevVertexHit.instanceID);
@@ -2081,8 +2094,9 @@ struct PathTracer
 
                 // daqi: if current escaped vertex has path.length >= 2, then it can be used as a rcVertex
 
-                // TODO: Support HybridShiftSMS
-
+                //
+                //  DD case
+                //
                 if (selectedCurrentPath
                     && (ShiftMapping(kShiftStrategy) == ShiftMapping::Hybrid || ShiftMapping(kShiftStrategy) == ShiftMapping::HybridShiftSMS)
                     && path.length >= 1
@@ -2125,6 +2139,8 @@ struct PathTracer
                                 path.prevHit,
                                 path.prevPrevHit,
                                 path.prevPrevWo,
+                                true, // isDD
+                                false, // isDSD
                                 path.isDelta(),
                                 path.isTransmission(),
                                 path.isSpecularBounce(),
@@ -2139,6 +2155,9 @@ struct PathTracer
                     }
                 }
 
+                //
+                // DSD case
+                //
                 if (selectedCurrentPath
                     && ShiftMapping(kShiftStrategy) == ShiftMapping::HybridShiftSMS
                     && path.length >= 2
@@ -2187,6 +2206,8 @@ struct PathTracer
                                 path.prevHit,
                                 path.prevPrevHit,
                                 path.prevPrevWo,
+                                false, // isDD
+                                true, // isDSD
                                 path.isDelta(),
                                 path.isTransmission(),
                                 path.isSpecularBounce(),

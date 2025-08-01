@@ -107,6 +107,8 @@ struct PathBuilder
                 pathReservoir.rcPrevVertexHit = rcPrevVertexHit;
                 pathReservoir.rcPrevPrevVertexHit = rcPrevPrevVertexHit;
                 pathReservoir.rcPrevPrevVertexWo = rcPrevPrevVertexWo;
+                pathReservoir.pathFlags.insertIsDD(pathFlags.decodeIsDD());
+                pathReservoir.pathFlags.insertIsDSD(pathFlags.decodeIsDSD());
 
                 pathReservoir.cachedJacobian = cachedJacobian;
 
@@ -176,6 +178,8 @@ struct PathBuilder
                 pathReservoir.rcPrevVertexHit = rcPrevVertexHit;
                 pathReservoir.rcPrevPrevVertexHit = rcPrevPrevVertexHit;
                 pathReservoir.rcPrevPrevVertexWo = rcPrevPrevVertexWo;
+                pathReservoir.pathFlags.insertIsDD(pathFlags.decodeIsDD());
+                pathReservoir.pathFlags.insertIsDSD(pathFlags.decodeIsDSD());
 
                 pathReservoir.cachedJacobian = cachedJacobian;
 
@@ -195,7 +199,7 @@ struct PathBuilder
         return selected;
     }
 
-    [mutating] void markEscapeVertexAsRcVertex(RestirPathTracerParams params, uint pathLength, inout PathReservoir pathReservoir, HitInfo hit, HitInfo prevHit, HitInfo prevPrevHit, float3 prevPrevPrevWo, bool isDelta,
+    [mutating] void markEscapeVertexAsRcVertex(RestirPathTracerParams params, uint pathLength, inout PathReservoir pathReservoir, HitInfo hit, HitInfo prevHit, HitInfo prevPrevHit, float3 prevPrevPrevWo, bool isDD, bool isDSD, bool isDelta,
         bool isTransmission, bool isSpecularBounce, float lightPdf, uint lightType, float3 rcVertexIrradiance, float3 rcVertexWi, float prevScatterPdf, float geometryFactor)
     {
         pathReservoir.pathFlags.insertRcVertexLength(pathLength);
@@ -205,6 +209,8 @@ struct PathBuilder
         pathReservoir.rcPrevVertexHit.initFromHitInfo(prevHit);
         pathReservoir.rcPrevPrevVertexHit.initFromHitInfo(prevPrevHit);
         pathReservoir.rcPrevPrevVertexWo = prevPrevPrevWo;
+        pathReservoir.pathFlags.insertIsDD(isDD);
+        pathReservoir.pathFlags.insertIsDSD(isDSD);
 
         pathReservoir.pathFlags.insertIsDeltaEvent(isDelta, true);
         pathReservoir.pathFlags.insertIsTransmissionEvent(isTransmission, true);

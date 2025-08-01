@@ -81,12 +81,22 @@ void tracePath(uint pathID, inout PathReservoir giReservoir, uint sampleIdx)
             gPathTracer.handleMiss(path);
         }
 
-        print("in loop path.pathReservoir.rcVertexHit.instanceID", path.pathReservoir.rcVertexHit.instanceID);
+        print("- in loop path.pathReservoir.rcVertexHit.instanceID", path.pathReservoir.rcVertexHit.instanceID);
 
         print("", 0);   // empty line
     }
 
     print("Path Radiance", path.L);
+
+    gPathTracer.finalize(path);
+
+    gPathTracer.writeOutput(path, giReservoir, sampleIdx);
+    // giReservoir is just a temporary middle man.
+    // The final output is in gPathTracer.outputReservoirs[reservoirIdx]
+
+    const uint reservoirIdx = gPathTracer.params.getReservoirOffset(pixel);
+
+    const PathReservoir outputReservoirs = gPathTracer.outputReservoirs[reservoirIdx];
 
     if (all(selectedPixel == pixel))
     {
@@ -95,42 +105,52 @@ void tracePath(uint pathID, inout PathReservoir giReservoir, uint sampleIdx)
         pixelDebugPathDataBuffer[0].L = float4(path.L, 1);
 
         //  Check if have RC vertex
-        if (path.pathBuilder.rcVertexHit.instanceID == 0xffffffff)
+        HitInfo rcVertexHitInfo = outputReservoirs.rcVertexHit.getHitInfo();
+        HitInfo rcPrevVertexHitInfo = outputReservoirs.rcPrevVertexHit.getHitInfo();
+        HitInfo rcPrevPrevVertexHitInfo = outputReservoirs.rcPrevPrevVertexHit.getHitInfo();
+
+        print("rcVertexHitInfo", rcVertexHitInfo.isValid());
+        print("rcPrevVertexHitInfo", rcPrevVertexHitInfo.isValid());
+        print("rcPrevPrevVertexHitInfo", rcPrevPrevVertexHitInfo.isValid());
+
+        if (!rcVertexHitInfo.isValid())
         {
             print("Doesn't have RC vertex", 0);
             pixelDebugPathDataBuffer[0].hasRcVertex = false;
         }
         else
         {
-            print("Have RC vertex", 0);
-            pixelDebugPathDataBuffer[0].hasRcVertex = true;
-            pixelDebugPathDataBuffer[0].rcVertexIndex = path.pathBuilder.rcVertexLength + 1;
+            bool giReservoirIsDD = outputReservoirs.pathFlags.decodeIsDD();
+            bool giReservoirIsDSD = outputReservoirs.pathFlags.decodeIsDSD();
 
-            bool isPrevRcVertexSpecular = path.pathBuilder.pathFlags.decodeIsSpecularBounce(true);
-
-            if (isPrevRcVertexSpecular)
+            if(!rcPrevVertexHitInfo.isValid() && !rcPrevPrevVertexHitInfo.isValid() && giReservoirIsDD)
             {
-                // We have RC for HybridShiftSMS
-                print("- RC is DSD for HybridShift", 0);
+                print("RC is DD", 0);
+                pixelDebugPathDataBuffer[0].hasRcVertex = true;
+                pixelDebugPathDataBuffer[0].isRcDSD = false;
+                pixelDebugPathDataBuffer[0].rcVertexIndex = outputReservoirs.pathFlags.rcVertexLength() + 1;
+            }
+            else if(rcPrevVertexHitInfo.isValid() && rcPrevPrevVertexHitInfo.isValid() && giReservoirIsDSD)
+            {
+                print("RC is DSD", 0);
+                pixelDebugPathDataBuffer[0].hasRcVertex = true;
                 pixelDebugPathDataBuffer[0].isRcDSD = true;
+                pixelDebugPathDataBuffer[0].rcVertexIndex = outputReservoirs.pathFlags.rcVertexLength() + 1;
+            }
+            else
+            {
+                print("Something is wrong in TracePass!", 0);
             }
         }
-
     }
-
-    gPathTracer.finalize(path);
-
-    const uint reservoirIdx = gPathTracer.params.getReservoirOffset(pixel);
-
-    gPathTracer.writeOutput(path, giReservoir, sampleIdx);
 
     print("Output reservoir:", 0);
     print("- rcVertexHit id:", gPathTracer.outputReservoirs[reservoirIdx].rcVertexHit.instanceID);
     print("- rcPrevVertexHit id:", gPathTracer.outputReservoirs[reservoirIdx].rcPrevVertexHit.instanceID);
     print("- rcPrevPrevVertexHit id:", gPathTracer.outputReservoirs[reservoirIdx].rcPrevPrevVertexHit.instanceID);
 
-    bool isDelta1 = giReservoir.pathFlags.decodeIsDeltaEvent(true);
-    bool isDelta2 = giReservoir.pathFlags.decodeIsDeltaEvent(false);
+    bool isDelta1 = gPathTracer.outputReservoirs[reservoirIdx].pathFlags.decodeIsDeltaEvent(true);
+    bool isDelta2 = gPathTracer.outputReservoirs[reservoirIdx].pathFlags.decodeIsDeltaEvent(false);
 
     if(isDelta1 || isDelta2)
     {

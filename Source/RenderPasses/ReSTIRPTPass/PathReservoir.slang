@@ -29,6 +29,8 @@ struct ReSTIRPathFlags
         - RCVertexLength
         - isLastVertexNEE
         - lightType
+        - isDD 0x10000000
+        - isDSD 0x20000000
     */
 
     // this struct can store bounce type information for two vertices
@@ -94,6 +96,30 @@ struct ReSTIRPathFlags
     {
         if (beforeRcVertex) return (flags >> 26) & 1;
         else return (flags >> 27) & 1;
+    }
+
+    [mutating]
+    void insertIsDD(bool isDD)
+    {
+        // Set to 0
+        flags &= ~0x10000000;
+        if (isDD) flags |= 0x10000000;
+    }
+    bool decodeIsDD()
+    {
+        return flags & 0x10000000;
+    }
+
+    [mutating]
+    void insertIsDSD(bool isDSD)
+    {
+        // Set to 0
+        flags &= ~0x20000000;
+        if (isDSD) flags |= 0x20000000;
+    }
+    bool decodeIsDSD()
+    {
+        return flags & 0x20000000;
     }
 
     // maximum length: 15
