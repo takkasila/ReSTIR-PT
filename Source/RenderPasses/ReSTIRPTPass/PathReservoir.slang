@@ -105,6 +105,7 @@ struct ReSTIRPathFlags
         flags &= ~0x10000000;
         if (isDD) flags |= 0x10000000;
     }
+
     bool decodeIsDD()
     {
         return flags & 0x10000000;

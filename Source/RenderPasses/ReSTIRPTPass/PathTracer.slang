@@ -247,7 +247,6 @@ struct PathTracer
 
         path.enableRandomReplay = true;
         // path.replayMode will have to be set by the caller afterward
-        // path.useHybridShift = ShiftMapping(kShiftStrategy) == ShiftMapping::Hybrid;
         path.setHit(hit);
 
         path.origin = ray.origin;
@@ -835,6 +834,7 @@ struct PathTracer
         HitInfo hit;
         float hitT;
         SceneRayQuery<kUseAlphaTest> sceneRayQuery;
+
         if (sceneRayQuery.traceRay(ray, hit, hitT, RAY_FLAG_NONE, 0xff))
         {
             // Store hit info.
@@ -1421,8 +1421,13 @@ struct PathTracer
             // daqi: check situation where invertibility is violated
             //  Checking if we could find a even earlier RC than the base path's,
             //  If we can, then offset path is non-invertible.
+
+            print("-- path.length", path.length);
+            print("-- rcVertexLength", path.pathBuilder.rcVertexLength);
+
             if (path.length >= 1 && path.length <= path.pathBuilder.rcVertexLength - 1)
             {
+                print("-- Check case 1: is earlier connection", 0);
                 if (kSeparatePathBSDF)
                 {
                     if (params.localStrategyType & (uint)LocalStrategy::RoughnessCondition)
@@ -1479,6 +1484,7 @@ struct PathTracer
 
             if (path.length == path.pathBuilder.rcVertexLength - 1 && invertible)
             {
+                print("-- Check case 2: is connectible", 0);
                 // daqi: not possible to generate a diffuse bounce
 
                 // Check if the current vertex can connect to the RC in base path
@@ -1499,6 +1505,13 @@ struct PathTracer
                 }
             }
 
+            // Early termination flag
+            if (terminateRandomReplayForNEE)
+            {
+                print("-- should terminate for terminateRandomReplayForNEE", 0);
+                shouldTerminate = true;
+            }
+
             if (invertible)
             {
                 print("-- Path is invertable", 0);
@@ -1506,6 +1519,7 @@ struct PathTracer
                 // daqi: if it is invertible and we should terminate, save the hit information to set up a reconnection
                 if (shouldTerminate)
                 {
+                    print("--- Should also terminate", 0);
                     path.rcPrevVertexHit = path.hit;
                     path.rcPrevVertexWo = sd.V;
                     path.terminate();
@@ -1533,13 +1547,11 @@ struct PathTracer
             bool invertible = true;
             bool shouldTerminate = false;
 
-            bool isPreviousRcSpecular = path.pathBuilder.pathFlags.decodeIsSpecularBounce(true);
-
             bool isEnableDistanceCondition = params.localStrategyType & (uint)LocalStrategy::DistanceCondition;
 
             bool isEnableRoughnessCondition = params.localStrategyType & (uint)LocalStrategy::RoughnessCondition;
 
-            if( !isPreviousRcSpecular )
+            if( path.pathBuilder.pathFlags.decodeIsDD() )
             {
                 //
                 // RC is DD
@@ -1605,7 +1617,7 @@ struct PathTracer
                     return;
                 }
             }
-            else
+            else if( path.pathBuilder.pathFlags.decodeIsDSD() )
             {
                 //
                 // RC is DSD
@@ -1883,12 +1895,19 @@ struct PathTracer
         //  TODO: Check cases for HybridShiftSMS
         if (kSeparatePathBSDF && params.localStrategyType & (uint)LocalStrategy::RoughnessCondition)
         {
+            // - is not from a specular bounce sample
+            // - current surface classified as rough
             bool seenAsConnectible = !path.isSpecularBounce() || sd.linearRoughness > params.specularRoughnessThreshold;
 
+            // - is last vertex classified as rough
+            // - doing random replay for hybrid shift
+            // - atleast at v2
+            // - is not at base path RC yet
             if (path.replayMode == ReplayMode::HybridShift
                 && seenAsConnectible
                 && isLastVertexAcceptableForRcPrev
                 && path.length >= 1
+                && (path.length <= path.pathBuilder.rcVertexLength - 1)
             )
             {
                 // check if near field rejection is satisfied
@@ -1896,6 +1915,7 @@ struct PathTracer
                     || !(params.localStrategyType & (uint)LocalStrategy::DistanceCondition)
                 )
                 {
+                    print("-- invalidate path because found earlier RC connection.", 0);
 
                     // Basically, if we're doing random number replay for
                     //  hybrid shift, and found that the current vertex is suitable to be a RC, then terminate the path.
@@ -1903,9 +1923,14 @@ struct PathTracer
                     // non-invertible
                     //      why is it non-vertible??
                     //         Because it has found a suitable RC earlier than the base path?
+
+                    // This doesn't make sense. We have already checked for this at this above section. Why are we checking here again???
                     invalidateAndTerminateReplayPath(path);
                 }
             }
+            // - Not replay for hybridshift
+            // - does use hybrid shift
+            // - not seen as connectible
             else if (
                 path.replayMode == ReplayMode::None
                 && ShiftMapping(kShiftStrategy) == ShiftMapping::Hybrid
@@ -1915,12 +1940,14 @@ struct PathTracer
                 // Tracing base path in HybridShift mapping mode and is not connectible.
                 if (is_rcVertex)
                 {
+                    print("-- invalidate current vertex from being an RC", 0);
                     // Why would this ever happen??? How??
                     is_rcVertex = false;
                     path.pathBuilder.rcVertexLength = kMaximumPathLength; // reset
                 }
             }
 
+            // Why are we setting this here again?
             if (ShiftMapping(kShiftStrategy) == ShiftMapping::Hybrid)
                 isCurrentVertexClassifiedAsRough = seenAsConnectible;
         }
@@ -1972,7 +1999,11 @@ struct PathTracer
             setNRDSampleReflectance(kUseNRDDemodulation, path, isPrimaryHit, sd); // this will be overriden in ReSTIR mode
         }
 
-        if (!path.isActive()) return;
+        if (!path.isActive())
+        {
+            print("-- path is no longer active", 0);
+            return;
+        }
 
         // Check if this is the last path vertex.
         const bool isLastVertex = hasFinishedSurfaceBounces(path);
@@ -1980,14 +2011,14 @@ struct PathTracer
         // Terminate if this is the last path vertex and light sampling already completely sampled incident radiance.
         if (kUseNEE && !kUseMIS && isLastVertex && path.isLightSamplable())
         {
-            print("terminate at last vertex with NEE ", 0);
+            print("-- terminate at last vertex with NEE ", 0);
             valid = false;
         }
 
         // Terminate caustics paths.
         if (kDisableCaustics && path.getBounces(BounceType::Diffuse) > 0 && path.isSpecular())
         {
-            print("terminate because disabled caustic path", 0);
+            print("-- terminate because disabled caustic path", 0);
             valid = false;
         }
 
@@ -2312,8 +2343,6 @@ struct PathTracer
         bool isRcVertexEscapedVertex = pathFlags.pathLength() + 1 == pathFlags.rcVertexLength();
         generateRandomReplayPath(path, hit, ray, initRandomSeed, pathFlags.pathLength(), pathFlags.lastVertexNEE(), isRcVertexEscapedVertex);
 
-        //path.useHybridShift = true;
-
         if (ShiftMapping(kShiftStrategy) == ShiftMapping::HybridShiftSMS)
         {
             path.replayMode = ReplayMode::HybridShiftSMS;
@@ -2344,16 +2373,29 @@ struct PathTracer
         path.pathBuilder.pathFlags.flags = 0;
         path.pathBuilder.pathFlags.transferSpecularBounceInformation(pathFlags);
 
+        path.pathBuilder.pathFlags.insertIsDD( pathFlags.decodeIsDD() );
+        path.pathBuilder.pathFlags.insertIsDSD( pathFlags.decodeIsDSD() );
+
         // set up the two scatter directions (or half vectors) for reuse
 
-        //      Generate a dir
+        //  Generate a scattered direction without prio direction
         generateReplayPrimaryScatterRay(path, sd);
+
+        // At this point, we have:
+        //  path.origin = v1
+        //  path.dir = somewhere
+        //  path.hit = v1
+        //  path.length = 0
 
         if (path.isActive())
         {
             //  update path.hit
             //      Trace to find the next vertex (path.orig = v1, path.hit = v2)
             nextVertex(path);
+
+            // If the ray hit some thing, we do:
+            // 1. Update path.hit to the new hit -- path.setHit(hit);
+            // 2. Increase path length -- path.length++;
         }
         else
         {
@@ -2361,8 +2403,15 @@ struct PathTracer
             return;
         }
 
+        // At this point, we have:
+        //  path.origin = v1
+        //  path.hit = v2
+        //  path.dir = v2-v1
+        //  path.length = 1
+
         DebugVertexState debugVertexState;
 
+        // Continue tracing from v2
         while (path.isActive() && path.isHit())
         {
             // Volume scattering is ignored
@@ -2407,9 +2456,7 @@ struct PathTracer
             L = path.getCurrentThp();
 
             //  If RC vertex is part of DSD chain
-            bool isPrevRcVertexSpecular = pathFlags.decodeIsSpecularBounce(true);
-
-            if(isPrevRcVertexSpecular)
+            if( pathFlags.decodeIsDSD() )
             {
                 // DSD RC
                 print("--- RC vertex is for HybridSMS", 0);
@@ -2431,7 +2478,7 @@ struct PathTracer
                 }
                 */
             }
-            else
+            else if( pathFlags.decodeIsDD() )
             {
                 // DD RC
                 reconnectionData.rcPrevHit = path.rcPrevVertexHit;

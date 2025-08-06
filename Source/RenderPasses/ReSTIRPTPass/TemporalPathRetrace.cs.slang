@@ -80,16 +80,21 @@ struct PathRetracePass
 
     void detectAndfillInAssumedSpecularVertex(PathReservoir reservoir, inout ReconnectionData reconnectionData)
     {
+        bool isReservoirDSD = reservoir.rcPrevVertexHit.getHitInfo().isValid() & reservoir.rcPrevPrevVertexHit.getHitInfo().isValid();
+
         // Check if the case of need to fill in DSD data
         if (
-            // RC is DSD
-            reservoir.pathFlags.decodeIsSpecularBounce(true)
+            // Base path is DSD
+            isReservoirDSD
             // Valid RC
             && any(reconnectionData.pathThroughput > 0.f)
             // Specular vertex has been assumed (rcPrevHit)
             && !reconnectionData.rcPrevHit.isValid()
+            && reconnectionData.rcPrevPrevHit.isValid()
         )
         {
+            print("- fill in assumed specular vertex", 0);
+
             reconnectionData.rcPrevHit = reservoir.rcPrevVertexHit.getHitInfo();
 
             // Compute rcPrevWo
@@ -115,15 +120,15 @@ struct PathRetracePass
         {
             debugPathData.hasRcVertex = true;
 
-            if (reservoir.pathFlags.decodeIsSpecularBounce(true))
+            bool isReservoirDSD = reservoir.rcPrevVertexHit.getHitInfo().isValid() & reservoir.rcPrevPrevVertexHit.getHitInfo().isValid();
+
+            if (isReservoirDSD)
             {
                 // DSD RC
                 debugPathData.isRcDSD = true;
-
                 debugPathData.vertexCount = reservoir.pathFlags.rcVertexLength() + 2;
 
                 // RC
-
                 TriangleHit rcVertexHit = reservoir.rcVertexHit.getHitInfo().getTriangleHit();
                 VertexData rcVertex = gScene.getVertexData(rcVertexHit);
 
@@ -132,7 +137,6 @@ struct PathRetracePass
                 debugPathData.rcVertexIndex = debugPathData.vertexCount - 1;
 
                 // RC Prev
-
                 TriangleHit rcPrevVertexHit = reservoir.rcPrevVertexHit.getHitInfo().getTriangleHit();
                 VertexData rcPrevVertex = gScene.getVertexData(rcPrevVertexHit);
 
@@ -144,6 +148,7 @@ struct PathRetracePass
                 debugPathData.isRcDSD = false;
                 debugPathData.vertexCount = reservoir.pathFlags.rcVertexLength() + 2;
 
+                // RC
                 TriangleHit rcVertexHit = reservoir.rcVertexHit.getHitInfo().getTriangleHit();
                 VertexData rcVertex = gScene.getVertexData(rcVertexHit);
 
@@ -154,6 +159,76 @@ struct PathRetracePass
         }
 
         debugPathDataBuffer[0] = debugPathData;
+    }
+
+    void checkValidReconnectionData(PathReservoir reservoir, ReconnectionData reconnectionData)
+    {
+        bool rcHasThroughput = any(reconnectionData.pathThroughput > 0.f);
+
+        // reservoir.weight == 0
+        if(!any(reservoir.weight > 0.f))
+        {
+            if(rcHasThroughput)
+            {
+                print("Alert! ReconnectionData has throughput but reservoir is empty", 0);
+            }
+            return;
+        }
+
+        // rc.pathThrougput == 0
+        if(!any(reconnectionData.pathThroughput > 0.f))
+        {
+            return;
+        }
+
+        bool isReservoirDD = reservoir.pathFlags.decodeIsDD();
+        bool isReservoirDSD = reservoir.pathFlags.decodeIsDSD();
+
+        bool isRcPrevHitValid = reconnectionData.rcPrevHit.isValid();
+        bool isRcPrevPrevHitValid = reconnectionData.rcPrevPrevHit.isValid();
+
+        if(!rcHasThroughput & (isRcPrevHitValid | isRcPrevPrevHitValid))
+        {
+            print("Alert! Doesn't have throughput but have valid hitinfo", 0);
+        }
+
+        if(isRcPrevHitValid)
+        {
+            if(isReservoirDD)
+            {
+                // ReconnectionData must also be for DD
+                if(!isRcPrevPrevHitValid)
+                {
+                    if(!rcHasThroughput)
+                    {
+                        print("Alert! isRcPrevHitValid but has no throughput", 0);
+                    }
+                }
+                else
+                {
+                    print("Alert! got unwanted rcPrevPrevHit", 0);
+                }
+            }
+            else if(isReservoirDSD)
+            {
+                // ReconnectionData must also be for DSD
+                if(isRcPrevPrevHitValid)
+                {
+                    if(!rcHasThroughput)
+                    {
+                        print("Alert! isRcPrevHitValid & isRcPrevPrevHitValid but has no throughput", 0);
+                    }
+                }
+                else
+                {
+                    print("Alert! missing rcPrevPrevHit", 0);
+                }
+            }
+        }
+        else
+        {
+            print("Alert! missing rcPrevHit", 0);
+        }
     }
 
     /*
@@ -215,11 +290,15 @@ struct PathRetracePass
         print("- rcVertexHit.instanceID", centralReservoir.rcVertexHit.instanceID);
         print("- rcPrevVertexHit.instanceID", centralReservoir.rcPrevVertexHit.instanceID);
         print("- rcPrevPrevVertexHit.instanceID", centralReservoir.rcPrevPrevVertexHit.instanceID);
+        print("- isDD", centralReservoir.pathFlags.decodeIsDD());
+        print("- isDSD", centralReservoir.pathFlags.decodeIsDSD());
 
-        print("temporalReservoir reservoir:", 0);
+        print("Temporal reservoir:", 0);
         print("- rcVertexHit.instanceID", temporalReservoir.rcVertexHit.instanceID);
         print("- rcPrevVertexHit.instanceID", temporalReservoir.rcPrevVertexHit.instanceID);
         print("- rcPrevPrevVertexHit.instanceID", temporalReservoir.rcPrevPrevVertexHit.instanceID);
+        print("- isDD", temporalReservoir.pathFlags.decodeIsDD());
+        print("- isDSD", temporalReservoir.pathFlags.decodeIsDSD());
 
         // talbot MIS
         // compute mis weight for current pixel
@@ -227,9 +306,12 @@ struct PathRetracePass
         ReconnectionData centralReservoirReconnectionData;
         ReconnectionData temporalReservoirReconnectionData;
 
-        if (centralReservoir.pathFlags.rcVertexLength() > 1)
+        //
+        // Checking for rcVertexLength() > 1 should not be enough. Need to improve.
+        //
+        if (centralReservoir.rcVertexHit.getHitInfo().isValid())
         {
-            print("- traceHybridShiftRays centralReservoir", 0);
+            print("- traceHybridShiftRays centralReservoir: begin", 0);
 
             //  Use previous frame data
             traceHybridShiftRays(
@@ -242,6 +324,19 @@ struct PathRetracePass
                 debugPathData1
             );
 
+            bool isRcPrevHitValid = centralReservoirReconnectionData.rcPrevHit.isValid();
+
+            if(!isRcPrevHitValid)
+            {
+                print("- doesn't have prevRC", 0);
+
+                print("-- rcPrevHit", centralReservoirReconnectionData.rcPrevHit.isValid());
+                print("-- rcPrevPrevHit", centralReservoirReconnectionData.rcPrevPrevHit.isValid());
+                print("-- rcPrevWo", centralReservoirReconnectionData.rcPrevWo);
+                print("-- rcPrevPrevWo", centralReservoirReconnectionData.rcPrevPrevWo);
+                print("-- pathThroughput", centralReservoirReconnectionData.pathThroughput);
+            }
+
             // Check if the case of need to fill in DSD data
             detectAndfillInAssumedSpecularVertex(centralReservoir, centralReservoirReconnectionData);
 
@@ -253,15 +348,24 @@ struct PathRetracePass
                 // Fill in RC data into debugData
                 fillDebugPathData(centralReservoirReconnectionData, centralReservoir, debugPathData1, debugCentralResevoirPathDataBuffer);
             }
+
+            // Sanity check
+            checkValidReconnectionData(centralReservoir, centralReservoirReconnectionData);
+
+            print("- traceHybridShiftRays centralReservoir: end", 0);
         }
         else
         {
-            print("- centralReservoir doesn't have RC. rcVertexLength =", centralReservoir.pathFlags.rcVertexLength());
+            print("- centralReservoir doesn't have RC", 0);
+
+            // Set ReconnectionData throughput to 0 and move on
+            centralReservoirReconnectionData.pathThroughput = float3(0.f);
+            reconnectionDataBuffer[centralOffset].data[0] = centralReservoirReconnectionData;
         }
 
-        if (temporalReservoir.pathFlags.rcVertexLength() > 1)
+        if (temporalReservoir.rcVertexHit.getHitInfo().isValid())
         {
-            print("- traceHybridShiftRays temporalReservoir", 0);
+            print("- traceHybridShiftRays temporalReservoir: begin", 0);
 
             traceHybridShiftRays(
                 params,
@@ -272,6 +376,19 @@ struct PathRetracePass
                 temporalReservoirReconnectionData,
                 debugPathData2
             );
+
+            bool isRcPrevHitValid = temporalReservoirReconnectionData.rcPrevHit.isValid();
+
+            if(!isRcPrevHitValid)
+            {
+                print("- doesn't have prevRC", 0);
+
+                print("-- rcPrevHit", temporalReservoirReconnectionData.rcPrevHit.isValid());
+                print("-- rcPrevPrevHit", temporalReservoirReconnectionData.rcPrevPrevHit.isValid());
+                print("-- rcPrevWo", temporalReservoirReconnectionData.rcPrevWo);
+                print("-- rcPrevPrevWo", temporalReservoirReconnectionData.rcPrevPrevWo);
+                print("-- pathThroughput", temporalReservoirReconnectionData.pathThroughput);
+            }
 
             // Check if the case of need to fill in DSD data
             detectAndfillInAssumedSpecularVertex(temporalReservoir, temporalReservoirReconnectionData);
@@ -284,7 +401,22 @@ struct PathRetracePass
                 // Fill in RC data into debugData
                 fillDebugPathData(temporalReservoirReconnectionData, temporalReservoir, debugPathData2, debugTemporalResevoirPathDataBuffer);
             }
+
+            // Sanity check
+            checkValidReconnectionData(temporalReservoir, temporalReservoirReconnectionData);
+
+            print("- traceHybridShiftRays temporalReservoir: end", 0);
+
         }
+        else
+        {
+            print("- temporalReservoir doesn't have RC", 0);
+
+            // Set ReconnectionData throughput to 0 and move on
+            temporalReservoirReconnectionData.pathThroughput = float3(0.f);
+            reconnectionDataBuffer[centralOffset].data[1] = temporalReservoirReconnectionData;
+        }
+
         print("Temporal path retrace: end", 0);
     }
 

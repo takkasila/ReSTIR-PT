@@ -307,8 +307,11 @@ void traceHybridShiftRays(
     if (srcReservoir.weight == 0.f)
     {
         reconnectionData.pathThroughput = float3(0.f);
+        print("- Aleart! This should not have happend", 0);
         return;
     }
+
+    print("- srcReservoir.weight", srcReservoir.weight);
 
     // usePrev means use previous frame data
     HitInfo dstPrimaryHit;
@@ -584,7 +587,11 @@ float3 computeShiftedIntegrandReconnection(const RestirPathTracerParams params, 
     if ((params.localStrategyType & (uint)LocalStrategy::DistanceCondition) && useHybridShift)
     {
         bool isFarField = sqrt(shifted_dist2) >= params.nearFieldDistance;
-        if (!isFarField) return 0.f;
+        if (!isFarField)
+        {
+            print("Alert! How are we here??", sqrt(shifted_dist2));
+            return 0.f;
+        }
     }
 
     print("------ is far field", 0);
