@@ -110,16 +110,21 @@ struct PathRetracePass
 
     void detectAndfillInAssumedSpecularVertex(PathReservoir reservoir, inout ReconnectionData reconnectionData)
     {
+        bool isReservoirDSD = reservoir.pathFlags.decodeIsDSD();
+
         // Check if the case of need to fill in DSD data
         if (
-            // RC is DSD
-            reservoir.pathFlags.decodeIsSpecularBounce(true)
+            // Base path is DSD
+            isReservoirDSD
             // Valid RC
             && any(reconnectionData.pathThroughput > 0.f)
             // Specular vertex has been assumed (rcPrevHit)
             && !reconnectionData.rcPrevHit.isValid()
+            && reconnectionData.rcPrevPrevHit.isValid()
         )
         {
+            print("- fill in assumed specular vertex", 0);
+
             reconnectionData.rcPrevHit = reservoir.rcPrevVertexHit.getHitInfo();
 
             // Compute rcPrevWo
@@ -145,15 +150,30 @@ struct PathRetracePass
         {
             debugPathData.hasRcVertex = true;
 
-            if (reservoir.pathFlags.decodeIsSpecularBounce(true))
-            {
-                // DSD RC
-                debugPathData.isRcDSD = true;
+            bool isReservoirDSD = reservoir.pathFlags.decodeIsDSD();
+            bool isReservoirDD = reservoir.pathFlags.decodeIsDD();
 
+            if (isReservoirDD)
+            {
+                // DD RC
+                debugPathData.isRcDSD = false;
                 debugPathData.vertexCount = reservoir.pathFlags.rcVertexLength() + 2;
 
                 // RC
+                TriangleHit rcVertexHit = reservoir.rcVertexHit.getHitInfo().getTriangleHit();
+                VertexData rcVertex = gScene.getVertexData(rcVertexHit);
 
+                debugPathData.vertices[debugPathData.vertexCount - 1] = float4(rcVertex.posW, 1);
+
+                debugPathData.rcVertexIndex = debugPathData.vertexCount - 1;
+            }
+            else if (isReservoirDSD)
+            {
+                // DSD RC
+                debugPathData.isRcDSD = true;
+                debugPathData.vertexCount = reservoir.pathFlags.rcVertexLength() + 2;
+
+                // RC
                 TriangleHit rcVertexHit = reservoir.rcVertexHit.getHitInfo().getTriangleHit();
                 VertexData rcVertex = gScene.getVertexData(rcVertexHit);
 
@@ -162,28 +182,84 @@ struct PathRetracePass
                 debugPathData.rcVertexIndex = debugPathData.vertexCount - 1;
 
                 // RC Prev
-
                 TriangleHit rcPrevVertexHit = reservoir.rcPrevVertexHit.getHitInfo().getTriangleHit();
                 VertexData rcPrevVertex = gScene.getVertexData(rcPrevVertexHit);
 
                 debugPathData.vertices[debugPathData.vertexCount - 2] = float4(rcPrevVertex.posW, 1);
             }
-            else
-            {
-                // DD RC
-                debugPathData.isRcDSD = false;
-                debugPathData.vertexCount = reservoir.pathFlags.rcVertexLength() + 2;
-
-                TriangleHit rcVertexHit = reservoir.rcVertexHit.getHitInfo().getTriangleHit();
-                VertexData rcVertex = gScene.getVertexData(rcVertexHit);
-
-                debugPathData.vertices[debugPathData.vertexCount - 1] = float4(rcVertex.posW, 1);
-
-                debugPathData.rcVertexIndex = debugPathData.vertexCount - 1;
-            }
         }
 
         debugPathDataBuffer[0] = debugPathData;
+    }
+
+    void checkValidReconnectionData(PathReservoir reservoir, ReconnectionData reconnectionData)
+    {
+        bool rcHasThroughput = any(reconnectionData.pathThroughput > 0.f);
+
+        // reservoir.weight == 0
+        if (!any(reservoir.weight > 0.f))
+        {
+            if (rcHasThroughput)
+            {
+                print("Alert! ReconnectionData has throughput but reservoir is empty", 0);
+            }
+            return;
+        }
+
+        // rc.pathThrougput == 0
+        if (!any(reconnectionData.pathThroughput > 0.f))
+        {
+            return;
+        }
+
+        bool isReservoirDD = reservoir.pathFlags.decodeIsDD();
+        bool isReservoirDSD = reservoir.pathFlags.decodeIsDSD();
+
+        bool isRcPrevHitValid = reconnectionData.rcPrevHit.isValid();
+        bool isRcPrevPrevHitValid = reconnectionData.rcPrevPrevHit.isValid();
+
+        if (!rcHasThroughput & (isRcPrevHitValid | isRcPrevPrevHitValid))
+        {
+            print("Alert! Doesn't have throughput but have valid hitinfo", 0);
+        }
+
+        if (isRcPrevHitValid)
+        {
+            if (isReservoirDD)
+            {
+                // ReconnectionData must also be for DD
+                if (!isRcPrevPrevHitValid)
+                {
+                    if (!rcHasThroughput)
+                    {
+                        print("Alert! isRcPrevHitValid but has no throughput", 0);
+                    }
+                }
+                else
+                {
+                    print("Alert! got unwanted rcPrevPrevHit", 0);
+                }
+            }
+            else if (isReservoirDSD)
+            {
+                // ReconnectionData must also be for DSD
+                if (isRcPrevPrevHitValid)
+                {
+                    if (!rcHasThroughput)
+                    {
+                        print("Alert! isRcPrevHitValid & isRcPrevPrevHitValid but has no throughput", 0);
+                    }
+                }
+                else
+                {
+                    print("Alert! missing rcPrevPrevHit", 0);
+                }
+            }
+        }
+        else
+        {
+            print("Alert! missing rcPrevHit", 0);
+        }
     }
 
     /*
@@ -213,37 +289,57 @@ struct PathRetracePass
         // Compute offset into per-sample buffers. All samples are stored consecutively at this offset.
         const uint centralOffset = params.getReservoirOffset(pixel);
         PathReservoir centralReservoir = outputReservoirs[centralOffset];
+
+        // Check if the location we are looking at has a surface
         PackedHitInfo centralPrimaryHitPacked;
         ShadingData centralPrimarySd = getPixelShadingData(pixel, centralPrimaryHitPacked);
-        if (!isValidPackedHitInfo(centralPrimaryHitPacked)) return;
+        if (!isValidPackedHitInfo(centralPrimaryHitPacked))
+            return;
+
+        print("Central reservoir:", 0);
+        print("- rcVertexHit.instanceID", centralReservoir.rcVertexHit.instanceID);
+        print("- rcPrevVertexHit.instanceID", centralReservoir.rcPrevVertexHit.instanceID);
+        print("- rcPrevPrevVertexHit.instanceID", centralReservoir.rcPrevPrevVertexHit.instanceID);
+        print("- isDD", centralReservoir.pathFlags.decodeIsDD());
+        print("- isDSD", centralReservoir.pathFlags.decodeIsDSD());
 
         uint2 chosenPixel = pixel;
         int chosen_i = -1;
         float3 color = 0.f;
         int neighborCount = getNeighborCount();
 
+        print("Neighbor count:", neighborCount);
+
         const uint startIndex = sampleNext1D(sg) * kNeighborOffsetCount;
 
         for (int i = 0; i < neighborCount; ++i)
         {
+            print("- neighbor", i);
+
             int2 neighborPixel = getNextNeighborPixel(startIndex, pixel, i);
 
-            if (!isValidScreenRegion(neighborPixel)) continue;
+            // Check if not in screen
+            if (!isValidScreenRegion(neighborPixel))
+                continue;
 
             PathReservoir neighborReservoir = outputReservoirs[params.getReservoirOffset(neighborPixel)];
 
             PackedHitInfo neighborPrimaryHitPacked;
             ShadingData neighborPrimarySd = getPixelShadingData(neighborPixel, neighborPrimaryHitPacked);
-            if (!isValidPackedHitInfo(neighborPrimaryHitPacked)) continue;
-            if (!isValidGeometry(centralPrimarySd, neighborPrimarySd)) continue;
+            // Check if not
+            if (!isValidPackedHitInfo(neighborPrimaryHitPacked))
+                continue;
+
+            // Both surfaces are close and plausible to connect with each other
+            if (!isValidGeometry(centralPrimarySd, neighborPrimarySd))
+                continue;
 
             ReconnectionData centralReservoirReconnectionData;
             ReconnectionData neighborReservoirReconnectionData;
 
-            // write to memory
-            if (centralReservoir.pathFlags.rcVertexLength() > 1)
+            if (centralReservoir.rcVertexHit.getHitInfo().isValid())
             {
-                print("- traceHybridShiftRays centralReservoir", 0);
+                print("- traceHybridShiftRays centralReservoir: begin", 0);
 
                 traceHybridShiftRays(
                     params,
@@ -255,8 +351,20 @@ struct PathRetracePass
                     debugPathData1
                 );
 
+                bool isRcPrevHitValid = centralReservoirReconnectionData.rcPrevHit.isValid();
+
                 // Check if the case of need to fill in DSD data
                 detectAndfillInAssumedSpecularVertex(centralReservoir, centralReservoirReconnectionData);
+
+                if (!isRcPrevHitValid)
+                {
+                    print("- doesn't have prevRC", 0);
+                    print("-- rcPrevHit", centralReservoirReconnectionData.rcPrevHit.isValid());
+                    print("-- rcPrevPrevHit", centralReservoirReconnectionData.rcPrevPrevHit.isValid());
+                    print("-- rcPrevWo", centralReservoirReconnectionData.rcPrevWo);
+                    print("-- rcPrevPrevWo", centralReservoirReconnectionData.rcPrevPrevWo);
+                    print("-- pathThroughput", centralReservoirReconnectionData.pathThroughput);
+                }
 
                 // Set to buffer
                 reconnectionDataBuffer[centralOffset].data[2 * i] = centralReservoirReconnectionData;
@@ -266,11 +374,16 @@ struct PathRetracePass
                     // Fill in RC data into debugData
                     fillDebugPathData(centralReservoirReconnectionData, centralReservoir, debugPathData1, debugCentralResevoirPathDataBuffer);
                 }
+
+                // Sanity check
+                checkValidReconnectionData(centralReservoir, centralReservoirReconnectionData);
+
+                print("- traceHybridShiftRays centralReservoir: end", 0);
             }
 
-            if (neighborReservoir.pathFlags.rcVertexLength() > 1)
+            if (neighborReservoir.rcVertexHit.getHitInfo().isValid())
             {
-                print("- traceHybridShiftRays neighborReservoir", 0);
+                print("- traceHybridShiftRays neighborReservoir: begin", 0);
 
                 traceHybridShiftRays(
                     params,
@@ -281,6 +394,18 @@ struct PathRetracePass
                     neighborReservoirReconnectionData,
                     debugPathData2
                 );
+
+                bool isRcPrevHitValid = neighborReservoirReconnectionData.rcPrevHit.isValid();
+
+                if (!isRcPrevHitValid)
+                {
+                    print("- doesn't have prevRC", 0);
+                    print("-- rcPrevHit", neighborReservoirReconnectionData.rcPrevHit.isValid());
+                    print("-- rcPrevPrevHit", neighborReservoirReconnectionData.rcPrevPrevHit.isValid());
+                    print("-- rcPrevWo", neighborReservoirReconnectionData.rcPrevWo);
+                    print("-- rcPrevPrevWo", neighborReservoirReconnectionData.rcPrevPrevWo);
+                    print("-- pathThroughput", neighborReservoirReconnectionData.pathThroughput);
+                }
 
                 // Check if the case of need to fill in DSD data
                 detectAndfillInAssumedSpecularVertex(neighborReservoir, neighborReservoirReconnectionData);
@@ -294,31 +419,10 @@ struct PathRetracePass
                     fillDebugPathData(neighborReservoirReconnectionData, neighborReservoir, debugPathData2, debugNeighborResevoirPathDataBuffer);
                 }
 
-                /*
-                // Check i the case of need to fill in DSD data
-                if (
-                    // RC is DSD
-                    neighborReservoir.pathFlags.decodeIsSpecularBounce(true)
-                    // Valid RC
-                    && any(neighborReservoirReconnectionData.pathThroughput > 0.f)
-                    // Specular vertex has been assumed (rcPrevHit)
-                    && !neighborReservoirReconnectionData.rcPrevHit.isValid()
-                )
-                {
-                    print("- Filling in assumed reconnectionData.rcPrevHit", 0);
-                    neighborReservoirReconnectionData.rcPrevHit = neighborReservoir.rcPrevVertexHit.getHitInfo();
+                // Sanity check
+                checkValidReconnectionData(neighborReservoir, neighborReservoirReconnectionData);
 
-                    // Compute rcPrevWo
-                    TriangleHit rcPrevHit = neighborReservoir.rcPrevVertexHit.getHitInfo().getTriangleHit();
-                    float3 rcPrevVertexPos = gScene.getVertexData(rcPrevHit).posW;
-
-                    TriangleHit rcPrevPrevHit = neighborReservoir.rcPrevPrevVertexHit.getHitInfo().getTriangleHit();
-                    float3 rcPrevPrevVertexPos = gScene.getVertexData(rcPrevPrevHit).posW;
-
-                    neighborReservoirReconnectionData.rcPrevWo = normalize(rcPrevPrevVertexPos - rcPrevVertexPos);
-                }
-                */
-
+                print("- traceHybridShiftRays neighborReservoir: begin", 0);
             }
         }
 

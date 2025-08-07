@@ -80,7 +80,7 @@ struct PathRetracePass
 
     void detectAndfillInAssumedSpecularVertex(PathReservoir reservoir, inout ReconnectionData reconnectionData)
     {
-        bool isReservoirDSD = reservoir.rcPrevVertexHit.getHitInfo().isValid() & reservoir.rcPrevPrevVertexHit.getHitInfo().isValid();
+        bool isReservoirDSD = reservoir.pathFlags.decodeIsDSD();
 
         // Check if the case of need to fill in DSD data
         if (
@@ -120,9 +120,24 @@ struct PathRetracePass
         {
             debugPathData.hasRcVertex = true;
 
-            bool isReservoirDSD = reservoir.rcPrevVertexHit.getHitInfo().isValid() & reservoir.rcPrevPrevVertexHit.getHitInfo().isValid();
+            bool isReservoirDSD = reservoir.pathFlags.decodeIsDSD();
+            bool isReservoirDD = reservoir.pathFlags.decodeIsDD();
 
-            if (isReservoirDSD)
+            if (isReservoirDD)
+            {
+                // DD RC
+                debugPathData.isRcDSD = false;
+                debugPathData.vertexCount = reservoir.pathFlags.rcVertexLength() + 2;
+
+                // RC
+                TriangleHit rcVertexHit = reservoir.rcVertexHit.getHitInfo().getTriangleHit();
+                VertexData rcVertex = gScene.getVertexData(rcVertexHit);
+
+                debugPathData.vertices[debugPathData.vertexCount - 1] = float4(rcVertex.posW, 1);
+
+                debugPathData.rcVertexIndex = debugPathData.vertexCount - 1;
+            }
+            else if (isReservoirDSD)
             {
                 // DSD RC
                 debugPathData.isRcDSD = true;
@@ -141,20 +156,6 @@ struct PathRetracePass
                 VertexData rcPrevVertex = gScene.getVertexData(rcPrevVertexHit);
 
                 debugPathData.vertices[debugPathData.vertexCount - 2] = float4(rcPrevVertex.posW, 1);
-            }
-            else
-            {
-                // DD RC
-                debugPathData.isRcDSD = false;
-                debugPathData.vertexCount = reservoir.pathFlags.rcVertexLength() + 2;
-
-                // RC
-                TriangleHit rcVertexHit = reservoir.rcVertexHit.getHitInfo().getTriangleHit();
-                VertexData rcVertex = gScene.getVertexData(rcVertexHit);
-
-                debugPathData.vertices[debugPathData.vertexCount - 1] = float4(rcVertex.posW, 1);
-
-                debugPathData.rcVertexIndex = debugPathData.vertexCount - 1;
             }
         }
 
@@ -262,7 +263,8 @@ struct PathRetracePass
         // X_0 = camera, X_1 = primary hit
         PackedHitInfo centralPrimaryHitPacked;
         ShadingData centralPrimarySd = getPixelShadingData(pixel, centralPrimaryHitPacked);
-        if (!isValidPackedHitInfo(centralPrimaryHitPacked)) return;
+        if (!isValidPackedHitInfo(centralPrimaryHitPacked))
+            return;
 
         // color averaging test
 
@@ -270,19 +272,20 @@ struct PathRetracePass
         float2 motionVector = motionVectors[pixel];
         int2 prevPixel = pixel;
 
-        bool foundTemporalSurface = true;
-
         // False by default
         if (gEnableTemporalReprojection)
         {
             prevPixel = pixel + motionVector * params.frameDim + (sampleNext2D(sg) * 1.f - 0.f);
         }
 
-        if (!isValidScreenRegion(prevPixel) || !foundTemporalSurface) return;
+        if (!isValidScreenRegion(prevPixel))
+            return;
 
+        // Check if the location we are looking at has a surface
         PackedHitInfo temporalPrimaryHitPacked;
         ShadingData temporalPrimarySd = getPixelTemporalShadingData(prevPixel, temporalPrimaryHitPacked);
-        if (!isValidPackedHitInfo(temporalPrimaryHitPacked)) return;
+        if (!isValidPackedHitInfo(temporalPrimaryHitPacked))
+            return;
 
         PathReservoir temporalReservoir = temporalReservoirs[params.getReservoirOffset(prevPixel)];
 
@@ -329,7 +332,6 @@ struct PathRetracePass
             if(!isRcPrevHitValid)
             {
                 print("- doesn't have prevRC", 0);
-
                 print("-- rcPrevHit", centralReservoirReconnectionData.rcPrevHit.isValid());
                 print("-- rcPrevPrevHit", centralReservoirReconnectionData.rcPrevPrevHit.isValid());
                 print("-- rcPrevWo", centralReservoirReconnectionData.rcPrevWo);
@@ -382,7 +384,6 @@ struct PathRetracePass
             if(!isRcPrevHitValid)
             {
                 print("- doesn't have prevRC", 0);
-
                 print("-- rcPrevHit", temporalReservoirReconnectionData.rcPrevHit.isValid());
                 print("-- rcPrevPrevHit", temporalReservoirReconnectionData.rcPrevPrevHit.isValid());
                 print("-- rcPrevWo", temporalReservoirReconnectionData.rcPrevWo);

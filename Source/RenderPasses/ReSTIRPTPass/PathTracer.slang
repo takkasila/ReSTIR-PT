@@ -2409,6 +2409,8 @@ struct PathTracer
         //  path.dir = v2-v1
         //  path.length = 1
 
+        print("randomReplayIsEscaped:", path.randomReplayIsEscaped);
+
         DebugVertexState debugVertexState;
 
         // Continue tracing from v2
