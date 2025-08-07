@@ -374,10 +374,23 @@ struct PathReusePass
                 float prefixJacobian;
 
                 ReconnectionData rcData;
-                if (ShiftMapping(kShiftStrategy) == ShiftMapping::Hybrid && centralReservoir.pathFlags.rcVertexLength() > 1)
+                if (
+                    (
+                        // Is doing hybrid shift mapping
+                        ShiftMapping(kShiftStrategy) == ShiftMapping::Hybrid
+                        || ShiftMapping(kShiftStrategy) == ShiftMapping::HybridShiftSMS
+                    )
+                    && centralReservoir.pathFlags.rcVertexLength() > 1
+                )
+                {
+                    print("-- Central reservoir have RC", 0);
                     rcData = reconnectionDataBuffer[centralOffset].data[2 * i];
+                }
                 else
+                {
+                    print("-- Central reservoir use dummyRC", 0);
                     rcData = dummyRcData;
+                }
 
                 //  dst: neighbor
                 //  src: central
@@ -393,16 +406,32 @@ struct PathReusePass
 
                 PathReservoir tempDstReservoir = dstReservoir;
 
-                if (ShiftMapping(kShiftStrategy) == ShiftMapping::Hybrid && neighborReservoir.pathFlags.rcVertexLength() > 1)
+                if (
+                    (
+                        // Is doing hybrid shift mapping
+                        ShiftMapping(kShiftStrategy) == ShiftMapping::Hybrid
+                        || ShiftMapping(kShiftStrategy) == ShiftMapping::HybridShiftSMS
+                    )
+                    && neighborReservoir.pathFlags.rcVertexLength() > 1
+                )
+                {
+                    print("-- Neighbor reservoir have RC", 0);
                     rcData = reconnectionDataBuffer[centralOffset].data[2 * i + 1];
+                }
                 else
+                {
+                    print("-- Neighbor reservoir use dummyRC", 0);
                     rcData = dummyRcData;
+                }
+
 
                 //  dst: central
                 //  src: neighbor
                 //  rc: central?
                 bool possibleToBeSelected = shiftAndMergeReservoir(params, false, dstJacobian, centralPrimaryHitPacked, centralPrimarySd, tempDstReservoir,
                     neighborPrimarySd, neighborReservoir, rcData, true, sg, true, 1.f, true); // "true" means hypothetically selected as the sample
+
+                print("-- possibleToBeSelected:", possibleToBeSelected);
 
                 float neighborWeight = 0.f;
 

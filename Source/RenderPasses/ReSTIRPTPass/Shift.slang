@@ -94,28 +94,23 @@ float3 computeShiftedIntegrand_(const RestirPathTracerParams params, inout float
     }
     else if (ShiftMapping(kShiftStrategy) == ShiftMapping::HybridShiftSMS)
     {
-        bool isDSD = rcData.rcPrevPrevHit.isValid();
+
         print("--- rcData.rcPrevPrevHit.isValid()", rcData.rcPrevPrevHit.isValid());
         print("--- rcData.rcPrevHit.isValid()", rcData.rcPrevHit.isValid());
         print("--- rcData.pathThroughput", rcData.pathThroughput);
 
-        // Checking for isValid is not enough because of the dummy rc.
-        // Need to find a better way to tell which type
+        bool isDD = srcReservoir.pathFlags.decodeIsDD();
+        bool isDSD = srcReservoir.pathFlags.decodeIsDSD();
 
         if(isDSD)
         {
-            print("--- Doing DSD RC in HybridShiftSMS", 0);
+            print("--- Doing DSD RC in HybridShiftSMS: UNDERCONSTRUCTION", 0);
             // TODO:
             return 0.f;
         }
-        else
+        else if(isDD)
         {
             print("--- Doing DD RC in HybridShiftSMS", 0);
-
-            // Something is actually broken here
-
-            // return 0.f; // got a normal image
-            // return 1.f; // got a normal image
 
             // DD reconnection
             float3 tmp = computeShiftedIntegrandHybrid(params, usePrev, temporalUpdateForDynamicScene, dstJacobian, dstPrimaryHitPacked, dstPrimarySd, srcPrimarySd, srcReservoir, rcData, evalVisibility);
@@ -127,8 +122,6 @@ float3 computeShiftedIntegrand_(const RestirPathTracerParams params, inout float
                 print("--- the integrand is weird:", tmp);
             }
 
-            // tmp = float3(0.0f);  // got normal image
-            // tmp = float3(1.0f);  // got white-capped image
             return tmp;
         }
     }
@@ -589,7 +582,8 @@ float3 computeShiftedIntegrandReconnection(const RestirPathTracerParams params, 
         bool isFarField = sqrt(shifted_dist2) >= params.nearFieldDistance;
         if (!isFarField)
         {
-            print("Alert! How are we here??", sqrt(shifted_dist2));
+            // Only trigger for Spaitial reuse
+            print("------ Reject for being too close", 0);
             return 0.f;
         }
     }

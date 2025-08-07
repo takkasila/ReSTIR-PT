@@ -147,6 +147,7 @@ struct PathReusePass
             if (ReSTIRMISKind(kTemporalReSTIRMISKind) == ReSTIRMISKind::Talbot)
             {
                 // Note:
+                //  - this is the default option in Temporal Reuse
                 //  - dstReservoir is base path's
                 //  - temporalReservoir is offset path's
 
@@ -184,9 +185,10 @@ struct PathReusePass
                             //  And the retrace was successful.
                             //  Why don't we just check the ReconnectionData directly? Is it because of doing PathReuse without ReSTIR?
                             && temporalReservoir.pathFlags.rcVertexLength() > 1
+                            // Also, should we check if hitinfo is valid instead?
                         )
                         {
-                            print("-- have RC 1", 0);
+                            print("-- Have RC 1", 0);
                             rcData = reconnectionDataBuffer[centralOffset].data[1];
                         }
                         else

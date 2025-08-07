@@ -422,7 +422,7 @@ struct PathRetracePass
                 // Sanity check
                 checkValidReconnectionData(neighborReservoir, neighborReservoirReconnectionData);
 
-                print("- traceHybridShiftRays neighborReservoir: begin", 0);
+                print("- traceHybridShiftRays neighborReservoir: end", 0);
             }
         }
 
