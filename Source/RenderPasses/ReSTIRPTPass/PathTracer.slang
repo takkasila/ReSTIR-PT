@@ -1329,6 +1329,7 @@ struct PathTracer
 
             if (isDSDPath
                 && (ShiftMapping(kShiftStrategy) == ShiftMapping::HybridShiftSMS)
+                && (bool)params.isEnableDSD
             )
             {
 
@@ -1413,7 +1414,7 @@ struct PathTracer
             && path.replayMode == ReplayMode::HybridShift )
         {
             // Currently tracing random number replay path for hybrid shift
-            print("- Check hybrid shift invertibility (DD)", 0);
+            print("- Check HybridShift invertibility", 0);
 
             bool invertible = true;
             bool shouldTerminate = false;
@@ -1542,7 +1543,7 @@ struct PathTracer
         else if (PathSamplingMode(kPathSamplingMode) != PathSamplingMode::PathTracing
             && path.replayMode == ReplayMode::HybridShiftSMS )
         {
-            print("- Check hybrid shift invertibility (DSD)", 0);
+            print("- Check HybridShiftSMS invertibility", 0);
 
             bool invertible = true;
             bool shouldTerminate = false;
@@ -2193,6 +2194,7 @@ struct PathTracer
                     && ShiftMapping(kShiftStrategy) == ShiftMapping::HybridShiftSMS
                     && path.length >= 2
                     && path.length + 1 < path.pathBuilder.rcVertexLength
+                    && (bool)params.isEnableDSD
                 )
                 {
                     bool isDSDPath = !path.isLastVertexClassifiedAsRough && path.isLastLastVertexClassifiedAsRough;

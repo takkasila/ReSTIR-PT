@@ -889,6 +889,12 @@ bool ReSTIRPTPass::renderRenderingUI(Gui::Widgets& widget)
                 {
                     dirty |= widget.var("Shift rejection jacobian threshold", mParams.jacobianRejectionThreshold, 0.f, 100.f);
                 }
+
+                // If shift mapping mode is HybridShiftSMS
+                if(mStaticParams.shiftStrategy == ShiftMapping::HybridShiftSMS)
+                {
+                    dirty |= widget.checkbox("Enable Diffuse-Specular-Diffuse path", mParams.isEnableDSD);
+                }
             }
         }
 

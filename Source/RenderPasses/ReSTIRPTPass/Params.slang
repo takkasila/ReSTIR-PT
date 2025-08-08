@@ -147,6 +147,8 @@ struct RestirPathTracerParams
     int     rejectShiftBasedOnJacobian = false; // can be helpful for dynamic geometry
     float   jacobianRejectionThreshold = 10.f;
 
+    int isEnableDSD = true;             // Is enable the use of Diffuse-Specular-Diffuse path in HybridShiftSMS shift mapping mode. If false, the process and result of HybridShiftSMS should be the same as normal HybridShift.
+
     // params for roughness condition in mixed strategy
     float   specularRoughnessThreshold = 0.2f; ///< Specular reflection events are only classified as specular if the material's roughness value is equal or smaller than this threshold. Otherwise they are classified diffuse.
     // params for distance condition in mixed strategy
