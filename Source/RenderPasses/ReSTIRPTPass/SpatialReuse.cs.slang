@@ -170,12 +170,35 @@ struct PathReusePass
         if (PathSamplingMode(kPathSamplingMode) == PathSamplingMode::PathReuse ||
             (ReSTIRMISKind(kSpatialReSTIRMISKind) == ReSTIRMISKind::Talbot || ReSTIRMISKind(kSpatialReSTIRMISKind) == ReSTIRMISKind::Pairwise))
         {
+            print("- init dstReservoir", 0);
             dstReservoir.init();
         }
         else
         {
             dstReservoir.prepareMerging();
         }
+
+        print("Central reservoir:", 0);
+        print("- rcVertexHit.instanceID", centralReservoir.rcVertexHit.instanceID);
+        print("- rcPrevVertexHit.instanceID", centralReservoir.rcPrevVertexHit.instanceID);
+        print("- rcPrevPrevVertexHit.instanceID", centralReservoir.rcPrevPrevVertexHit.instanceID);
+        print("- isDD", centralReservoir.pathFlags.decodeIsDD());
+        print("- isDSD", centralReservoir.pathFlags.decodeIsDSD());
+        print("- rcVertexLength", centralReservoir.pathFlags.rcVertexLength());
+        print("- pathLength", centralReservoir.pathFlags.pathLength());
+        print("- weight", centralReservoir.weight);
+
+
+        print("\nDst reservoir:", 0);
+        print("- rcVertexHit.instanceID", dstReservoir.rcVertexHit.instanceID);
+        print("- rcPrevVertexHit.instanceID", dstReservoir.rcPrevVertexHit.instanceID);
+        print("- rcPrevPrevVertexHit.instanceID", dstReservoir.rcPrevPrevVertexHit.instanceID);
+        print("- isDD", dstReservoir.pathFlags.decodeIsDD());
+        print("- isDSD", dstReservoir.pathFlags.decodeIsDSD());
+        print("- rcVertexLength", dstReservoir.pathFlags.rcVertexLength());
+        print("- pathLength", dstReservoir.pathFlags.pathLength());
+        print("- weight", dstReservoir.weight);
+
 
         float3 color = 0.f;
         ReconnectionData dummyRcData;
@@ -352,8 +375,13 @@ struct PathReusePass
             int validNeighborCount = 0;
             float canonicalWeight = 1;
 
+            print("Neighbor count:", neighborCount);
+
             for (int i = 0; i < neighborCount; ++i)
             {
+                print("\n", 0);
+                print("- neighbor", i);
+
                 int2 neighborPixel = getNextNeighborPixel(startIndex, pixel, i);
 
                 if (!isValidScreenRegion(neighborPixel)) continue;
@@ -364,6 +392,16 @@ struct PathReusePass
                 if (!isValidGeometry(centralPrimarySd, neighborPrimarySd)) continue;
 
                 PathReservoir neighborReservoir = outputReservoirs[params.getReservoirOffset(neighborPixel)];
+
+                print("- Neighbor reservoir:", 0);
+                print("-- rcVertexHit.instanceID", neighborReservoir.rcVertexHit.instanceID);
+                print("-- rcPrevVertexHit.instanceID", neighborReservoir.rcPrevVertexHit.instanceID);
+                print("-- rcPrevPrevVertexHit.instanceID", neighborReservoir.rcPrevPrevVertexHit.instanceID);
+                print("-- isDD", neighborReservoir.pathFlags.decodeIsDD());
+                print("-- isDSD", neighborReservoir.pathFlags.decodeIsDSD());
+                print("-- rcVertexLength", neighborReservoir.pathFlags.rcVertexLength());
+                print("-- pathLength", neighborReservoir.pathFlags.pathLength());
+                print("-- weight", neighborReservoir.weight);
 
                 float dstJacobian;
 
@@ -384,7 +422,13 @@ struct PathReusePass
                 )
                 {
                     print("-- Central reservoir have RC", 0);
+
                     rcData = reconnectionDataBuffer[centralOffset].data[2 * i];
+                    print("--- rcData.rcPrevHit", rcData.rcPrevHit.isValid());
+                    print("--- rcData.rcPrevPrevHit", rcData.rcPrevPrevHit.isValid());
+                    print("--- rcData.rcPrevWo", rcData.rcPrevWo);
+                    print("--- rcData.rcPrevPrevWo", rcData.rcPrevPrevWo);
+                    print("--- rcData.pathThroughput", rcData.pathThroughput);
                 }
                 else
                 {
@@ -417,6 +461,11 @@ struct PathReusePass
                 {
                     print("-- Neighbor reservoir have RC", 0);
                     rcData = reconnectionDataBuffer[centralOffset].data[2 * i + 1];
+                    print("--- rcData.rcPrevHit", rcData.rcPrevHit.isValid());
+                    print("--- rcData.rcPrevPrevHit", rcData.rcPrevPrevHit.isValid());
+                    print("--- rcData.rcPrevWo", rcData.rcPrevWo);
+                    print("--- rcData.rcPrevPrevWo", rcData.rcPrevPrevWo);
+                    print("--- rcData.pathThroughput", rcData.pathThroughput);
                 }
                 else
                 {
@@ -428,6 +477,7 @@ struct PathReusePass
                 //  dst: central
                 //  src: neighbor
                 //  rc: central?
+                // Try to shift neighbor to central and merge into tempDstReservoir
                 bool possibleToBeSelected = shiftAndMergeReservoir(params, false, dstJacobian, centralPrimaryHitPacked, centralPrimarySd, tempDstReservoir,
                     neighborPrimarySd, neighborReservoir, rcData, true, sg, true, 1.f, true); // "true" means hypothetically selected as the sample
 
@@ -437,22 +487,57 @@ struct PathReusePass
 
                 if (possibleToBeSelected)
                 {
-                    neighborWeight = PathReservoir::computeWeight(neighborReservoir.F) / dstJacobian * neighborReservoir.M
-                        / ((PathReservoir::computeWeight(neighborReservoir.F) / dstJacobian) * neighborReservoir.M + PathReservoir::computeWeight(tempDstReservoir.F) * centralReservoir.M / (neighborCount));
-                    if (isnan(neighborWeight) || isinf(neighborWeight)) neighborWeight = 0.f;
+                    neighborWeight = PathReservoir::computeWeight(neighborReservoir.F)
+                        / dstJacobian * neighborReservoir.M
+                        / (
+                            (PathReservoir::computeWeight(neighborReservoir.F) / dstJacobian)
+                            * neighborReservoir.M
+                            + PathReservoir::computeWeight(tempDstReservoir.F) * centralReservoir.M / (neighborCount)
+                        );
+
+                    if (isnan(neighborWeight) || isinf(neighborWeight))
+                        neighborWeight = 0.f;
                 }
 
-                mergeReservoirWithResamplingMIS(params, tempDstReservoir.F, dstJacobian, dstReservoir, tempDstReservoir, neighborReservoir, sg, true, neighborWeight);
+                print("-- tempDstReservoir.F", tempDstReservoir.F);
+                print("-- dstReservoir.F", dstReservoir.F);
+
+                // Try merge tempDstReservoir into dstReservoir
+                bool isSuccessful = mergeReservoirWithResamplingMIS(params, tempDstReservoir.F, dstJacobian, dstReservoir, tempDstReservoir, neighborReservoir, sg, true, neighborWeight);
+
+                print("-- After merge", isSuccessful);
+                print("-- tempDstReservoir.F", tempDstReservoir.F);
+                print("-- dstReservoir.F", dstReservoir.F);
             }
 
-            mergeReservoirWithResamplingMIS(params, centralReservoir.F, 1.f, dstReservoir, centralReservoir, centralReservoir, sg, true, canonicalWeight);
+            print("- Finished loop\n", 0);
+
+            print("- dstReservoir.F", dstReservoir.F);
+            print("- dstReservoir.weight", dstReservoir.weight);
+            print("- centralReservoir.F", centralReservoir.F);
+            print("- centralReservoir.weight", centralReservoir.weight);
+
+            // Try merge centralReservoir into dstReservoir
+            bool isSuccessful = mergeReservoirWithResamplingMIS(params, centralReservoir.F, 1.f, dstReservoir, centralReservoir, centralReservoir, sg, true, canonicalWeight);
+
+            print("- After merged reservoir with resampling MIS", isSuccessful);
+
+            print("- dstReservoir.F", dstReservoir.F);
+            print("- dstReservoir.weight", dstReservoir.weight);
+            print("- centralReservoir.F", centralReservoir.F);
+            print("- centralReservoir.weight", centralReservoir.weight);
 
             if (dstReservoir.weight > 0)
             {
+                print("-- dstReservoir.weight > 0", 0);
+
                 dstReservoir.finalizeGRIS();
                 dstReservoir.weight /= (validNeighborCount + 1); // compensate for the fact that pairwise resampling MIS was not divided by (k+1)
+                print("-- dstReservoir.F", dstReservoir.F);
+                print("-- dstReservoir.weight", dstReservoir.weight);
             }
             color = dstReservoir.F * dstReservoir.weight;
+            print("- Color after pairwise rmis", color);
         }
         /////////////////////
         /// CONSTANT RMIS ///
@@ -576,22 +661,38 @@ struct PathReusePass
         }
 #endif
 
-        if (dstReservoir.weight < 0.f) dstReservoir.weight = 0.f;
-        if (isnan(dstReservoir.weight) || isinf(dstReservoir.weight)) dstReservoir.weight = 0.f;
+        if (dstReservoir.weight < 0.f)
+            dstReservoir.weight = 0.f;
+
+        if (isnan(dstReservoir.weight) || isinf(dstReservoir.weight))
+            dstReservoir.weight = 0.f;
 
         if (PathSamplingMode(kPathSamplingMode) != PathSamplingMode::PathReuse)
             temporalReservoirs[centralOffset] = dstReservoir;
 
-        if (any(isnan(color) || isinf(color) || color < 0.f)) color = 0.f;
+        if (any(isnan(color) || isinf(color) || color < 0.f))
+        {
+            print("- Color is weird", color);
+            color = 0.f;
+        }
+
         if (gIsLastRound)
         {
             if (useDirectLighting)
             {
                 color += directLighting[pixel].rgb;
-                if (any(isnan(color) || isinf(color))) color = 0.f;
+
+                if (any(isnan(color) || isinf(color)))
+                {
+                    print("-- Color is weird after added direct light", color);
+
+                    color = 0.f;
+                }
             }
 
             outputColor[pixel] += float4(color / kSamplesPerPixel, 1.f);
+
+            print("- outputColor", outputColor[pixel]);
 
             // Output Denoiser Data (developed for NRD v2.12, doesn't guarantee to work with the latest version)
             if (kOutputNRDData && PathSamplingMode(kPathSamplingMode) == PathSamplingMode::ReSTIR)

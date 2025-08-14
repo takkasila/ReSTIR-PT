@@ -145,12 +145,17 @@ void tracePath(uint pathID, inout PathReservoir giReservoir, uint sampleIdx)
     }
 
     print("Output reservoir:", 0);
-    print("- rcVertexHit id:", gPathTracer.outputReservoirs[reservoirIdx].rcVertexHit.instanceID);
-    print("- rcPrevVertexHit id:", gPathTracer.outputReservoirs[reservoirIdx].rcPrevVertexHit.instanceID);
-    print("- rcPrevPrevVertexHit id:", gPathTracer.outputReservoirs[reservoirIdx].rcPrevPrevVertexHit.instanceID);
+    print("- rcVertexHit id:", outputReservoirs.rcVertexHit.instanceID);
+    print("- rcPrevVertexHit id:", outputReservoirs.rcPrevVertexHit.instanceID);
+    print("- rcPrevPrevVertexHit id:", outputReservoirs.rcPrevPrevVertexHit.instanceID);
+    print("- isDD", outputReservoirs.pathFlags.decodeIsDD());
+    print("- isDSD", outputReservoirs.pathFlags.decodeIsDSD());
+    print("- rcVertexLength", outputReservoirs.pathFlags.rcVertexLength());
+    print("- pathLength", outputReservoirs.pathFlags.pathLength());
+    print("- weight", outputReservoirs.weight);
 
-    bool isDelta1 = gPathTracer.outputReservoirs[reservoirIdx].pathFlags.decodeIsDeltaEvent(true);
-    bool isDelta2 = gPathTracer.outputReservoirs[reservoirIdx].pathFlags.decodeIsDeltaEvent(false);
+    bool isDelta1 = outputReservoirs.pathFlags.decodeIsDeltaEvent(true);
+    bool isDelta2 = outputReservoirs.pathFlags.decodeIsDeltaEvent(false);
 
     if(isDelta1 || isDelta2)
     {

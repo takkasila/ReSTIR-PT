@@ -86,6 +86,22 @@ float3 computeShiftedIntegrand_(const RestirPathTracerParams params, inout float
         print("--- rcData.rcPrevHit.isValid()", rcData.rcPrevHit.isValid());
         print("--- rcData.pathThroughput", rcData.pathThroughput);
 
+        bool isDD = srcReservoir.pathFlags.decodeIsDD();
+        bool isDSD = srcReservoir.pathFlags.decodeIsDSD();
+
+        if(!isDD)
+        {
+            print("-- Alert! srcReservoir is not DD", 0);
+            print("--- rcVertexHit.instanceID", srcReservoir.rcVertexHit.instanceID);
+            print("--- rcPrevVertexHit.instanceID", srcReservoir.rcPrevVertexHit.instanceID);
+            print("--- rcPrevPrevVertexHit.instanceID", srcReservoir.rcPrevPrevVertexHit.instanceID);
+            print("--- isDD", srcReservoir.pathFlags.decodeIsDD());
+            print("--- isDSD", srcReservoir.pathFlags.decodeIsDSD());
+            print("--- rcVertexLength", srcReservoir.pathFlags.rcVertexLength());
+            print("--- pathLength", srcReservoir.pathFlags.pathLength());
+            print("--- weight", srcReservoir.weight);
+        }
+
         float3 tmp = computeShiftedIntegrandHybrid(params, usePrev, temporalUpdateForDynamicScene, dstJacobian, dstPrimaryHitPacked, dstPrimarySd, srcPrimarySd, srcReservoir, rcData, evalVisibility);
 
         print("--- integrand", tmp);
@@ -123,6 +139,10 @@ float3 computeShiftedIntegrand_(const RestirPathTracerParams params, inout float
             }
 
             return tmp;
+        }
+        else
+        {
+            print("-- Alert! srcReservoir is neither isDD nor isDSD", 0);
         }
     }
 
@@ -237,8 +257,11 @@ float3 computeShiftedIntegrandHybrid(const RestirPathTracerParams params, bool u
     {
 
         if (all(dstRcPrevVertexWo == 0.f))
+        {
+            print("---- Exit because dstRcPrevVertexWo is 0.f (dummyRC)", 0);
             // Invalid shift
             return 0.f;
+        }
         else
         {
             // Test
@@ -279,6 +302,10 @@ float3 computeShiftedIntegrandHybrid(const RestirPathTracerParams params, bool u
 
             tempPathReservoir.cachedJacobian = srcReservoir.cachedJacobian;
         }
+    }
+    else
+    {
+        print("----- Reconnection vertex doesn't exists", 0);
     }
 
     print("---- Tp", Tp);

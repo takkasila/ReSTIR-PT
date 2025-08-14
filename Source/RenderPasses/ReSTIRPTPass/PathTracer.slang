@@ -1108,6 +1108,8 @@ struct PathTracer
             if ((!path.enableRandomReplay || terminateRandomReplayForEscape)
                 && PathSamplingMode(kPathSamplingMode) != PathSamplingMode::PathTracing)
             {
+
+                print("-- Decide if should add the path terminated with an escaped vertex", 0);
 #if BPR
                 if (path.length - 1 > path.pathBuilder.rcVertexLength)
                 {
@@ -1135,8 +1137,8 @@ struct PathTracer
 
 #endif
 
-                if (selectedCurrentPath)
-                    print("-- added current path into reservoir", 0);
+
+                print("-- is selectedCurrentPath", selectedCurrentPath);
 
                 // daqi: if current escaped vertex has path.length >= 2, then it can be used as a rcVertex
                 //  Why not path.length >= 1 ?
@@ -1146,6 +1148,8 @@ struct PathTracer
                     && path.length < path.pathBuilder.rcVertexLength
                 )
                 {
+
+                    print("--- Decide if pass local conditions", 0);
 
                     // daqi: ideally, this should use a smaller nearFieldDistance than the default threshold
                     bool isFarField = length(sd.posW - path.origin) >= params.nearFieldDistance;
@@ -1162,7 +1166,7 @@ struct PathTracer
                         {
                             // We can connect to emissive surface as a RC
 
-                            print("--- the escaped vertex is also a RC", 0);
+                            print("---- the escaped vertex is also a RC", 0);
 
                             // we found an RC vertex!
                             // set rcVertexLength to current length (this will make rcVertexLength = reseroivr.pathLength + 1)
@@ -1200,7 +1204,7 @@ struct PathTracer
                             // 3. The current vertex is suitable to be a RC. Which is earlier than the base path. Thus, this path should be invalidated.
                             path.L = 0.f;
 
-                            print("--- offset path is non-invertible", 0);
+                            print("---- offset path is non-invertible", 0);
                         }
                     }
 

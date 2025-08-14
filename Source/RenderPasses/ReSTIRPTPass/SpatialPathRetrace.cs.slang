@@ -302,6 +302,12 @@ struct PathRetracePass
         print("- rcPrevPrevVertexHit.instanceID", centralReservoir.rcPrevPrevVertexHit.instanceID);
         print("- isDD", centralReservoir.pathFlags.decodeIsDD());
         print("- isDSD", centralReservoir.pathFlags.decodeIsDSD());
+        print("- weight", centralReservoir.weight);
+
+        if(!centralReservoir.pathFlags.decodeIsDD() & !centralReservoir.pathFlags.decodeIsDSD())
+        {
+            print("Alert! Central Reservoir is neither DD nor DSD", 0);
+        }
 
         uint2 chosenPixel = pixel;
         int chosen_i = -1;
@@ -324,6 +330,14 @@ struct PathRetracePass
 
             PathReservoir neighborReservoir = outputReservoirs[params.getReservoirOffset(neighborPixel)];
 
+            print("- Neighbor reservoir:", 0);
+            print("-- rcVertexHit.instanceID", neighborReservoir.rcVertexHit.instanceID);
+            print("-- rcPrevVertexHit.instanceID", neighborReservoir.rcPrevVertexHit.instanceID);
+            print("-- rcPrevPrevVertexHit.instanceID", neighborReservoir.rcPrevPrevVertexHit.instanceID);
+            print("-- isDD", neighborReservoir.pathFlags.decodeIsDD());
+            print("-- isDSD", neighborReservoir.pathFlags.decodeIsDSD());
+            print("-- weight", neighborReservoir.weight);
+
             PackedHitInfo neighborPrimaryHitPacked;
             ShadingData neighborPrimarySd = getPixelShadingData(neighborPixel, neighborPrimaryHitPacked);
             // Check if not
@@ -333,6 +347,11 @@ struct PathRetracePass
             // Both surfaces are close and plausible to connect with each other
             if (!isValidGeometry(centralPrimarySd, neighborPrimarySd))
                 continue;
+
+            if(!neighborReservoir.pathFlags.decodeIsDD() & !neighborReservoir.pathFlags.decodeIsDSD())
+            {
+                print("Alert! Neighbor reservoir is neither DD nor DSD", 0);
+            }
 
             ReconnectionData centralReservoirReconnectionData;
             ReconnectionData neighborReservoirReconnectionData;
@@ -351,19 +370,20 @@ struct PathRetracePass
                     debugPathData1
                 );
 
-                bool isRcPrevHitValid = centralReservoirReconnectionData.rcPrevHit.isValid();
+                print("-- rcData.rcPrevHit", centralReservoirReconnectionData.rcPrevHit.isValid());
+                print("-- rcData.rcPrevPrevHit", centralReservoirReconnectionData.rcPrevPrevHit.isValid());
+                print("-- rcData.rcPrevWo", centralReservoirReconnectionData.rcPrevWo);
+                print("-- rcData.rcPrevPrevWo", centralReservoirReconnectionData.rcPrevPrevWo);
+                print("-- rcData.pathThroughput", centralReservoirReconnectionData.pathThroughput);
 
                 // Check if the case of need to fill in DSD data
                 detectAndfillInAssumedSpecularVertex(centralReservoir, centralReservoirReconnectionData);
 
+
+                bool isRcPrevHitValid = centralReservoirReconnectionData.rcPrevHit.isValid();
                 if (!isRcPrevHitValid)
                 {
                     print("- doesn't have prevRC", 0);
-                    print("-- rcPrevHit", centralReservoirReconnectionData.rcPrevHit.isValid());
-                    print("-- rcPrevPrevHit", centralReservoirReconnectionData.rcPrevPrevHit.isValid());
-                    print("-- rcPrevWo", centralReservoirReconnectionData.rcPrevWo);
-                    print("-- rcPrevPrevWo", centralReservoirReconnectionData.rcPrevPrevWo);
-                    print("-- pathThroughput", centralReservoirReconnectionData.pathThroughput);
                 }
 
                 // Set to buffer
@@ -395,16 +415,17 @@ struct PathRetracePass
                     debugPathData2
                 );
 
+                print("-- rcData.rcPrevHit", neighborReservoirReconnectionData.rcPrevHit.isValid());
+                print("-- rcData.rcPrevPrevHit", neighborReservoirReconnectionData.rcPrevPrevHit.isValid());
+                print("-- rcData.rcPrevWo", neighborReservoirReconnectionData.rcPrevWo);
+                print("-- rcData.rcPrevPrevWo", neighborReservoirReconnectionData.rcPrevPrevWo);
+                print("-- rcData.pathThroughput", neighborReservoirReconnectionData.pathThroughput);
+
                 bool isRcPrevHitValid = neighborReservoirReconnectionData.rcPrevHit.isValid();
 
                 if (!isRcPrevHitValid)
                 {
                     print("- doesn't have prevRC", 0);
-                    print("-- rcPrevHit", neighborReservoirReconnectionData.rcPrevHit.isValid());
-                    print("-- rcPrevPrevHit", neighborReservoirReconnectionData.rcPrevPrevHit.isValid());
-                    print("-- rcPrevWo", neighborReservoirReconnectionData.rcPrevWo);
-                    print("-- rcPrevPrevWo", neighborReservoirReconnectionData.rcPrevPrevWo);
-                    print("-- pathThroughput", neighborReservoirReconnectionData.pathThroughput);
                 }
 
                 // Check if the case of need to fill in DSD data

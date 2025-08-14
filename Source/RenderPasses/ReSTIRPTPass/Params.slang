@@ -142,8 +142,7 @@ struct RestirPathTracerParams
     uint2   frameDim = { 0, 0 };        ///< Frame dimension in pixels.
     uint2   screenTiles = { 0, 0 };     ///< Number of screen-tiles. Screen tiles may extend outside the frame.
 
-    uint    frameCount = 0;             ///< Frames rendered. This is used as random seed.
-    uint    localStrategyType = (uint)LocalStrategy::RoughnessCondition | (uint)LocalStrategy::DistanceCondition;
+    uint frameCount = 0; ///< Frames rendered. This is used as random seed.
     int     rejectShiftBasedOnJacobian = false; // can be helpful for dynamic geometry
     float   jacobianRejectionThreshold = 10.f;
 
