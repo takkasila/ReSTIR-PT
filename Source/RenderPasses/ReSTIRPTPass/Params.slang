@@ -146,6 +146,8 @@ struct RestirPathTracerParams
     int     rejectShiftBasedOnJacobian = false; // can be helpful for dynamic geometry
     float   jacobianRejectionThreshold = 10.f;
 
+    uint localStrategyType = (uint)LocalStrategy::RoughnessCondition | (uint)LocalStrategy::DistanceCondition;
+
     int isEnableDSD = true;             // Is enable the use of Diffuse-Specular-Diffuse path in HybridShiftSMS shift mapping mode. If false, the process and result of HybridShiftSMS should be the same as normal HybridShift.
 
     // params for roughness condition in mixed strategy
