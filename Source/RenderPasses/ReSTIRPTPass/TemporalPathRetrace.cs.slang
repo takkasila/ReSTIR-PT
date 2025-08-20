@@ -239,7 +239,6 @@ struct PathRetracePass
     */
     void ReSTIR(const uint2 pixel)
     {
-        print("Temporal path retrace: begin", 0);
 
         DebugPathData debugPathData1;
         DebugPathData debugPathData2;
@@ -418,7 +417,6 @@ struct PathRetracePass
             reconnectionDataBuffer[centralOffset].data[1] = temporalReservoirReconnectionData;
         }
 
-        print("Temporal path retrace: end", 0);
     }
 
     /** Entry point for merge pass.
@@ -433,7 +431,9 @@ struct PathRetracePass
         printSetPixel(pixel);
         logSetPixel(pixel);
 
+        print("Temporal path retrace: begin", 0);
         ReSTIR(pixel);
+        print("Temporal path retrace: end", 0);
     }
 };
 

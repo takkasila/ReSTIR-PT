@@ -269,7 +269,6 @@ struct PathRetracePass
     */
     void ReSTIR(const uint2 pixel)
     {
-        print("Spatial path retrace: begin", 0);
 
         DebugPathData debugPathData1;
         DebugPathData debugPathData2;
@@ -447,7 +446,6 @@ struct PathRetracePass
             }
         }
 
-        print("Spatial path retrace: end", 0);
     }
 
     /** Entry point for merge pass.
@@ -462,7 +460,9 @@ struct PathRetracePass
         printSetPixel(pixel);
         logSetPixel(pixel);
 
+        print("Spatial path retrace: begin", 0);
         ReSTIR(pixel);
+        print("Spatial path retrace: end", 0);
     }
 };
 

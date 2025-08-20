@@ -84,8 +84,6 @@ struct PathReusePass
     */
     void ReSTIR(const uint2 pixel)
     {
-        print("Temporal path reuse: begin", 0);
-
         var sg = TinyUniformSampleGenerator(pixel, (kCandidateSamples + 1 + gNumSpatialRounds) * params.seed + kCandidateSamples);
 
         // Compute offset into per-sample buffers. All samples are stored consecutively at this offset.
@@ -359,7 +357,6 @@ struct PathReusePass
             }
         }
 
-        print("Temporal path reuse: end", 0);
     }
 
     /** Entry point for merge pass.
@@ -374,7 +371,9 @@ struct PathReusePass
         printSetPixel(pixel);
         logSetPixel(pixel);
 
+        print("Temporal path reuse: begin", 0);
         ReSTIR(pixel);
+        print("Temporal path reuse: end", 0);
     }
 };
 

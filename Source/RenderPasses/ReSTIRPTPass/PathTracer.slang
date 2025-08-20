@@ -1141,10 +1141,10 @@ struct PathTracer
                 print("-- is selectedCurrentPath", selectedCurrentPath);
 
                 // daqi: if current escaped vertex has path.length >= 2, then it can be used as a rcVertex
-                //  Why not path.length >= 1 ?
+                //  Why not path.length >= 1 ? Yes, it should be >= 1.
                 if (selectedCurrentPath
                     && (ShiftMapping(kShiftStrategy) == ShiftMapping::Hybrid)
-                    && path.length >= 2
+                    && path.length >= 1
                     && path.length < path.pathBuilder.rcVertexLength
                 )
                 {
@@ -1195,7 +1195,7 @@ struct PathTracer
 	                            geometryFactor
                             );
                         }
-                        else if (path.replayMode == ReplayMode::HybridShiftSMS)
+                        else
                         {
                             // non-invertible case
 
@@ -1211,7 +1211,7 @@ struct PathTracer
                 }
                 else if (selectedCurrentPath
                     && (ShiftMapping(kShiftStrategy) == ShiftMapping::HybridShiftSMS)
-                    && path.length >= 3
+                    && path.length >= 2
                     && path.length < path.pathBuilder.rcVertexLength
                 )
                 {
@@ -1294,8 +1294,8 @@ struct PathTracer
 
         // Previously was
         // 1. Not path.isReplayForHybridShift -> either
-        //      1. Tracing base path (useRandomReplay = False)
-        //      2. Tracing offset path for randomreplay reuse
+        //      1.1. Tracing base path (useRandomReplay = False)
+        //      1.2. Tracing offset path for randomreplay reuse
         // 2. and Not path tracing
         if (path.replayMode == ReplayMode::None && PathSamplingMode(kPathSamplingMode) != PathSamplingMode::PathTracing)
         {
@@ -1712,6 +1712,11 @@ struct PathTracer
                     return;
                 }
             }
+            // else
+            // {
+            // Base path doesn't have an RC vertex. We are just tracing offset path for other contribution?
+
+            // }
 
         }
 
@@ -1824,8 +1829,7 @@ struct PathTracer
                                 bool selected = path.pathBuilder.addNeeVertex(params, path.length, ls.dir, Lr, weight * ls.Li * path.thp,
                                     path.russianRoulettePdf, misWeight, ls.pdf, ls.lightType, path.pathReservoir, path.enableRandomReplay);
 
-                                if (selected)
-                                    print("--- Added sampledLightVertex to reservoir", 0);
+                                print("--- Add sampledLightVertex to reservoir", selected);
 #endif
 
                                 //debugVertexState.isSampledLight = true;

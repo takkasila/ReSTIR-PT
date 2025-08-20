@@ -30,6 +30,9 @@ void tracePath(uint pathID, inout PathReservoir giReservoir, uint sampleIdx)
     logSetPixel(pixel);
 
     uint2 selectedPixel = getSelctedPixelLog();
+
+    bool isAtDebugPixel = all(selectedPixel == pixel);
+
     uint vertexCount = 0;
 
     print("pixel", pixel);
@@ -41,7 +44,7 @@ void tracePath(uint pathID, inout PathReservoir giReservoir, uint sampleIdx)
         print("path.length", path.length);
 
         //  vertex 0 at camera
-        if (path.length == 0 && all(selectedPixel == pixel))
+        if (path.length == 0 && isAtDebugPixel)
         {
             pixelDebugPathDataBuffer[0].vertices[0] = float4(path.origin, 1);
             vertexCount += 1;
@@ -55,7 +58,7 @@ void tracePath(uint pathID, inout PathReservoir giReservoir, uint sampleIdx)
             gPathTracer.handleHit(path, debugVertexState);
 
             //  Record path data for visualization
-            if (all(selectedPixel == pixel))
+            if (isAtDebugPixel)
             {
                 pixelDebugPathDataBuffer[0].vertices[vertexCount] = float4(debugVertexState.pos, 1);
                 pixelDebugPathDataBuffer[0].isSampledLight[vertexCount] = debugVertexState.isSampledLight;
@@ -97,8 +100,22 @@ void tracePath(uint pathID, inout PathReservoir giReservoir, uint sampleIdx)
     const uint reservoirIdx = gPathTracer.params.getReservoirOffset(pixel);
 
     const PathReservoir outputReservoirs = gPathTracer.outputReservoirs[reservoirIdx];
+    const float4 outputColor = gPathTracer.outputColor[reservoirIdx];
 
-    if (all(selectedPixel == pixel))
+    print("Output color", outputColor);
+
+    print("Output reservoir:", 0);
+    print("- rcVertexHit id:", outputReservoirs.rcVertexHit.instanceID);
+    print("- rcPrevVertexHit id:", outputReservoirs.rcPrevVertexHit.instanceID);
+    print("- rcPrevPrevVertexHit id:", outputReservoirs.rcPrevPrevVertexHit.instanceID);
+    print("- isDD", outputReservoirs.pathFlags.decodeIsDD());
+    print("- isDSD", outputReservoirs.pathFlags.decodeIsDSD());
+    print("- rcVertexLength", outputReservoirs.pathFlags.rcVertexLength());
+    print("- pathLength", outputReservoirs.pathFlags.pathLength());
+    print("- weight", outputReservoirs.weight);
+
+    // Fill in debutPathData
+    if (isAtDebugPixel)
     {
         pixelDebugPathDataBuffer[0].vertexCount = vertexCount;
 
@@ -120,17 +137,17 @@ void tracePath(uint pathID, inout PathReservoir giReservoir, uint sampleIdx)
         }
         else
         {
-            bool giReservoirIsDD = outputReservoirs.pathFlags.decodeIsDD();
-            bool giReservoirIsDSD = outputReservoirs.pathFlags.decodeIsDSD();
+            bool isDD = outputReservoirs.pathFlags.decodeIsDD();
+            bool isDSD = outputReservoirs.pathFlags.decodeIsDSD();
 
-            if(!rcPrevVertexHitInfo.isValid() && !rcPrevPrevVertexHitInfo.isValid() && giReservoirIsDD)
+            if(!rcPrevVertexHitInfo.isValid() && !rcPrevPrevVertexHitInfo.isValid() && isDD)
             {
                 print("RC is DD", 0);
                 pixelDebugPathDataBuffer[0].hasRcVertex = true;
                 pixelDebugPathDataBuffer[0].isRcDSD = false;
                 pixelDebugPathDataBuffer[0].rcVertexIndex = outputReservoirs.pathFlags.rcVertexLength() + 1;
             }
-            else if(rcPrevVertexHitInfo.isValid() && rcPrevPrevVertexHitInfo.isValid() && giReservoirIsDSD)
+            else if(rcPrevVertexHitInfo.isValid() && rcPrevPrevVertexHitInfo.isValid() && isDSD)
             {
                 print("RC is DSD", 0);
                 pixelDebugPathDataBuffer[0].hasRcVertex = true;
@@ -143,16 +160,6 @@ void tracePath(uint pathID, inout PathReservoir giReservoir, uint sampleIdx)
             }
         }
     }
-
-    print("Output reservoir:", 0);
-    print("- rcVertexHit id:", outputReservoirs.rcVertexHit.instanceID);
-    print("- rcPrevVertexHit id:", outputReservoirs.rcPrevVertexHit.instanceID);
-    print("- rcPrevPrevVertexHit id:", outputReservoirs.rcPrevPrevVertexHit.instanceID);
-    print("- isDD", outputReservoirs.pathFlags.decodeIsDD());
-    print("- isDSD", outputReservoirs.pathFlags.decodeIsDSD());
-    print("- rcVertexLength", outputReservoirs.pathFlags.rcVertexLength());
-    print("- pathLength", outputReservoirs.pathFlags.pathLength());
-    print("- weight", outputReservoirs.weight);
 
     bool isDelta1 = outputReservoirs.pathFlags.decodeIsDeltaEvent(true);
     bool isDelta2 = outputReservoirs.pathFlags.decodeIsDeltaEvent(false);
