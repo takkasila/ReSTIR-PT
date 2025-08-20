@@ -106,7 +106,7 @@ private:
         ReSTIRMISKind    spatialMisKind = ReSTIRMISKind::Pairwise;
         ReSTIRMISKind    temporalMisKind = ReSTIRMISKind::Talbot;
 
-        //ShiftMapping    shiftStrategy = ShiftMapping::Hybrid;
+        // ShiftMapping    shiftStrategy = ShiftMapping::Hybrid;
         ShiftMapping    shiftStrategy = ShiftMapping::HybridShiftSMS;
 
         bool            temporalUpdateForDynamicScene = false;
@@ -129,7 +129,6 @@ private:
         mStaticParams = StaticParams();
         mParams = RestirPathTracerParams();
         mEnableTemporalReuse = true;
-        //mEnableSpatialReuse = true;
         mEnableSpatialReuse = false;
         mSpatialReusePattern = SpatialReusePattern::Default;
         mPathReusePattern = PathReusePattern::NRooksShift;
@@ -173,7 +172,6 @@ private:
 
     // params below
     bool                            mEnableTemporalReuse = true;
-    //bool                            mEnableSpatialReuse = true;
     bool                            mEnableSpatialReuse = false;
     SpatialReusePattern             mSpatialReusePattern = SpatialReusePattern::Default;
     PathReusePattern                mPathReusePattern = PathReusePattern::NRooksShift;

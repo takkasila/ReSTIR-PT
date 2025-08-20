@@ -86,22 +86,6 @@ float3 computeShiftedIntegrand_(const RestirPathTracerParams params, inout float
         print("--- rcData.rcPrevHit.isValid()", rcData.rcPrevHit.isValid());
         print("--- rcData.pathThroughput", rcData.pathThroughput);
 
-        bool isDD = srcReservoir.pathFlags.decodeIsDD();
-        bool isDSD = srcReservoir.pathFlags.decodeIsDSD();
-
-        if(!isDD)
-        {
-            print("-- Alert! srcReservoir is not DD", 0);
-            print("--- rcVertexHit.instanceID", srcReservoir.rcVertexHit.instanceID);
-            print("--- rcPrevVertexHit.instanceID", srcReservoir.rcPrevVertexHit.instanceID);
-            print("--- rcPrevPrevVertexHit.instanceID", srcReservoir.rcPrevPrevVertexHit.instanceID);
-            print("--- isDD", srcReservoir.pathFlags.decodeIsDD());
-            print("--- isDSD", srcReservoir.pathFlags.decodeIsDSD());
-            print("--- rcVertexLength", srcReservoir.pathFlags.rcVertexLength());
-            print("--- pathLength", srcReservoir.pathFlags.pathLength());
-            print("--- weight", srcReservoir.weight);
-        }
-
         float3 tmp = computeShiftedIntegrandHybrid(params, usePrev, temporalUpdateForDynamicScene, dstJacobian, dstPrimaryHitPacked, dstPrimarySd, srcPrimarySd, srcReservoir, rcData, evalVisibility);
 
         print("--- integrand", tmp);
@@ -118,32 +102,25 @@ float3 computeShiftedIntegrand_(const RestirPathTracerParams params, inout float
         bool isDD = srcReservoir.pathFlags.decodeIsDD();
         bool isDSD = srcReservoir.pathFlags.decodeIsDSD();
 
+        float3 tmp = 0.f;
+
         if(isDSD)
         {
             print("--- Doing DSD RC in HybridShiftSMS: UNDERCONSTRUCTION", 0);
             // TODO:
-            return 0.f;
         }
-        else if(isDD)
+        else
         {
             print("--- Doing DD RC in HybridShiftSMS", 0);
 
             // DD reconnection
-            float3 tmp = computeShiftedIntegrandHybrid(params, usePrev, temporalUpdateForDynamicScene, dstJacobian, dstPrimaryHitPacked, dstPrimarySd, srcPrimarySd, srcReservoir, rcData, evalVisibility);
+            tmp = computeShiftedIntegrandHybrid(params, usePrev, temporalUpdateForDynamicScene, dstJacobian, dstPrimaryHitPacked, dstPrimarySd, srcPrimarySd, srcReservoir, rcData, evalVisibility);
 
             print("--- integrand", tmp);
 
-            if (any(isnan(tmp)) || any(isinf(tmp)))
-            {
-                print("--- the integrand is weird:", tmp);
-            }
+        }
 
-            return tmp;
-        }
-        else
-        {
-            print("-- Alert! srcReservoir is neither isDD nor isDSD", 0);
-        }
+        return tmp;
     }
 
     return 1.f;
@@ -324,14 +301,15 @@ void traceHybridShiftRays(
     inout DebugPathData debugPathData
 )
 {
+    print("-- srcReservoir.weight", srcReservoir.weight);
+
     if (srcReservoir.weight == 0.f)
     {
+        // reservoir has no contribution; basically a miss
+        print("-- return because 0 weight", 0);
         reconnectionData.pathThroughput = float3(0.f);
-        print("- Aleart! This should not have happend", 0);
         return;
     }
-
-    print("- srcReservoir.weight", srcReservoir.weight);
 
     // usePrev means use previous frame data
     HitInfo dstPrimaryHit;

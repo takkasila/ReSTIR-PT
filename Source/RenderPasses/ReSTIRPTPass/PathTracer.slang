@@ -425,6 +425,7 @@ struct PathTracer
         {
             path.thp = 0.f;
         }
+        print("-- is valid scatter ray", valid);
 
         return valid;
     }
@@ -1510,12 +1511,6 @@ struct PathTracer
                 }
             }
 
-            // Early termination flag
-            if (terminateRandomReplayForNEE)
-            {
-                print("-- should terminate for terminateRandomReplayForNEE", 0);
-                shouldTerminate = true;
-            }
 
             if (invertible)
             {

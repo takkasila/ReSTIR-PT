@@ -308,10 +308,7 @@ struct PathRetracePass
         ReconnectionData centralReservoirReconnectionData;
         ReconnectionData temporalReservoirReconnectionData;
 
-        //
-        // Checking for rcVertexLength() > 1 should not be enough. Need to improve.
-        //
-        if (centralReservoir.rcVertexHit.getHitInfo().isValid())
+        if (centralReservoir.pathFlags.rcVertexLength() > 1)
         {
             print("- traceHybridShiftRays centralReservoir: begin", 0);
 
@@ -364,7 +361,7 @@ struct PathRetracePass
             reconnectionDataBuffer[centralOffset].data[0] = centralReservoirReconnectionData;
         }
 
-        if (temporalReservoir.rcVertexHit.getHitInfo().isValid())
+        if (temporalReservoir.pathFlags.rcVertexLength() > 1)
         {
             print("- traceHybridShiftRays temporalReservoir: begin", 0);
 

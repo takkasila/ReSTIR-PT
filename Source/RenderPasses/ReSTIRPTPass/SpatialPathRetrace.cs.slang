@@ -296,17 +296,14 @@ struct PathRetracePass
             return;
 
         print("Central reservoir:", 0);
-        print("- rcVertexHit.instanceID", centralReservoir.rcVertexHit.instanceID);
-        print("- rcPrevVertexHit.instanceID", centralReservoir.rcPrevVertexHit.instanceID);
-        print("- rcPrevPrevVertexHit.instanceID", centralReservoir.rcPrevPrevVertexHit.instanceID);
+        print("- rcVertexHit id", centralReservoir.rcVertexHit.instanceID);
+        print("- rcPrevVertexHit id", centralReservoir.rcPrevVertexHit.instanceID);
+        print("- rcPrevPrevVertexHit id", centralReservoir.rcPrevPrevVertexHit.instanceID);
         print("- isDD", centralReservoir.pathFlags.decodeIsDD());
         print("- isDSD", centralReservoir.pathFlags.decodeIsDSD());
+        print("- rcVertexLength", centralReservoir.pathFlags.rcVertexLength());
+        print("- pathLength", centralReservoir.pathFlags.pathLength());
         print("- weight", centralReservoir.weight);
-
-        if(!centralReservoir.pathFlags.decodeIsDD() & !centralReservoir.pathFlags.decodeIsDSD())
-        {
-            print("Alert! Central Reservoir is neither DD nor DSD", 0);
-        }
 
         uint2 chosenPixel = pixel;
         int chosen_i = -1;
@@ -330,11 +327,13 @@ struct PathRetracePass
             PathReservoir neighborReservoir = outputReservoirs[params.getReservoirOffset(neighborPixel)];
 
             print("- Neighbor reservoir:", 0);
-            print("-- rcVertexHit.instanceID", neighborReservoir.rcVertexHit.instanceID);
-            print("-- rcPrevVertexHit.instanceID", neighborReservoir.rcPrevVertexHit.instanceID);
-            print("-- rcPrevPrevVertexHit.instanceID", neighborReservoir.rcPrevPrevVertexHit.instanceID);
+            print("-- rcVertexHit id", neighborReservoir.rcVertexHit.instanceID);
+            print("-- rcPrevVertexHit id", neighborReservoir.rcPrevVertexHit.instanceID);
+            print("-- rcPrevPrevVertexHit id", neighborReservoir.rcPrevPrevVertexHit.instanceID);
             print("-- isDD", neighborReservoir.pathFlags.decodeIsDD());
             print("-- isDSD", neighborReservoir.pathFlags.decodeIsDSD());
+            print("-- rcVertexLength", neighborReservoir.pathFlags.rcVertexLength());
+            print("-- pathLength", neighborReservoir.pathFlags.pathLength());
             print("-- weight", neighborReservoir.weight);
 
             PackedHitInfo neighborPrimaryHitPacked;
@@ -347,15 +346,10 @@ struct PathRetracePass
             if (!isValidGeometry(centralPrimarySd, neighborPrimarySd))
                 continue;
 
-            if(!neighborReservoir.pathFlags.decodeIsDD() & !neighborReservoir.pathFlags.decodeIsDSD())
-            {
-                print("Alert! Neighbor reservoir is neither DD nor DSD", 0);
-            }
-
             ReconnectionData centralReservoirReconnectionData;
             ReconnectionData neighborReservoirReconnectionData;
 
-            if (centralReservoir.rcVertexHit.getHitInfo().isValid())
+            if (centralReservoir.pathFlags.rcVertexLength() > 1)
             {
                 print("- traceHybridShiftRays centralReservoir: begin", 0);
 
@@ -369,6 +363,7 @@ struct PathRetracePass
                     debugPathData1
                 );
 
+                print("- Output Central ReconnectionData", 0);
                 print("-- rcData.rcPrevHit", centralReservoirReconnectionData.rcPrevHit.isValid());
                 print("-- rcData.rcPrevPrevHit", centralReservoirReconnectionData.rcPrevPrevHit.isValid());
                 print("-- rcData.rcPrevWo", centralReservoirReconnectionData.rcPrevWo);
@@ -378,15 +373,11 @@ struct PathRetracePass
                 // Check if the case of need to fill in DSD data
                 detectAndfillInAssumedSpecularVertex(centralReservoir, centralReservoirReconnectionData);
 
-
-                bool isRcPrevHitValid = centralReservoirReconnectionData.rcPrevHit.isValid();
-                if (!isRcPrevHitValid)
-                {
-                    print("- doesn't have prevRC", 0);
-                }
-
                 // Set to buffer
                 reconnectionDataBuffer[centralOffset].data[2 * i] = centralReservoirReconnectionData;
+
+                // Sanity check
+                checkValidReconnectionData(centralReservoir, centralReservoirReconnectionData);
 
                 if (isDebug)
                 {
@@ -394,13 +385,10 @@ struct PathRetracePass
                     fillDebugPathData(centralReservoirReconnectionData, centralReservoir, debugPathData1, debugCentralResevoirPathDataBuffer);
                 }
 
-                // Sanity check
-                checkValidReconnectionData(centralReservoir, centralReservoirReconnectionData);
-
                 print("- traceHybridShiftRays centralReservoir: end", 0);
             }
 
-            if (neighborReservoir.rcVertexHit.getHitInfo().isValid())
+            if (neighborReservoir.pathFlags.rcVertexLength() > 1)
             {
                 print("- traceHybridShiftRays neighborReservoir: begin", 0);
 
@@ -414,18 +402,12 @@ struct PathRetracePass
                     debugPathData2
                 );
 
+                print("- Output Neighbor ReconnectionData", 0);
                 print("-- rcData.rcPrevHit", neighborReservoirReconnectionData.rcPrevHit.isValid());
                 print("-- rcData.rcPrevPrevHit", neighborReservoirReconnectionData.rcPrevPrevHit.isValid());
                 print("-- rcData.rcPrevWo", neighborReservoirReconnectionData.rcPrevWo);
                 print("-- rcData.rcPrevPrevWo", neighborReservoirReconnectionData.rcPrevPrevWo);
                 print("-- rcData.pathThroughput", neighborReservoirReconnectionData.pathThroughput);
-
-                bool isRcPrevHitValid = neighborReservoirReconnectionData.rcPrevHit.isValid();
-
-                if (!isRcPrevHitValid)
-                {
-                    print("- doesn't have prevRC", 0);
-                }
 
                 // Check if the case of need to fill in DSD data
                 detectAndfillInAssumedSpecularVertex(neighborReservoir, neighborReservoirReconnectionData);
@@ -433,14 +415,14 @@ struct PathRetracePass
                 // Set to buffer
                 reconnectionDataBuffer[centralOffset].data[2 * i + 1] = neighborReservoirReconnectionData;
 
+                // Sanity check
+                checkValidReconnectionData(neighborReservoir, neighborReservoirReconnectionData);
+
                 if (isDebug)
                 {
                     // Fill in RC data into debugData
                     fillDebugPathData(neighborReservoirReconnectionData, neighborReservoir, debugPathData2, debugNeighborResevoirPathDataBuffer);
                 }
-
-                // Sanity check
-                checkValidReconnectionData(neighborReservoir, neighborReservoirReconnectionData);
 
                 print("- traceHybridShiftRays neighborReservoir: end", 0);
             }
