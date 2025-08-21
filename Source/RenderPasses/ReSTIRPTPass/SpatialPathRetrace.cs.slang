@@ -194,72 +194,99 @@ struct PathRetracePass
 
     void checkValidReconnectionData(PathReservoir reservoir, ReconnectionData reconnectionData)
     {
-        bool rcHasThroughput = any(reconnectionData.pathThroughput > 0.f);
-
-        // reservoir.weight == 0
-        if (!any(reservoir.weight > 0.f))
-        {
-            if (rcHasThroughput)
-            {
-                print("Alert! ReconnectionData has throughput but reservoir is empty", 0);
-            }
-            return;
-        }
-
-        // rc.pathThrougput == 0
-        if (!any(reconnectionData.pathThroughput > 0.f))
-        {
-            return;
-        }
-
         bool isReservoirDD = reservoir.pathFlags.decodeIsDD();
         bool isReservoirDSD = reservoir.pathFlags.decodeIsDSD();
+        bool isReservoirWeight0 = reservoir.weight == 0.f;
 
-        bool isRcPrevHitValid = reconnectionData.rcPrevHit.isValid();
-        bool isRcPrevPrevHitValid = reconnectionData.rcPrevPrevHit.isValid();
+        bool isRcPrevValid = reconnectionData.rcPrevHit.isValid();
+        bool isRcPrevWo0 = all(reconnectionData.rcPrevWo == 0.f);
+        bool isRcPrevPrevValid = reconnectionData.rcPrevPrevHit.isValid();
+        bool isRcPrevPrevWo0 = all(reconnectionData.rcPrevPrevWo == 0.f);
+        bool isThroughput0 = all(reconnectionData.pathThroughput == 0.f);
 
-        if (!rcHasThroughput & (isRcPrevHitValid | isRcPrevPrevHitValid))
+        //
+        // Case 1: Base path has no RC and weight == 0
+        //
+        if (!isReservoirDD & !isReservoirDSD & isReservoirWeight0)
         {
-            print("Alert! Doesn't have throughput but have valid hitinfo", 0);
-        }
-
-        if (isRcPrevHitValid)
-        {
-            if (isReservoirDD)
+            if (!isRcPrevValid & !isRcPrevPrevValid & isRcPrevWo0 & isRcPrevPrevWo0 & isThroughput0)
             {
-                // ReconnectionData must also be for DD
-                if (!isRcPrevPrevHitValid)
-                {
-                    if (!rcHasThroughput)
-                    {
-                        print("Alert! isRcPrevHitValid but has no throughput", 0);
-                    }
-                }
-                else
-                {
-                    print("Alert! got unwanted rcPrevPrevHit", 0);
-                }
+                // Valid
+                return;
             }
-            else if (isReservoirDSD)
+            else
             {
-                // ReconnectionData must also be for DSD
-                if (isRcPrevPrevHitValid)
-                {
-                    if (!rcHasThroughput)
-                    {
-                        print("Alert! isRcPrevHitValid & isRcPrevPrevHitValid but has no throughput", 0);
-                    }
-                }
-                else
-                {
-                    print("Alert! missing rcPrevPrevHit", 0);
-                }
+                print("Alert! Invalid ReconnectionData case", 1);
             }
         }
-        else
+        //
+        // Case 2: Base path has no RC, but weight != 0
+        //
+        else if (!isReservoirDD & !isReservoirDSD & !isReservoirWeight0)
         {
-            print("Alert! missing rcPrevHit", 0);
+            if (!isRcPrevValid & !isRcPrevPrevValid & isRcPrevWo0 & isRcPrevPrevWo0)
+            {
+                // In this case, RC's throughput can be any value
+                // Valid
+                return;
+            }
+            else
+            {
+                print("Alert! Invalid ReconnectionData case", 2);
+            }
         }
+        //
+        // Case 3: Base path has DD RC
+        //
+        else if (isReservoirDD)
+        {
+            // Keep in mind that if reservoir rcVertexLength == 1, we skip retrace and use dummyRC.
+            // Case 3.1: Offset path is invertible and has an RC
+            if (isRcPrevValid & !isRcPrevPrevValid & !isRcPrevWo0 & isRcPrevPrevWo0 & !isThroughput0)
+            {
+                // Valid
+                return;
+            }
+            // Case 3.2: Offset path couldn't find an RC or is not invertible.
+            else if (!isRcPrevValid & !isRcPrevPrevValid & isRcPrevWo0 & isRcPrevPrevWo0 & isThroughput0)
+            {
+                // Valid
+                return;
+            }
+            else
+            {
+                print("Alert! Invalid ReconnectionData case", 3);
+            }
+        }
+        //
+        // Case 4: Base path has DSD RC
+        //
+        else if (isReservoirDSD)
+        {
+            // Case 4.1: Offset path is invertible and has an RC
+            if (isRcPrevValid & isRcPrevPrevValid & !isRcPrevWo0 & !isRcPrevPrevWo0 & !isThroughput0)
+            {
+                // Valid
+                return;
+            }
+            // Case 4.2: Offset path couldn't find an RC or is not invertible.
+            else if (!isRcPrevValid & !isRcPrevPrevValid & isRcPrevWo0 & isRcPrevPrevWo0 & isThroughput0)
+            {
+                // Valid
+                return;
+            }
+            else
+            {
+                print("Alert! Invalid ReconnectionData case", 3);
+            }
+        }
+
+        print("The ReconnectionData in question:", 0);
+        print("- rcData.rcPrevHit", reconnectionData.rcPrevHit.isValid());
+        print("- rcData.rcPrevPrevHit", reconnectionData.rcPrevPrevHit.isValid());
+        print("- rcData.rcPrevWo", reconnectionData.rcPrevWo);
+        print("- rcData.rcPrevPrevWo", reconnectionData.rcPrevPrevWo);
+        print("- rcData.pathThroughput", reconnectionData.pathThroughput);
     }
 
     /*

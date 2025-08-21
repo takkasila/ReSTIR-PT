@@ -258,6 +258,9 @@ struct PathTracer
         path.randomReplayIsEscaped = !isLastVertexNEE && !isRcVertexEscapedVertex;
         path.randomReplayLength = randomReplayLength;
 
+        path.isLastVertexClassifiedAsRough = true;
+        path.isLastLastVertexClassifiedAsRough = true;
+
         path.pathReservoir.init();
     }
 
@@ -1287,6 +1290,7 @@ struct PathTracer
 
         bool isCurrentVertexClassifiedAsRough =
             kSeparatePathBSDF ? hasRoughComponent(sd, params.specularRoughnessThreshold) : classifyAsRough(sd, params.specularRoughnessThreshold);
+
         print("- isCurrentVertexClassifiedAsRough", isCurrentVertexClassifiedAsRough);
 
         bool isLastVertexAcceptableForRcPrev = path.isLastVertexClassifiedAsRough;
@@ -1302,8 +1306,6 @@ struct PathTracer
         {
             print("- Considering if current vertex can be a RC", 0);
 
-            bool atLeastOneSpecularVertex = !(isCurrentVertexClassifiedAsRough && isLastVertexAcceptableForRcPrev);
-
             bool canConnect = (
                 path.length >= 1
                 && path.length < path.pathBuilder.rcVertexLength
@@ -1318,7 +1320,7 @@ struct PathTracer
                     (
                         !(params.localStrategyType & (uint)LocalStrategy::RoughnessCondition)
                         ||
-                        !atLeastOneSpecularVertex
+                        (isCurrentVertexClassifiedAsRough && isLastVertexAcceptableForRcPrev)
                     )
                 )
             );
@@ -1551,6 +1553,11 @@ struct PathTracer
 
             bool isEnableRoughnessCondition = params.localStrategyType & (uint)LocalStrategy::RoughnessCondition;
 
+            print("- path.length", path.length);
+            print("- path.pathBuilder.rcVertexLength", path.pathBuilder.rcVertexLength);
+            print("- isCurrentVertexClassifiedAsRough", isCurrentVertexClassifiedAsRough);
+            print("- path.isLastVertexClassifiedAsRough", path.isLastVertexClassifiedAsRough);
+
             if( path.pathBuilder.pathFlags.decodeIsDD() )
             {
                 //
@@ -1567,18 +1574,27 @@ struct PathTracer
                     // Check if current vertex could be considered as a RC
                     bool passDistanceCondition = !isEnableDistanceCondition || isFarField;
 
-                    bool atLeastOneSpecularVertex = !(isCurrentVertexClassifiedAsRough && isLastVertexAcceptableForRcPrev);
-                    bool passRoughnessCondition = !isEnableRoughnessCondition || atLeastOneSpecularVertex;
+                    bool passRoughnessCondition = !isEnableRoughnessCondition || (isCurrentVertexClassifiedAsRough && path.isLastVertexClassifiedAsRough);
+
+                    // non-invertible if this bounce is an NEE bounce for the base path, which means the current vertex is not connectible in base path, but it now is connectible in offset path
+                    //  1. the current vertex in the base path is terminated as NEE
+                    //  2. the current vertex can also be considered as a RC in offset path
+                    if (passRoughnessCondition && terminateRandomReplayForNEE)
+                    {
+                        print("--- Failed case", 1);
+                        invertible = false;
+                    }
 
                     if (passDistanceCondition && passRoughnessCondition)
                     {
+                        print("--- Failed case", 2);
                         // Found an ealier RC than base path
                         invertible = false;
                     }
                 }
 
                 // 2. Check connectibility with the RC
-                if (path.length == path.pathBuilder.rcVertexLength - 1)
+                if (path.length == path.pathBuilder.rcVertexLength - 1 && invertible)
                 {
                     if (!isEnableRoughnessCondition || isCurrentVertexClassifiedAsRough)
                     {
@@ -1586,14 +1602,9 @@ struct PathTracer
                     }
                     else
                     {
+                        print("--- Failed case", 3);
                         invertible = false;
                     }
-                }
-
-                // Early termination flag
-                if (terminateRandomReplayForNEE)
-                {
-                    shouldTerminate = true;
                 }
 
                 // 3. Check if should terminate
@@ -2346,6 +2357,7 @@ struct PathTracer
         //
         PathState path;
         bool isRcVertexEscapedVertex = pathFlags.pathLength() + 1 == pathFlags.rcVertexLength();
+
         generateRandomReplayPath(path, hit, ray, initRandomSeed, pathFlags.pathLength(), pathFlags.lastVertexNEE(), isRcVertexEscapedVertex);
 
         if (ShiftMapping(kShiftStrategy) == ShiftMapping::HybridShiftSMS)
@@ -2413,8 +2425,12 @@ struct PathTracer
         //  path.hit = v2
         //  path.dir = v2-v1
         //  path.length = 1
+        //  path.isLastVertexClassifiedAsRough = is v1 rough;
+        //  path.isLastLastVertexClassifiedAsRough = false;
 
         print("randomReplayIsEscaped:", path.randomReplayIsEscaped);
+        print("path.isLastVertexClassifiedAsRough", path.isLastVertexClassifiedAsRough);
+        print("path.isLastLastVertexClassifiedAsRough", path.isLastLastVertexClassifiedAsRough);
 
         DebugVertexState debugVertexState;
 
