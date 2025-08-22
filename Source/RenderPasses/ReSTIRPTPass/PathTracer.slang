@@ -1749,8 +1749,18 @@ struct PathTracer
 
                     bool passRoughnessCondition = !isEnableRoughnessCondition || (isCurrentVertexClassifiedAsRough && path.isLastLastVertexClassifiedAsRough);
 
+                    // non-invertible if this bounce is an NEE bounce for the base path, which means the current vertex is not connectible in base path, but it now is connectible in offset path
+                    //  1. the current vertex in the base path is terminated as NEE
+                    //  2. the current vertex can also be considered as a RC in offset path
+                    if (passRoughnessCondition && terminateRandomReplayForNEE)
+                    {
+                        print("--- Failed case", 1);
+                        invertible = false;
+                    }
+
                     if(passDistanceCondition && passRoughnessCondition)
                     {
+                        print("--- Failed case", 2);
                         // Found an earlier RC
                         invertible = false;
                     }
@@ -1768,11 +1778,12 @@ struct PathTracer
                     }
                     else
                     {
+                        print("--- Failed case", 3);
                         invertible = false;
                     }
                 }
 
-                if (path.length == path.pathBuilder.rcVertexLength - 2)
+                if (invertible && path.length == path.pathBuilder.rcVertexLength - 2)
                 {
                     if(isCurrentVertexClassifiedAsRough)
                     {
@@ -1789,11 +1800,6 @@ struct PathTracer
                     }
                 }
 
-                // Early termination flag
-                if (terminateRandomReplayForNEE)
-                {
-                    shouldTerminate = true;
-                }
 
                 // 3. Check if should terminate
                 if (invertible)

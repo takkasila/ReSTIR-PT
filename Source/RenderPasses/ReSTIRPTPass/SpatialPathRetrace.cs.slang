@@ -414,6 +414,10 @@ struct PathRetracePass
 
                 print("- traceHybridShiftRays centralReservoir: end", 0);
             }
+            else
+            {
+                print("- Central rcVertexLength is too short or assumed", centralReservoir.pathFlags.rcVertexLength());
+            }
 
             if (neighborReservoir.pathFlags.rcVertexLength() > 1)
             {
@@ -452,6 +456,10 @@ struct PathRetracePass
                 }
 
                 print("- traceHybridShiftRays neighborReservoir: end", 0);
+            }
+            else
+            {
+                print("- Neighbor rcVertexLength is too short or assumed", neighborReservoir.pathFlags.rcVertexLength());
             }
         }
 

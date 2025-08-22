@@ -376,11 +376,7 @@ struct PathRetracePass
         }
         else
         {
-            print("- centralReservoir doesn't have RC", 0);
-
-            // Set ReconnectionData throughput to 0 and move on
-            centralReservoirReconnectionData.pathThroughput = float3(0.f);
-            reconnectionDataBuffer[centralOffset].data[0] = centralReservoirReconnectionData;
+            print("- Central rcVertexLength is too short or assumed", centralReservoir.pathFlags.rcVertexLength());
         }
 
         if (temporalReservoir.pathFlags.rcVertexLength() > 1)
@@ -424,11 +420,7 @@ struct PathRetracePass
         }
         else
         {
-            print("- temporalReservoir doesn't have RC", 0);
-
-            // Set ReconnectionData throughput to 0 and move on
-            temporalReservoirReconnectionData.pathThroughput = float3(0.f);
-            reconnectionDataBuffer[centralOffset].data[1] = temporalReservoirReconnectionData;
+            print("- Temporal rcVertexLength is too short or assumed", temporalReservoir.pathFlags.rcVertexLength());
         }
 
     }
