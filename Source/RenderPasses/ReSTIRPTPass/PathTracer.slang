@@ -1098,7 +1098,7 @@ struct PathTracer
             // daqi: Since ScreenSpaceReSTIR cannot handle transmission and delta reflection, we must include the contribution in the color buffer
             if (!path.enableRandomReplay || terminateRandomReplayForEscape)
             {
-                 print("-- Compute emissive", 2);
+                print("-- Compute emissive", 2);
 
                 if (!kDisableDirectIllumination || path.length > 1) path.L += Lr;
                 // will change this to path.IsDelta() if ScreenSpaceReSTIR can handle transmission
@@ -1113,7 +1113,7 @@ struct PathTracer
                 && PathSamplingMode(kPathSamplingMode) != PathSamplingMode::PathTracing)
             {
 
-                print("-- Decide if should add the path terminated with an escaped vertex", 0);
+                print("-- Decide if should add emissive contribution to reservoir", 0);
 #if BPR
                 if (path.length - 1 > path.pathBuilder.rcVertexLength)
                 {
@@ -1142,7 +1142,7 @@ struct PathTracer
 #endif
 
 
-                print("-- is selectedCurrentPath", selectedCurrentPath);
+                print("-- Is added emissive to reservoir", selectedCurrentPath);
 
                 // daqi: if current escaped vertex has path.length >= 2, then it can be used as a rcVertex
                 //  Why not path.length >= 1 ? Yes, it should be >= 1.
@@ -1152,25 +1152,21 @@ struct PathTracer
                     && path.length < path.pathBuilder.rcVertexLength
                 )
                 {
-
-                    print("--- Decide if pass local conditions", 0);
+                    print("--- Check if the current emissive vertex can be an RC (HybridShift)", 0);
 
                     // daqi: ideally, this should use a smaller nearFieldDistance than the default threshold
                     bool isFarField = length(sd.posW - path.origin) >= params.nearFieldDistance;
-                    bool isLastVertexAcceptableForRcPrev = path.isLastVertexClassifiedAsRough;
+                    bool passDistanceCondition = !(params.localStrategyType & (uint)LocalStrategy::DistanceCondition) || isFarField;
 
-                    //  This essentially means if(isLastVertexAcceptableForRcPrev || (distanceConditionPass && roughnessConditionPass))
-                    if (!(
-                        params.localStrategyType & (uint)LocalStrategy::DistanceCondition && !isFarField
-                        || params.localStrategyType & (uint)LocalStrategy::RoughnessCondition
-                        && !isLastVertexAcceptableForRcPrev
-                    ))
+                    bool passRoughnessCondition = !(params.localStrategyType & (uint)LocalStrategy::RoughnessCondition) || path.isLastVertexClassifiedAsRough;
+
+                    if ( passDistanceCondition && passRoughnessCondition )
                     {
                         if (path.replayMode == ReplayMode::None)
                         {
                             // We can connect to emissive surface as a RC
 
-                            print("---- the escaped vertex is also a RC", 0);
+                            print("---- The current emissive surface is an RC", 0);
 
                             // we found an RC vertex!
                             // set rcVertexLength to current length (this will make rcVertexLength = reseroivr.pathLength + 1)
@@ -1204,8 +1200,7 @@ struct PathTracer
                             // non-invertible case
 
                             // 1. Current doing random number replay for HybridShift
-                            // 2. At a termination vertex based on base path
-                            // 3. The current vertex is suitable to be a RC. Which is earlier than the base path. Thus, this path should be invalidated.
+                            // 2. The current vertex is suitable to be a RC. Which is earlier than the base path. Thus, this path should be invalidated.
                             path.L = 0.f;
 
                             print("---- offset path is non-invertible", 0);
@@ -1215,14 +1210,121 @@ struct PathTracer
                 }
                 else if (selectedCurrentPath
                     && (ShiftMapping(kShiftStrategy) == ShiftMapping::HybridShiftSMS)
-                    && path.length >= 2
+                    && path.length >= 1
                     && path.length < path.pathBuilder.rcVertexLength
                 )
                 {
-                    // TODO: Add support for HybridShiftSMS
-                    // Conditions:
-                    //  1. ShiftMapping::HybridShiftSMS
-                    //  2. path.isLastLastVertexClassifiedAsRough
+                    print("--- Check if the current emissive vertex can be an RC (HybridShiftSMS)", 0);
+
+                    // We have
+                    // isCurrentVertexClassifiedAsRough = true
+                    // path.isLastVertexClassifiedAsRough
+                    // path.isLastLastVertexClassifiedAsRough
+                    // current position = sd.posW
+                    // previous position = path.origin
+                    // previous previous position = path.prevOrigin
+
+                    bool isCurrentVertexClassifiedAsRough = true;
+                    float3 currentPos = sd.posW;
+                    float3 prevPos = path.origin;
+                    float3 prevPrevPos = path.prevOrigin;
+
+                    bool isFarField = length(currentPos - prevPos) >= params.nearFieldDistance;
+                    bool canConnect = (
+                        path.length >= 1
+                        && path.length < path.pathBuilder.rcVertexLength
+                        &&
+                        (
+                            (
+                                !(params.localStrategyType & (uint)LocalStrategy::DistanceCondition)
+                                ||
+                                isFarField
+                            )
+                            &&
+                            (
+                                !(params.localStrategyType & (uint)LocalStrategy::RoughnessCondition)
+                                ||
+                                (isCurrentVertexClassifiedAsRough && path.isLastVertexClassifiedAsRough)
+                            )
+                        )
+                    );
+
+                    bool isDSDPath = (isCurrentVertexClassifiedAsRough
+                        && !path.isLastVertexClassifiedAsRough
+                        && path.isLastLastVertexClassifiedAsRough
+                    );
+
+                    print("--- isDSDPath", isDSDPath);
+
+                    bool canConnectDSD = false;
+
+                    if (isDSDPath && (bool)params.isEnableDSD)
+                    {
+                        bool isFarField_1_2 = isFarField;
+                        bool isFarField_2_3 = length(prevPos - prevPrevPos) >= params.nearFieldDistance;
+
+                        bool passDistanceCondDSD = isFarField_1_2 && isFarField_2_3;
+
+                        canConnectDSD = (
+                            path.length >= 2    // at least 3 surface interactions
+                            && path.length < path.pathBuilder.rcVertexLength
+                            && isDSDPath
+                            && (
+                                !(params.localStrategyType & (uint)LocalStrategy::DistanceCondition)
+                                ||
+                                passDistanceCondDSD
+                            )
+                        );
+
+                        print("---- canConnectDSD", canConnectDSD);
+                    }
+
+                    if (canConnect || canConnectDSD)
+                    {
+                        if (path.replayMode == ReplayMode::None)
+                        {
+                            float3 disp = path.origin - sd.posW;
+                            float geometryFactor = abs(dot(sd.faceN, sd.V)) / dot(disp, disp);
+
+                            // We can connect to emissive surface as a RC
+
+                            print("---- The current emissive surface is an RC", 0);
+
+                            // we found an RC vertex!
+                            // set rcVertexLength to current length (this will make rcVertexLength = reseroivr.pathLength + 1)
+
+                            // markBsdfSampledLightVertexAsRc
+                            path.pathBuilder.markEscapeVertexAsRcVertex(
+                                params,
+                                path.length,
+                                path.pathReservoir,
+                                path.hit,
+                                path.prevHit,
+                                path.prevPrevHit,
+                                path.prevPrevWo,
+                                canConnect,     // isDD
+                                canConnectDSD,  // isDSD
+                                path.isDelta(),
+                                path.isTransmission(),
+                                path.isSpecularBounce(),
+                                lightPdf,
+                                (uint)LightSampleType::Emissive,
+                                sd.emissive,
+                                float3(0.f),
+                                path.prevScatterPdf,
+                                geometryFactor
+                            );
+                        }
+                        else
+                        {
+                            // non-invertible case
+                            // 1. Current doing random number replay for HybridShiftSMS
+                            // 2. The current vertex is suitable to be a RC. Which is earlier than the base path. Thus, this path should be invalidated.
+                            path.L = 0.f;
+
+                            print("----- offset path is non-invertible", 0);
+                        }
+                    }
                 }
             }
 
@@ -1332,7 +1434,7 @@ struct PathTracer
 
             print("- isDSDPath", isDSDPath);
 
-            bool canConnectSMS = false;
+            bool canConnectDSD = false;
 
             if (isDSDPath
                 && (ShiftMapping(kShiftStrategy) == ShiftMapping::HybridShiftSMS)
@@ -1342,11 +1444,10 @@ struct PathTracer
 
                 bool isFarField_1_2 = length(path.prevOrigin - pathPrevPrevOrigin) >= params.nearFieldDistance;
                 bool isFarField_2_3 = length(path.origin - path.prevOrigin) >= params.nearFieldDistance;
-                bool isFarField_1_3 = length(path.origin - pathPrevPrevOrigin) >= params.nearFieldDistance;
 
-                bool passDistanceCondDSD = isFarField_1_2 && isFarField_2_3 && isFarField_1_3;
+                bool passDistanceCondDSD = isFarField_1_2 & isFarField_2_3;
 
-                canConnectSMS = (
+                canConnectDSD = (
                     path.length >= 2    // at least 3 surface interactions
                     && path.length < path.pathBuilder.rcVertexLength
                     && isDSDPath
@@ -1357,19 +1458,19 @@ struct PathTracer
                     )
                 );
 
-                print("-- canConnectSMS", canConnectSMS);
+                print("-- canConnectDSD", canConnectDSD);
             }
 
             // If either
             //  - not HybridShift or HybridShiftSMS and at primary hit
             //  - or ShiftMapping::HybridShift and canConnect
-            //  - or ShiftMapping::HybridShiftSMS and (canConnectSMS or canConnect)
+            //  - or ShiftMapping::HybridShiftSMS and (canConnectDSD or canConnect)
             bool isNotHybrid = (ShiftMapping(kShiftStrategy) == ShiftMapping::Reconnection) || (ShiftMapping(kShiftStrategy) == ShiftMapping::RandomReplay);
 
             bool conditions = (
                 (isNotHybrid && (path.length == 1))
                 || ((ShiftMapping(kShiftStrategy) == ShiftMapping::Hybrid) && canConnect)
-                || ((ShiftMapping(kShiftStrategy) == ShiftMapping::HybridShiftSMS) && (canConnectSMS || canConnect))
+                || ((ShiftMapping(kShiftStrategy) == ShiftMapping::HybridShiftSMS) && (canConnectDSD || canConnect))
             );
 
             if (conditions)
@@ -1395,7 +1496,7 @@ struct PathTracer
                     path.pathBuilder.pathFlags.insertIsDSD(false);
 
                 }
-                else if (canConnectSMS)
+                else if (canConnectDSD)
                 {
                     // TODO: HybridSMS cache Jacobian
                     path.pathBuilder.rcPrevVertexHit.initFromHitInfo(path.prevHit);
@@ -1643,9 +1744,8 @@ struct PathTracer
                 {
                     bool isFarField_1_2 = length(path.prevOrigin - pathPrevPrevOrigin) >= params.nearFieldDistance;
                     bool isFarField_2_3 = length(path.origin - path.prevOrigin) >= params.nearFieldDistance;
-                    bool isFarField_1_3 = length(path.origin - pathPrevPrevOrigin) >= params.nearFieldDistance;
 
-                    bool passDistanceCondition = !isEnableDistanceCondition || (isFarField_1_2 && isFarField_2_3 && isFarField_1_3);
+                    bool passDistanceCondition = !isEnableDistanceCondition || (isFarField_1_2 & isFarField_2_3);
 
                     bool passRoughnessCondition = !isEnableRoughnessCondition || (isCurrentVertexClassifiedAsRough && path.isLastLastVertexClassifiedAsRough);
 
@@ -2215,7 +2315,7 @@ struct PathTracer
 
                     bool isFarField_1_2 = length(path.prevOrigin - path.origin) >= params.nearFieldDistance;
 
-                    bool canConnectSMS = (
+                    bool canConnectDSD = (
                         isDSDPath
                         && (
                             !(params.localStrategyType & (uint)LocalStrategy::DistanceCondition)
@@ -2225,7 +2325,7 @@ struct PathTracer
                     );
 
 
-                    if (canConnectSMS)
+                    if (canConnectDSD)
                     {
                         // The escaping vertex can be an RC
 
