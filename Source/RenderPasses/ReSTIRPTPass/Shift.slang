@@ -161,7 +161,7 @@ float3 computeShiftedIntegrandHybrid(const RestirPathTracerParams params, bool u
 
     if (tempPathReservoir.weight == 0.f)
     {
-        print("---- invalid reservoir", 0);
+        print("---- empty reservoir", 0);
         return 0.f;
     }
 

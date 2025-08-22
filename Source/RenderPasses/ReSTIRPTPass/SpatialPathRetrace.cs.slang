@@ -238,7 +238,7 @@ struct PathRetracePass
         //
         // Case 3: Base path has DD RC
         //
-        else if (isReservoirDD)
+        else if (isReservoirDD && !isReservoirDSD && !isReservoirWeight0)
         {
             // Keep in mind that if reservoir rcVertexLength == 1, we skip retrace and use dummyRC.
             // Case 3.1: Offset path is invertible and has an RC
@@ -261,7 +261,7 @@ struct PathRetracePass
         //
         // Case 4: Base path has DSD RC
         //
-        else if (isReservoirDSD)
+        else if (isReservoirDSD && !isReservoirDD && !isReservoirWeight0)
         {
             // Case 4.1: Offset path is invertible and has an RC
             if (isRcPrevValid & isRcPrevPrevValid & !isRcPrevWo0 & !isRcPrevPrevWo0 & !isThroughput0)
@@ -279,6 +279,10 @@ struct PathRetracePass
             {
                 print("Alert! Invalid ReconnectionData case", 3);
             }
+        }
+        else
+        {
+            print("Alert! Invalid ReconnectionData case", 4);
         }
 
         print("The ReconnectionData in question:", 0);
@@ -403,11 +407,11 @@ struct PathRetracePass
                 // Set to buffer
                 reconnectionDataBuffer[centralOffset].data[2 * i] = centralReservoirReconnectionData;
 
-                // Sanity check
-                checkValidReconnectionData(centralReservoir, centralReservoirReconnectionData);
-
                 if (isDebug)
                 {
+                    // Sanity check
+                    checkValidReconnectionData(centralReservoir, centralReservoirReconnectionData);
+
                     // Fill in RC data into debugData
                     fillDebugPathData(centralReservoirReconnectionData, centralReservoir, debugPathData1, debugCentralResevoirPathDataBuffer);
                 }
@@ -446,11 +450,10 @@ struct PathRetracePass
                 // Set to buffer
                 reconnectionDataBuffer[centralOffset].data[2 * i + 1] = neighborReservoirReconnectionData;
 
-                // Sanity check
-                checkValidReconnectionData(neighborReservoir, neighborReservoirReconnectionData);
-
                 if (isDebug)
                 {
+                    // Sanity check
+                    checkValidReconnectionData(neighborReservoir, neighborReservoirReconnectionData);
                     // Fill in RC data into debugData
                     fillDebugPathData(neighborReservoirReconnectionData, neighborReservoir, debugPathData2, debugNeighborResevoirPathDataBuffer);
                 }
