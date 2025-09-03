@@ -1397,6 +1397,9 @@ struct PathTracer
 
         bool isLastVertexAcceptableForRcPrev = path.isLastVertexClassifiedAsRough;
 
+        print("- isLastVertexClassifiedAsRough", path.isLastVertexClassifiedAsRough);
+
+
         // daqi: if we are not doing a hybrid shift replay, we should check if current vertex satisfy the condition to be used as a rcVertex
 
         // Previously was
@@ -1460,6 +1463,9 @@ struct PathTracer
 
                 print("-- canConnectDSD", canConnectDSD);
             }
+
+            print("- canConnect", canConnect);
+            print("- canConnectDSD", canConnectDSD);
 
             // If either
             //  - not HybridShift or HybridShiftSMS and at primary hit
@@ -2069,7 +2075,12 @@ struct PathTracer
             }
 
             // Why are we setting this here again?
-            if (ShiftMapping(kShiftStrategy) == ShiftMapping::Hybrid)
+            // If the scattered direction is sampled from a specular lobe,
+            //  we need to treat the current surface as specular eventhough it
+            //  has previously been classified as rough.
+            //  So that we don't form a specular reconnection.
+            if (ShiftMapping(kShiftStrategy) == ShiftMapping::Hybrid
+                || ShiftMapping(kShiftStrategy) == ShiftMapping::HybridShiftSMS)
                 isCurrentVertexClassifiedAsRough = seenAsConnectible;
         }
 
