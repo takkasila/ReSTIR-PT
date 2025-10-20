@@ -195,12 +195,27 @@ struct PathReusePass
                             rcData = dummyRcData;
                         }
 
-                        //  Try shifting and merging into the base path's reservoir.
+                        //  Compute shifted integrand of temporal reservoir and it's reconnection data.
+                        //  Then try to merge temporal reservoir into central reservoir
                         //  If successful, the new value will be saved in the
                         //  temporary reservoir "tempDstReservoir" to be used
                         //  in computeShiftedIntegrand()
-                        possibleToBeSelected = shiftAndMergeReservoir(params, doTemporalUpdateForDynamicScene, dstJacobian, centralPrimaryHitPacked, centralPrimarySd, tempDstReservoir,
-                            temporalPrimarySd, temporalReservoir, rcData, true, sg, false, 1.f, true); // "true" means hypothetically selected as the sample
+                        possibleToBeSelected = shiftAndMergeReservoir(
+                            params,
+                            doTemporalUpdateForDynamicScene,
+                            dstJacobian,
+                            centralPrimaryHitPacked,
+                            centralPrimarySd,
+                            tempDstReservoir,
+                            temporalPrimarySd,
+                            temporalReservoir,
+                            rcData,
+                            true,
+                            sg,
+                            false,
+                            1.f,
+                            true    // "true" means hypothetically selected as the sample
+                        );
                     }
 
                     print("-- possibleToBeSelected:", possibleToBeSelected);

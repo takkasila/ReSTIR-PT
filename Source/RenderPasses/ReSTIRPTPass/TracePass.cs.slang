@@ -133,6 +133,7 @@ void tracePath(uint pathID, inout PathReservoir giReservoir, uint sampleIdx)
     {
         print("vertex", path.origin);
         print("path.length", path.length);
+        print("path.isSpecularBounce", path.isSpecularBounce());
 
         //  vertex 0 at camera
         if (path.length == 0 && isAtDebugPixel)
@@ -204,6 +205,8 @@ void tracePath(uint pathID, inout PathReservoir giReservoir, uint sampleIdx)
     print("- rcVertexLength", outputReservoirs.pathFlags.rcVertexLength());
     print("- pathLength", outputReservoirs.pathFlags.pathLength());
     print("- weight", outputReservoirs.weight);
+    print("- RcSpecularBounce", outputReservoirs.pathFlags.decodeIsSpecularBounce(false));
+    print("- prevRcSpecularBounce", outputReservoirs.pathFlags.decodeIsSpecularBounce(true));
 
     if (isAtDebugPixel)
     {
