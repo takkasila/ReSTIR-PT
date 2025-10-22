@@ -2101,6 +2101,7 @@ struct PathTracer
         // Update path history for HybridSMS
         if (ShiftMapping(kShiftStrategy) == ShiftMapping::HybridShiftSMS)
         {
+            print("Update path history", 0);
             if(path.length >= 1)
             {
                 path.isLastLastVertexClassifiedAsRough = path.isLastVertexClassifiedAsRough;
@@ -2510,16 +2511,23 @@ struct PathTracer
         path.pathBuilder.pathFlags.insertIsDD( pathFlags.decodeIsDD() );
         path.pathBuilder.pathFlags.insertIsDSD( pathFlags.decodeIsDSD() );
 
+        path.wo = -ray.dir;
+        path.prevWo = path.wo;
+        path.prevHit = path.hit;
+
         // set up the two scatter directions (or half vectors) for reuse
 
         //  Generate a scattered direction without prio direction
         generateReplayPrimaryScatterRay(path, sd);
+
 
         // At this point, we have:
         //  path.origin = v1
         //  path.dir = somewhere
         //  path.hit = v1
         //  path.length = 0
+        //  path.prevHit = v1
+        //  path.prevWo = primary -> eye
 
         if (path.isActive())
         {
@@ -2540,7 +2548,12 @@ struct PathTracer
         // At this point, we have:
         //  path.origin = v1
         //  path.hit = v2
-        //  path.dir = v2-v1
+        //  path.prevHit = v1
+        //  path.prevPrevHit = NONE
+        //  path.dir = v1 -> v2
+        //  path.wo = v2 -> v1
+        path.wo = -path.dir;
+        //  path.prevWo = v1 -> v0
         //  path.length = 1
         //  path.isLastVertexClassifiedAsRough = is v1 rough;
         //  path.isLastLastVertexClassifiedAsRough = false;

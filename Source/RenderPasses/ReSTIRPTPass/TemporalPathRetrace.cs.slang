@@ -247,12 +247,12 @@ struct PathRetracePass
             }
             else
             {
-                print("Alert! Invalid ReconnectionData case", 3);
+                print("Alert! Invalid ReconnectionData case", 4);
             }
         }
         else
         {
-            print("Alert! Invalid ReconnectionData case", 4);
+            print("Alert! Invalid ReconnectionData case", 5);
         }
 
         print("The ReconnectionData in question:", 0);
