@@ -108,7 +108,7 @@ float3 computeShiftedIntegrand_(const RestirPathTracerParams params, inout float
 
         if(isDSD)
         {
-            print("--- Doing DSD RC in HybridShiftSMS: UNDERCONSTRUCTION", 0);
+            print("--- Doing DSD RC in HybridShiftSMS", 0);
             // DSD reconnection
             tmp = computeShiftedIntegrandHybridShiftSMS(params, usePrev, temporalUpdateForDynamicScene, dstJacobian, dstPrimaryHitPacked, dstPrimarySd, srcPrimarySd, srcReservoir, rcData, evalVisibility);
 
@@ -297,7 +297,7 @@ float3 computeShiftedIntegrandHybrid(const RestirPathTracerParams params, bool u
     return Tp * rcTp;
 }
 
-float computeShiftJacobianDSD(ShadingData x1, ShadingData x2, ShadingData x3)
+float computeShiftJacobianDSD(ShadingData x1, ShadingData x2, ShadingData x3, inout float3 cachedJacobian)
 {
     // TODO: Need to find dn/du and dn/dv
     // Right now, assume on a planar surface
@@ -345,6 +345,10 @@ float computeShiftJacobianDSD(ShadingData x1, ShadingData x2, ShadingData x3)
         dot(dH_du, t), dot(dH_dv, t)
     );
 
+    print("-------- B1:", 0);
+    print("--------- ", B1[0]);
+    print("--------- ", B1[1]);
+
     // Derivatives of C with respect to x2
     dH_du = -x2.T * (ili + ilo)
             + wi * (dot(wi, x2.T) * ili)
@@ -363,6 +367,10 @@ float computeShiftJacobianDSD(ShadingData x1, ShadingData x2, ShadingData x3)
         dot(dH_dv, t) - dot(x2.B, dndv) * dot_H_n - dot_v_n * dot_H_dndv
     );
 
+    print("-------- A:", 0);
+    print("--------- ", A[0]);
+    print("--------- ", A[1]);
+
     // Derivatives of C with respect to x3
     dH_du = (x3.T - wo * dot(wo, x3.T)) * ilo;
     dH_dv = (x3.B - wo * dot(wo, x3.B)) * ilo;
@@ -375,12 +383,23 @@ float computeShiftJacobianDSD(ShadingData x1, ShadingData x2, ShadingData x3)
         dot(dH_du, t), dot(dH_dv, t)
     );
 
+    print("-------- B3:", 0);
+    print("--------- ", B3[0]);
+    print("--------- ", B3[1]);
+
     // Compute G'(x1 <-> x2)
     float cosThetaX2 = dot(x2.N, wi);
     float g_x1x2 = cosThetaX2 / (lwi * lwi);
 
     // Compute Jacobian as G'(x1 <-> x2) * |A^-1 * B3|
-    float jacobian = g_x1x2 * determinant(inverse(A) * B3);
+    float detAInv = determinant(inverse(A));
+    float detB3 = determinant(B3);
+
+    print("-------- g_x1x2", g_x1x2);
+    print("-------- detAInv", detAInv);
+    print("-------- detB3", detB3);
+
+    float jacobian = g_x1x2 * detAInv * detB3;
     return jacobian;
 }
 
@@ -388,195 +407,104 @@ float computeShiftJacobianDSD(ShadingData x1, ShadingData x2, ShadingData x3)
 // srcPdf / dstJacobian transforms pdf in src space to dst space
 float3 computeShiftedIntegrandDSD(
     const RestirPathTracerParams params,
-    inout float dstJacobian,
-    ShadingData dstPrimarySd,
-    ShadingData srcPrimarySd,
+    ShadingData dstPrevRcSd,
+    ShadingData dstPrevPrevRcSd,
+    ShadingData srcPrevRcSd,
+    ShadingData srcPrevPrevRcSd,
     inout PathReservoir srcReservoir,
-    bool evalVisibility,
-    bool useHybridShift = false,
-    bool useCachedJacobian = false
+    inout float dstJacobian,
+    bool evalVisibility
 )
 {
+
+    print("------ computeShiftedIntegrandDSD: begin()", 0);
+
+    bool useCachedJacobian = false;
+    bool useHybridShift = true;
+
     float3 dstCachedJacobian;
     dstJacobian = 0.f;
 
-    int rcVertexLength = !useHybridShift ? 1 : srcReservoir.pathFlags.rcVertexLength();
+    int rcVertexLength = srcReservoir.pathFlags.rcVertexLength();
 
     HitInfo rcVertexHit = srcReservoir.rcVertexHit.getHitInfo();
     float3 rcVertexIrradiance = srcReservoir.rcVertexIrradiance[0];
     float3 rcVertexWi = srcReservoir.rcVertexWi[0];
     bool rcVertexHitExists = rcVertexHit.isValid();
 
-    bool isTransmission = srcReservoir.pathFlags.decodeIsTransmissionEvent(true);
     // Is prevRcVertex sampled outgoing direction from a specular lobe?
     // If yes, all samplers types (SampledBSDFFlags) allowed.
     // Otherwise, only diffuse reflection and transmission are allowed.
     uint allowedSampledTypes1 = getAllowedBSDFFlags(srcReservoir.pathFlags.decodeIsSpecularBounce(true));
 
-    srcPrimarySd.posW = srcPrimarySd.computeNewRayOrigin(!isTransmission);
-    dstPrimarySd.posW = dstPrimarySd.computeNewRayOrigin(!isTransmission);
+    bool isPrevRcTransmission = srcReservoir.pathFlags.decodeIsTransmissionEvent(true);
+    srcPrevRcSd.posW = srcPrevRcSd.computeNewRayOrigin(!isPrevRcTransmission);
+    dstPrevRcSd.posW = dstPrevRcSd.computeNewRayOrigin(!isPrevRcTransmission);
 
-    if (!rcVertexHitExists)
-    {
-        print("------ srcReservoir rcVertex does not exists", 0);
-        float3 dstIntegrand = 0.f;
-
-        // are we having an infinite light (evn map) as rcVertex?
-        if (
-            kUseMIS
-            // Use light map
-            && srcReservoir.pathFlags.lightType() == (uint)PathTracer::LightSampleType::EnvMap
-            // path ends exactly before rcVertexLength (in this case is 15 for reservoir that doesn't have a valid rcVertex)
-            && srcReservoir.pathFlags.pathLength() + 1 == rcVertexLength
-            // And at the end did not sampled a light source
-            && !srcReservoir.pathFlags.lastVertexNEE()
-        )
-        {
-            // Out going direction toward the env map.
-            float3 wi = rcVertexWi;
-
-            // Does the rcPrevVertex of the reconnection (dst) have a clear view
-            // toward the env map
-            bool isVisible = evalSegmentVisibility(dstPrimarySd.posW, wi, true); // test along a direction
-
-            if (isVisible)
-            {
-                // reservoir pdf at rcPrev hit
-                float srcPDF1 = useCachedJacobian ? srcReservoir.cachedJacobian.x : evalPdfBSDF(srcPrimarySd, wi);
-
-                // reconnection pdf for every possible sampling cases at rcPrev hit
-                float dstPDF1All;
-
-                // reconnection pdf for allowed sampling cases that at rcPrev hit
-                float dstPDF1 = evalPdfBSDF(dstPrimarySd, wi, dstPDF1All, allowedSampledTypes1);
-
-                // reconnection F term
-                float3 dstF1 = evalBSDFCosine(dstPrimarySd, wi, allowedSampledTypes1);
-
-                // Compute MIS weight of reconnection and reservoir at the prevRc
-                // srcReservoir.lightPdf is NEE light pdf.
-                float misWeight = PathTracer::evalMIS(1, dstPDF1All, 1, srcReservoir.lightPdf); //   dstPDF1 / (dstPDF1 + srcReservoir.lightPdf);
-
-                dstIntegrand = (dstF1 / dstPDF1) * misWeight * rcVertexIrradiance;
-
-                // Random Replay Jacobian Shift in Primary Sample Sapce[GRIS Eq. 53]
-                dstJacobian = dstPDF1 / srcPDF1;
-
-                // Update cache
-                dstCachedJacobian.x = dstPDF1;
-            }
-        }
-
-        if (useCachedJacobian)
-            srcReservoir.cachedJacobian = dstCachedJacobian;
-
-        print("------ rcVertex does not exists", 0);
-
-        // fill in rcVertex0 information
-        if (isJacobianInvalid(dstJacobian))
-            dstJacobian = 0.f;
-
-        if (any(isnan(dstIntegrand) || isinf(dstIntegrand)))
-            return 0.f;
-
-        return dstIntegrand;
-    }
-
-    print("------ rcVertex does exists", 0);
-
-    bool isDelta1 = srcReservoir.pathFlags.decodeIsDeltaEvent(true);
-    bool isDelta2 = srcReservoir.pathFlags.decodeIsDeltaEvent(false);
-
-    // delta bounce before/after rcVertex (if isRcVertexNEE, deltaAfterRc won't be set)
-    print("------ path flags ", srcReservoir.pathFlags.flags);
-    if (isDelta1 || isDelta2)
-    {
-        print("------ is delta bounce around RC", (isDelta1 ? 1 : 0) | (isDelta2 ? 2 : 0));
-        return 0.f;
-    }
-
-    print("------ is not delta bounce around RC", 0);
-
-    bool isRcVertexFinal = srcReservoir.pathFlags.pathLength() == rcVertexLength;
-    bool isRcVertexEscapedVertex = srcReservoir.pathFlags.pathLength() + 1 == rcVertexLength && !srcReservoir.pathFlags.lastVertexNEE();
+    int srcPathLength = srcReservoir.pathFlags.pathLength();
+    bool isRcVertexFinal = srcPathLength == rcVertexLength;
+    bool isRcVertexEscapedVertex = srcPathLength + 1 == rcVertexLength && !srcReservoir.pathFlags.lastVertexNEE();
     bool isRcVertexNEE = isRcVertexFinal && srcReservoir.pathFlags.lastVertexNEE();
 
-    // dstPrimary is either primary or dstRcPrev
-    ShadingData rcVertexSd = loadShadingDataWithPrevVertexPosition(rcVertexHit, dstPrimarySd.posW, false);
+    ShadingData rcVertexSd = loadShadingDataWithPrevVertexPosition(rcVertexHit, dstPrevRcSd.posW, false);
 
     // need to evaluate source PDF of BSDF sampling
-    // rcVertexSd.V is dir from rc to prev
-    // norm(dstPrev -> rc)
-    float3 dstConnectionV = -rcVertexSd.V; // direction point from dst primary hit point to reconnection vertex
-    // norm(srcPrev -> rc)
-    float3 srcConnectionV = normalize(rcVertexSd.posW - srcPrimarySd.posW);
 
-    // dstPrev -> rc
-    float3 shiftedDisp = rcVertexSd.posW - dstPrimarySd.posW;
-    // (dstPrev -> rc)^2
-    float shifted_dist2 = dot(shiftedDisp, shiftedDisp);
-    // angle between rc.N and dir to dstPrev
-    float shifted_cosine = abs(dot(rcVertexSd.faceN, -dstConnectionV));
-
-    if ((params.localStrategyType & (uint)LocalStrategy::DistanceCondition) && useHybridShift)
+    // Check distance condition between rc <-> prevRc, prevRc <-> prevPrevRc
+    if (params.localStrategyType & (uint)LocalStrategy::DistanceCondition)
     {
-        bool isFarField = sqrt(shifted_dist2) >= params.nearFieldDistance;
-        if (!isFarField)
+        float lenRcToPrevRc = length(rcVertexSd.posW - dstPrevRcSd.posW);
+        float lenPrevRcToPrevPrevRc = length(dstPrevRcSd.posW - dstPrevPrevRcSd.posW);
+        if (lenRcToPrevRc < params.nearFieldDistance || lenPrevRcToPrevPrevRc < params.nearFieldDistance)
         {
-            // Only trigger for Spaitial reuse
             print("------ Rejected for being too close", 0);
             return 0.f;
         }
     }
 
+    //
+    // Compute Jacobian of the shift
+    //
     print("------ Compute Jacobian", 0);
 
-    // Cache the dst terms
-    dstCachedJacobian.z = shifted_cosine / shifted_dist2;
+    // Don't we need to input srcPrevSd?
+    float Jacobian = computeShiftJacobianDSD(dstPrevPrevRcSd, dstPrevRcSd, rcVertexSd, srcReservoir.cachedJacobian);
+    print("------- Jacobian Reconnection shift dst:", Jacobian);
 
-    // Compute Jacobian: path Reconnection shift [Gradient-domain path tracing, Eq. 13]
-    //  det((partial(offset incident)/partial(base incident)))
-    float Jacobian;
-
-    if (useCachedJacobian)
-    {
-        Jacobian = dstCachedJacobian.z / srcReservoir.cachedJacobian.z;
-    }
-    else
-    {
-        // srcPrev -> rc
-        float3 originalDisp = rcVertexSd.posW - srcPrimarySd.posW;
-        // (srcPrev -> rc)^2
-        float original_dist2 = dot(originalDisp, originalDisp);
-        // angle between rc.N and dir to srcPrev
-        float original_cosine = abs(dot(rcVertexSd.faceN, -srcConnectionV));
-
-        // Jac = (dstAngle / dstDist^2) * (srcDist^2 / srcAngle)
-        //     = (dstAngle / srcAngle) * (srcDist^2 / dstDist^2)
-        Jacobian = dstCachedJacobian.z * original_dist2 / original_cosine;
-    }
-
-    print("------- Jacobian Reconnection shift:", Jacobian);
+    float JacobianSrc = computeShiftJacobianDSD(srcPrevPrevRcSd, srcPrevRcSd, rcVertexSd, srcReservoir.cachedJacobian);
+    print("------- Jacobian Reconnection shift src:", JacobianSrc);
 
     if (isJacobianInvalid(Jacobian)) return 0.f;
 
+    //
     // Compute Jacobian: Random Replay of choosing same RC [GRIS, Eq. 54]
+    //
     // assuming BSDF sampling
     assert(kUseBSDFSampling);
 
     // assuming bsdf sampling
     float dstPDF1All = 0.f;
-    // pdf of sampling dir from dstRcPrev -> rc
-    float dstPDF1 = evalPdfBSDF(dstPrimarySd, dstConnectionV, dstPDF1All, allowedSampledTypes1);
 
-    dstCachedJacobian.x = dstPDF1;
-    // pdf of sampling dir from srcRcPrev -> rc
-    float srcPDF1 = useCachedJacobian ? srcReservoir.cachedJacobian.x : evalPdfBSDF(srcPrimarySd, srcConnectionV, allowedSampledTypes1); //
+    //  DST PDF1 : pdf of dstPrevPrevRc -> dstPrevRc ; given dstPrevPrevRc.V
+    float dstPDF1 = evalPdfBSDF(dstPrevPrevRcSd, -dstPrevRcSd.V, dstPDF1All, allowedSampledTypes1);
+    float dstPDF1_rc = evalPdfBSDF(dstPrevRcSd, -rcVertexSd.V, allowedSampledTypes1);
+
+    print("------- dstPDF1", dstPDF1);
+    print("------- dstPDF1_rc", dstPDF1_rc);
+
+    // SRC PDF1 : pdf of srcPrevPrevRc -> srcPrevRc ; given srcPrevPrevRc.V
+    float srcPDF1 = evalPdfBSDF(srcPrevPrevRcSd, -srcPrevRcSd.V, allowedSampledTypes1);
+    float srcPDF1_rc = evalPdfBSDF(srcPrevRcSd, -rcVertexSd.V, allowedSampledTypes1);
+
+    print("------- srcPDF1", srcPDF1);
+    print("------- srcPDF1_rc", srcPDF1_rc);
 
     // Adding in Random Replay Jacobian Shift in Primary Sample Sapce[GRIS Eq. 54]
-    Jacobian *= dstPDF1 / srcPDF1;
+    float JacobianRandomReplay = dstPDF1 / srcPDF1;
+    Jacobian *= JacobianRandomReplay;
+    dstCachedJacobian.x = dstPDF1;
 
-    print("------- Jacobian Random Replay:", dstPDF1 / srcPDF1);
+    print("------- Jacobian Random Replay:", JacobianRandomReplay);
 
     if (isJacobianInvalid(Jacobian)) return 0.f;
 
@@ -584,7 +512,12 @@ float3 computeShiftedIntegrandDSD(
 
     print("------ Compute reconnection integrand", 0);
 
-    float3 dstF1 = evalBSDFCosine(dstPrimarySd, dstConnectionV, allowedSampledTypes1);
+    //
+    // Compute the integrand
+    //
+    // TODO:
+    float3 dstPrevRcWi = -rcVertexSd.V;
+    float3 dstF1 = evalBSDFCosine(dstPrevRcSd, dstPrevRcWi, allowedSampledTypes1);
 
     float dstRcVertexScatterPdfAll = 0.f;
     // pdf of sampling dir from rc -> srcRcWi or srcRcLight if NEE
@@ -603,7 +536,7 @@ float3 computeShiftedIntegrandDSD(
         dstCachedJacobian.y = dstRcVertexScatterPdf;
 
         // pdf of sampling dir(rc -> RcWi) with prior from srcPrevRc
-        srcRcVertexScatterPdf = useCachedJacobian ? srcReservoir.cachedJacobian.y : evalPdfBSDFWithV(rcVertexSd, -srcConnectionV, rcVertexWi, allowedSampledTypes2);
+        srcRcVertexScatterPdf = useCachedJacobian ? srcReservoir.cachedJacobian.y : evalPdfBSDFWithV(rcVertexSd, -dstPrevRcWi, rcVertexWi, allowedSampledTypes2);
 
         if (isRcVertexNEE)
             dstPDF2 = srcReservoir.lightPdf;
@@ -673,7 +606,7 @@ float3 computeShiftedIntegrandDSD(
     // Evaluate visibility: vertex 1 <-> vertex 2 (reconnection vertex).
     if (evalVisibility)
     {
-        bool isVisible = evalSegmentVisibility(dstPrimarySd.posW, rcVertexSd.posW);
+        bool isVisible = evalSegmentVisibility(dstPrevRcSd.posW, rcVertexSd.posW);
         if (!isVisible)
             return 0.f;
     }
@@ -682,7 +615,7 @@ float3 computeShiftedIntegrandDSD(
 
     if (any(isnan(dstIntegrand) || isinf(dstIntegrand))) return 0.f;
 
-    if (params.rejectShiftBasedOnJacobian)
+    if ((bool)params.rejectShiftBasedOnJacobian)
     {
         if (Jacobian > 0.f && (max(Jacobian, 1 / Jacobian) > 1 + params.jacobianRejectionThreshold))
         {
@@ -702,6 +635,7 @@ float3 computeShiftedIntegrandDSD(
     }
 
     print("------ dstIntegrand", dstIntegrand);
+    print("------ computeShiftedIntegrandDSD: end()", 0);
 
     return dstIntegrand;
 }
@@ -788,10 +722,7 @@ float3 computeShiftedIntegrandHybridShiftSMS(
             srcRcPrevPrevVertexSd = loadShadingData(srcRcPrevPrevVertexHit, srcRcPrevPrevVertexWo, false);
         }
 
-        //      For srcRcPrevVertexSd, need to compute the srcRcPrevVertexWo first
-        VertexData srcRcPrevVertex = gScene.getVertexData(srcRcPrevVertexHit.getTriangleHit());
-        float3 srcRcPrevVertexWo = normalize(srcRcPrevPrevVertexSd.posW - srcRcPrevVertex.posW);
-        ShadingData srcRcPrevVertexSd = loadShadingData(srcRcPrevVertexHit, srcRcPrevVertexWo, false);
+        ShadingData srcRcPrevVertexSd = loadShadingDataWithPrevVertexPosition(srcRcPrevVertexHit, srcRcPrevPrevVertexSd.posW, false);
 
         float reconnectionJacobian = 1.f;
 
@@ -823,13 +754,13 @@ float3 computeShiftedIntegrandHybridShiftSMS(
         // Finally compute the shifted integrand and jacobian
         rcTp = computeShiftedIntegrandDSD(
             params,
-            reconnectionJacobian,
             dstRcPrevVertexSd,
+            dstRcPrevPrevVertexSd,
             srcRcPrevVertexSd,
+            srcRcPrevPrevVertexSd,
             srcReservoir,
+            reconnectionJacobian,
             evalVisibility,
-            true,
-            rcVertexLength > 1
         );
 
         dstJacobian *= reconnectionJacobian;
@@ -1100,6 +1031,9 @@ float3 computeShiftedIntegrandReconnection(
             && !srcReservoir.pathFlags.lastVertexNEE()
         )
         {
+
+            print("------- use envMap as RC", 0);
+
             // Out going direction toward the env map.
             float3 wi = rcVertexWi;
 
@@ -1133,13 +1067,14 @@ float3 computeShiftedIntegrandReconnection(
 
                 // Update cache
                 dstCachedJacobian.x = dstPDF1;
+
+                print("------- jacobian", dstJacobian);
+                print("------- integrand", dstIntegrand);
             }
         }
 
         if (useCachedJacobian)
             srcReservoir.cachedJacobian = dstCachedJacobian;
-
-        print("------ rcVertex does not exists", 0);
 
         // fill in rcVertex0 information
         if (isJacobianInvalid(dstJacobian))
@@ -1223,6 +1158,10 @@ float3 computeShiftedIntegrandReconnection(
         // Jac = (dstAngle / dstDist^2) * (srcDist^2 / srcAngle)
         //     = (dstAngle / srcAngle) * (srcDist^2 / dstDist^2)
         Jacobian = dstCachedJacobian.z * original_dist2 / original_cosine;
+        // TODO: Investigate why is this always 1???
+
+        print("------ src G':", original_cosine / original_dist2);
+        print("------ dst G':", shifted_cosine / shifted_dist2);
     }
 
     print("------- Jacobian Reconnection shift:", Jacobian);
