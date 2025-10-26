@@ -725,7 +725,7 @@ struct SpecularReflectionTransmissionMicrofacet : IBxDF
 #endif
     }
 
-    float evalPdf(float3 wo, float3 wi, float allowDeltaEval = false)
+    float evalPdf(float3 wo, float3 wi, bool allowDeltaEval = false)
     {
         if (min(wo.z, abs(wi.z)) < kMinCosTheta) return 0.f;
 
@@ -796,7 +796,7 @@ struct SpecularReflectionTransmissionMicrofacet : IBxDF
     This consists of a diffuse and specular BRDF.
     A specular BSDF is mixed in using the specularTransmission parameter.
 */
-struct FalcorBSDF 
+struct FalcorBSDF
 {
 #if DiffuseBrdf == DiffuseBrdfLambert
     DiffuseReflectionLambert diffuseReflection;
