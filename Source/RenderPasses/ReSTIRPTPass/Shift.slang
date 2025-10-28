@@ -458,15 +458,13 @@ float3 computeShiftedIntegrandDSD(
     //
     print("------ Compute Jacobian", 0);
 
-    // Don't we need to input srcPrevSd?
-    float Jacobian = computeShiftJacobianDSD(dstPrevPrevRcSd, dstPrevRcSd, rcVertexSd, srcReservoir.cachedJacobian);
-    print("------- Jacobian Reconnection shift dst:", Jacobian);
+    float dstJacobianPart = computeShiftJacobianDSD(dstPrevPrevRcSd, dstPrevRcSd, rcVertexSd, srcReservoir.cachedJacobian);
+    print("------- Jacobian DSD shift dst:", dstJacobianPart);
 
-    float JacobianSrc = computeShiftJacobianDSD(srcPrevPrevRcSd, srcPrevRcSd, rcVertexSd, srcReservoir.cachedJacobian);
-    print("------- Jacobian Reconnection shift src:", JacobianSrc);
+    float srcJacobianPart = computeShiftJacobianDSD(srcPrevPrevRcSd, srcPrevRcSd, rcVertexSd, srcReservoir.cachedJacobian);
+    print("------- Jacobian DSD shift src:", srcJacobianPart);
 
-    // Debugging
-    Jacobian = 1.f;
+    float Jacobian = dstJacobianPart / srcJacobianPart;
 
     if (isJacobianInvalid(Jacobian))
     {
@@ -510,9 +508,6 @@ float3 computeShiftedIntegrandDSD(
 
     print("------- Jacobian Random Replay:", JacobianRandomReplay);
 
-    // Debugging
-    // Jacobian = 0.5f;
-
     if (isJacobianInvalid(Jacobian))
     {
         print("------ Invalid Jacobian Reconnection shift", 0);
@@ -526,7 +521,7 @@ float3 computeShiftedIntegrandDSD(
     //
     // Compute the integrand at dstPrevPrevRc
     //      Intg(dstPrevPrev) = f(dstPrevPrev) * f(dstPrev) * f(RC) * rcVertexIrradiance
-    //                          / ( pdf(dstPrevPrev) *  pdf(dstPrev) * pdf(RC) )
+    //                          / ( pdf(dstPrevPrev.wi | dstPrevPrev.wo) *  pdf(dstPrev.wi | dstPrev.wo) * pdf(RC.wi | RC.wo to dsPrevRc))
 
     //      dstPrevPrev
     float3 dstFPrevPrevRc = evalBSDFCosine(dstPrevPrevRcSd, -dstPrevRcSd.V, allowedSampledTypesPrevPrevRc);
