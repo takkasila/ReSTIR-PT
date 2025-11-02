@@ -27,7 +27,7 @@
  **************************************************************************/
 #include "stdafx.h"
 #include "Program.h"
-#include "Slang/slang.h"
+#include "Slang/include/slang.h"
 #include "Utils/StringUtils.h"
 
 namespace Falcor

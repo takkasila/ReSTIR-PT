@@ -32,7 +32,7 @@
 #include "Core/API/ComputeContext.h"
 #include "Core/API/RenderContext.h"
 
-#include <slang/slang.h>
+#include "Slang/include/slang.h"
 
 namespace Falcor
 {

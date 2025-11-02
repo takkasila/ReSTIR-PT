@@ -27,7 +27,7 @@
  **************************************************************************/
 #include "stdafx.h"
 #include "Core/API/Shader.h"
-#include "Slang/slang.h"
+#include "Slang/include/slang.h"
 
 namespace Falcor
 {

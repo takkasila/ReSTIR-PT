@@ -28,7 +28,7 @@
 #include "stdafx.h"
 #include "RtProgram.h"
 #include "Raytracing/RtProgramVars.h"
-#include <slang/slang.h>
+#include "Slang/include/slang.h"
 
 namespace Falcor
 {

@@ -929,7 +929,7 @@
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(ProjectDir)\..\Externals\.packman\agility-sdk\build\native\bin\x64;$(ProjectDir)..\Externals\.packman\deps\debug\lib;$(ProjectDir)..\Externals\.packman\deps\lib;$(ProjectDir)..\Externals\.packman\nvapi\amd64;$(ProjectDir)..\Externals\.packman\vulkansdk\Lib;$(ProjectDir)..\Externals\.packman\slang\bin\windows-x64\release;$(ProjectDir)..\Externals\.packman\python\libs;$(ProjectDir)..\Externals\.packman\WinPixEventRuntime\bin\x64;$(ProjectDir)..\Externals\.packman\Cuda\lib\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(ProjectDir)\..\Externals\.packman\agility-sdk\build\native\bin\x64;$(ProjectDir)..\Externals\.packman\deps\debug\lib;$(ProjectDir)..\Externals\.packman\deps\lib;$(ProjectDir)..\Externals\.packman\nvapi\amd64;$(ProjectDir)..\Externals\.packman\vulkansdk\Lib;$(ProjectDir)..\Externals\.packman\slang\bin;$(ProjectDir)..\Externals\.packman\python\libs;$(ProjectDir)..\Externals\.packman\WinPixEventRuntime\bin\x64;$(ProjectDir)..\Externals\.packman\Cuda\lib\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>WinPixEventRuntime.lib;glfw3dll.lib;slang.lib;Comctl32.lib;Shlwapi.lib;assimp-vc142-mt.lib;mikktspaced.lib;FreeImaged.lib;avcodec.lib;avutil.lib;avformat.lib;swscale.lib;Shcore.lib;DirectXTex.lib;Half-2_5_d.lib;openvdb.lib;libcrypto.lib;lz4.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PreBuildEvent>
@@ -967,7 +967,7 @@
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(ProjectDir)..\Externals\.packman\deps\debug\lib;$(ProjectDir)..\Externals\.packman\deps\lib;$(ProjectDir)..\Externals\.packman\nvapi\amd64;$(ProjectDir)..\Externals\.packman\vulkansdk\Lib;$(ProjectDir)..\Externals\.packman\slang\bin\windows-x64\release;$(ProjectDir)..\Externals\.packman\python\libs;$(ProjectDir)..\Externals\.packman\WinPixEventRuntime\bin\x64;</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(ProjectDir)..\Externals\.packman\deps\debug\lib;$(ProjectDir)..\Externals\.packman\deps\lib;$(ProjectDir)..\Externals\.packman\nvapi\amd64;$(ProjectDir)..\Externals\.packman\vulkansdk\Lib;$(ProjectDir)..\Externals\.packman\slang\bin;$(ProjectDir)..\Externals\.packman\python\libs;$(ProjectDir)..\Externals\.packman\WinPixEventRuntime\bin\x64;</AdditionalLibraryDirectories>
       <AdditionalDependencies>WinPixEventRuntime.lib;glfw3dll.lib;slang.lib;Comctl32.lib;Shlwapi.lib;assimp-vc142-mt.lib;mikktspaced.lib;FreeImaged.lib;avcodec.lib;avutil.lib;avformat.lib;swscale.lib;Shcore.lib;DirectXTex.lib;Half-2_5_d.lib;openvdb.lib;libcrypto.lib;lz4.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PreBuildEvent>
@@ -997,7 +997,7 @@
       <Optimization>Disabled</Optimization>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>FALCOR_DLL;IMGUI_API=__declspec(dllexport);_PROJECT_DIR_=R"($(ProjectDir))";_SCL_SECURE_NO_WARNINGS;_CRT_SECURE_NO_WARNINGS;FALCOR_D3D12;WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions);GLM_FORCE_DEPTH_ZERO_TO_ONE</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(ProjectDir)\..\Externals\.packman\agility-sdk\build\native\include;$(ProjectDir);$(ProjectDir)\..\Externals\.packman\deps\include;$(ProjectDir)\..\Externals\.packman;$(ProjectDir)\..\Externals;$(ProjectDir)\..\Externals\.packman\vulkansdk\Include;$(ProjectDir)\..\Externals\.packman\python\Include;$(ProjectDir)\..\Externals\;$(ProjectDir)\..\Externals\.packman\nvapi;$(ProjectDir)\..\Externals\.packman\nanovdb\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)\..\Externals\.packman\agility-sdk\build\native\include;$(ProjectDir);$(ProjectDir)\..\Externals\.packman\deps\include;$(ProjectDir)\..\Externals\.packman\slang\include;$(ProjectDir)\..\Externals\.packman;$(ProjectDir)\..\Externals;$(ProjectDir)\..\Externals\.packman\vulkansdk\Include;$(ProjectDir)\..\Externals\.packman\python\Include;$(ProjectDir)\..\Externals\;$(ProjectDir)\..\Externals\.packman\nvapi;$(ProjectDir)\..\Externals\.packman\nanovdb\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <TreatWarningAsError>false</TreatWarningAsError>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <LanguageStandard>stdcpp17</LanguageStandard>
@@ -1010,7 +1010,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalLibraryDirectories>$(ProjectDir)\..\Externals\.packman\agility-sdk\build\native\bin\x64;$(ProjectDir)..\Externals\.packman\deps\lib;$(ProjectDir)..\Externals\.packman\nvapi\amd64;$(ProjectDir)..\Externals\.packman\vulkansdk\Lib;$(ProjectDir)..\Externals\.packman\slang\bin\windows-x64\release;$(ProjectDir)..\Externals\.packman\python\libs;$(ProjectDir)..\Externals\.packman\WinPixEventRuntime\bin\x64;$(ProjectDir)..\Externals\.packman\Cuda\lib\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(ProjectDir)\..\Externals\.packman\agility-sdk\build\native\bin\x64;$(ProjectDir)..\Externals\.packman\deps\lib;$(ProjectDir)..\Externals\.packman\nvapi\amd64;$(ProjectDir)..\Externals\.packman\vulkansdk\Lib;$(ProjectDir)..\Externals\.packman\slang\lib;$(ProjectDir)..\Externals\.packman\python\libs;$(ProjectDir)..\Externals\.packman\WinPixEventRuntime\bin\x64;$(ProjectDir)..\Externals\.packman\Cuda\lib\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>WinPixEventRuntime.lib;glfw3dll.lib;slang.lib;Comctl32.lib;Shlwapi.lib;assimp-vc142-mt.lib;mikktspace.lib;FreeImage.lib;avcodec.lib;avutil.lib;avformat.lib;swscale.lib;Shcore.lib;DirectXTex.lib;Half-2_5.lib;openvdb.lib;libcrypto.lib;lz4.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PreBuildEvent>
@@ -1052,7 +1052,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalLibraryDirectories>$(ProjectDir)..\Externals\.packman\deps\lib$(ProjectDir)..\Externals\.packman\nvapi\amd64;$(ProjectDir)..\Externals\.packman\vulkansdk\Lib;$(ProjectDir)..\Externals\.packman\slang\bin\windows-x64\release;$(ProjectDir)..\Externals\.packman\python\libs;$(ProjectDir)..\Externals\.packman\WinPixEventRuntime\bin\x64;</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(ProjectDir)..\Externals\.packman\deps\lib$(ProjectDir)..\Externals\.packman\nvapi\amd64;$(ProjectDir)..\Externals\.packman\vulkansdk\Lib;$(ProjectDir)..\Externals\.packman\slang\bin;$(ProjectDir)..\Externals\.packman\python\libs;$(ProjectDir)..\Externals\.packman\WinPixEventRuntime\bin\x64;</AdditionalLibraryDirectories>
       <AdditionalDependencies>WinPixEventRuntime.lib;glfw3dll.lib;slang.lib;Comctl32.lib;Shlwapi.lib;assimp-vc142-mt.lib;mikktspace.lib;FreeImage.lib;avcodec.lib;avutil.lib;avformat.lib;swscale.lib;Shcore.lib;DirectXTex.lib;Half-2_5.lib;openvdb.lib;libcrypto.lib;lz4.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PreBuildEvent>

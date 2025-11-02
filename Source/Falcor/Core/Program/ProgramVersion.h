@@ -30,7 +30,7 @@
 #include "Core/API/Shader.h"
 #include "Core/API/RootSignature.h"
 
-#include <slang/slang.h>
+#include "Slang/include/slang.h"
 
 namespace Falcor
 {

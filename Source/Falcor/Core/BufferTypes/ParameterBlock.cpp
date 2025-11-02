@@ -31,7 +31,7 @@
 #include "Core/API/CopyContext.h"
 #include "Core/API/Device.h"
 
-#include <slang/slang.h>
+#include "Slang/include/slang.h"
 
 namespace Falcor
 {

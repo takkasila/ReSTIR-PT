@@ -32,7 +32,7 @@ if %IsDebug% EQU 0 (
 )
 robocopy %ExtDir%\python\ %OutDir% Python36*.dll /r:0 >nul
 robocopy %ExtDir%\python %OutDir%\Python /E /r:0 >nul
-robocopy %ExtDir%\slang\bin\windows-x64\release %OutDir% *.dll /r:0 >nul
+robocopy %ExtDir%\slang\bin %OutDir% *.dll /r:0 >nul
 robocopy %ExtDir%\WinPixEventRuntime\bin\x64 %OutDir% WinPixEventRuntime.dll /r:0 >nul
 robocopy %ExtDir%\dxcompiler\bin\x64 %OutDir% dxil.dll /r:0 >nul
 robocopy %ExtDir%\dxcompiler\bin\x64 %OutDir% dxcompiler.dll /r:0 >nul

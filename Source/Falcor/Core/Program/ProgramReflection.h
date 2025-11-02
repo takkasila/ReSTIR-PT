@@ -27,7 +27,7 @@
  **************************************************************************/
 #pragma once
 #include "Core/API/DescriptorSet.h"
-#include <slang/slang.h>
+#include "Slang/include/slang.h"
 #include <map>
 
 namespace Falcor

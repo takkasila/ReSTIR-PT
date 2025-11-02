@@ -28,7 +28,7 @@
 #include "stdafx.h"
 #include "ProgramVersion.h"
 
-#include <slang/slang.h>
+#include "Slang/include/slang.h"
 
 namespace Falcor
 {

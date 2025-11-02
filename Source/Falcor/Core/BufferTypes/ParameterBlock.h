@@ -33,7 +33,7 @@
 #include "Core/Program/ShaderVar.h"
 #include "Utils/UI/Gui.h"
 
-#include <slang/slang.h>
+#include "Slang/include/slang.h"
 
 namespace Falcor
 {
