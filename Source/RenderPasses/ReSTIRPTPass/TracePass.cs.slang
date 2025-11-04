@@ -9,6 +9,7 @@ import PathState;
 import Params;
 import PathReservoir;
 import DebugPathDataType;
+import LoadShadingData;
 
 ParameterBlock<PathTracer> gPathTracer;
 
@@ -110,6 +111,87 @@ void checkReservoirValidity(PathReservoir reservoir)
     print("- weight", reservoir.weight);
 }
 
+void computeNormalDerivatives(HitInfo hit, float3 viewDir, out float3 dndu, out float3 dndv)
+{
+    TriangleHit triHit = hit.getTriangleHit();
+
+    float3 baryCentricWeights = triHit.getBarycentricWeights();
+    print("triHit.instanceID.index", triHit.instanceID.index);
+    print("triHit.primitiveIndex", triHit.primitiveIndex);
+    print("triHit.baryCentricWeights", baryCentricWeights);
+
+    float curveSphereRadius = {};
+    uint materialID = {};
+
+    VertexData v = loadVertexData(hit, viewDir, materialID, curveSphereRadius);
+
+    print("v.posW", v.posW);
+    print("v.normalW", v.normalW);
+    print("v.tangentW", v.tangentW);
+    print("v.faceNormalW", v.faceNormalW);
+    print("v.texC", v.texC);
+    print("v.coneTexLODValue", v.coneTexLODValue);
+
+    // Get 3 corner vertices of the triangle
+    const uint3 vtxIndices = gScene.getIndices(triHit.instanceID, triHit.primitiveIndex);
+    StaticVertexData vertices[3] = {
+        gScene.getVertex(vtxIndices[0]),
+        gScene.getVertex(vtxIndices[1]),
+        gScene.getVertex(vtxIndices[2])
+    };
+
+    const float4x4 worldMat = gScene.getWorldMatrix(triHit.instanceID);
+    const float3x3 worldInvTransposeMat = gScene.getInverseTransposeWorldMatrix(triHit.instanceID);
+    const bool isFrontFaceCW = gScene.isObjectFrontFaceCW(triHit.instanceID);
+
+    print("vertices[0].position", vertices[0].position);
+    print("vertices[0].normal", vertices[0].normal);
+    print("vertices[0].tangent", vertices[0].tangent);
+    print("vertices[0].texCrd", vertices[0].texCrd);
+    print("", 0);
+
+    print("vertices[1].position", vertices[1].position);
+    print("vertices[1].normal", vertices[1].normal);
+    print("vertices[1].tangent", vertices[1].tangent);
+    print("vertices[1].texCrd", vertices[1].texCrd);
+    print("", 1);
+
+    print("vertices[2].position", vertices[2].position);
+    print("vertices[2].normal", vertices[2].normal);
+    print("vertices[2].tangent", vertices[2].tangent);
+    print("vertices[2].texCrd", vertices[2].texCrd);
+    print("", 2);
+
+    float3 N_u = vertices[1].normal - vertices[0].normal;
+    float3 N_v = vertices[2].normal - vertices[0].normal;
+
+    float3x3 I3 = {
+        1, 0, 0,
+        0, 1, 0,
+        0, 0, 1,
+    };
+
+    matrix<float, 3, 1>  n = { v.normalW.x, v.normalW.y, v.normalW.z };
+    matrix<float, 1, 3>  nT = { v.normalW.x, v.normalW.y, v.normalW.z };
+
+    float3x3 projection = I3 - mul(n, nT);
+
+    print("p", projection[0]);
+    print("p", projection[1]);
+    print("p", projection[2]);
+
+    float3 n_u = mul(projection, N_u);
+    float3 n_v = mul(projection, N_v);
+
+    print("n_u", n_u);
+    print("n_v", n_v);
+
+    dndu = n_u;
+    dndv = n_v;
+
+    // Or do we actually want dndt, dndb?
+}
+
 void tracePath(uint pathID, inout PathReservoir giReservoir, uint sampleIdx)
 {
     PathState path;
@@ -128,6 +210,12 @@ void tracePath(uint pathID, inout PathReservoir giReservoir, uint sampleIdx)
 
     print("pixel", pixel);
     print("pathID", pathID);
+
+    if (path.isActive() && isAtDebugPixel)
+    {
+        float3 dndu, dndv;
+        computeNormalDerivatives(path.hit, path.dir, dndu, dndv);
+    }
 
     while (path.isActive())
     {
