@@ -297,13 +297,8 @@ float3 computeShiftedIntegrandHybrid(const RestirPathTracerParams params, bool u
     return Tp * rcTp;
 }
 
-float computeShiftJacobianDSD(ShadingData x1, ShadingData x2, ShadingData x3, inout float3 cachedJacobian)
+float computeShiftJacobianDSD(ShadingData x1, ShadingData x2, ShadingData x3, float3 dndu, float3 dndv, inout float3 cachedJacobian)
 {
-    // TODO: Need to find dn/du and dn/dv
-    // Right now, assume on a planar surface
-    float3 dndu = 0.f;
-    float3 dndv = 0.f;
-
     // Compute relevant directions and a few useful projections
     // Actually, is wi and wo swapped in this case?
     // Yes, just swap the name when declaring
@@ -409,8 +404,12 @@ float3 computeShiftedIntegrandDSD(
     const RestirPathTracerParams params,
     ShadingData dstPrevRcSd,
     ShadingData dstPrevPrevRcSd,
+    float3 dstRcPrevDnDu,
+    float3 dstRcPrevDnDv,
     ShadingData srcPrevRcSd,
     ShadingData srcPrevPrevRcSd,
+    float3 srcRcPrevDnDu,
+    float3 srcRcPrevDnDv,
     inout PathReservoir srcReservoir,
     inout float dstJacobian,
     bool evalVisibility
@@ -458,10 +457,10 @@ float3 computeShiftedIntegrandDSD(
     //
     print("------ Compute Jacobian", 0);
 
-    float dstJacobianPart = computeShiftJacobianDSD(dstPrevPrevRcSd, dstPrevRcSd, rcVertexSd, srcReservoir.cachedJacobian);
+    float dstJacobianPart = computeShiftJacobianDSD(dstPrevPrevRcSd, dstPrevRcSd, rcVertexSd, dstRcPrevDnDu, dstRcPrevDnDv, srcReservoir.cachedJacobian);
     print("------- Jacobian DSD shift dst:", dstJacobianPart);
 
-    float srcJacobianPart = computeShiftJacobianDSD(srcPrevPrevRcSd, srcPrevRcSd, rcVertexSd, srcReservoir.cachedJacobian);
+    float srcJacobianPart = computeShiftJacobianDSD(srcPrevPrevRcSd, srcPrevRcSd, rcVertexSd, srcRcPrevDnDu, srcRcPrevDnDv, srcReservoir.cachedJacobian);
     print("------- Jacobian DSD shift src:", srcJacobianPart);
 
     float Jacobian = dstJacobianPart / srcJacobianPart;
@@ -677,6 +676,52 @@ float3 computeShiftedIntegrandDSD(
     return dstIntgPrevPrevRc;
 }
 
+void computeNormalDerivatives(HitInfo hit, float3 viewDir, out float3 dndu, out float3 dndv)
+{
+    TriangleHit triHit = hit.getTriangleHit();
+
+    float curveSphereRadius = {};
+    uint materialID = {};
+    VertexData v = loadVertexData(hit, viewDir, materialID, curveSphereRadius);
+    // print("------ v.normalW", v.normalW);
+
+    // Get 3 corner vertices of the triangle
+    const uint3 vtxIndices = gScene.getIndices(triHit.instanceID, triHit.primitiveIndex);
+    StaticVertexData vertices[3] = {
+        gScene.getVertex(vtxIndices[0]),
+        gScene.getVertex(vtxIndices[1]),
+        gScene.getVertex(vtxIndices[2])
+    };
+
+    // print("------ vertices[0].normal", vertices[0].normal);
+    // print("------ vertices[1].normal", vertices[1].normal);
+    // print("------ vertices[2].normal", vertices[2].normal);
+
+    float N_dot_N = dot(v.normalW, v.normalW);
+
+    float3x3 I3 = {
+        1, 0, 0,
+        0, 1, 0,
+        0, 0, 1,
+    };
+
+    matrix<float, 3, 1> n = { v.normalW.x, v.normalW.y, v.normalW.z };
+    matrix<float, 1, 3> nT = { v.normalW.x, v.normalW.y, v.normalW.z };
+
+    float3x3 term = (I3 - (mul(n, nT) / N_dot_N)) / sqrt(N_dot_N);
+
+    // print("------ Matrix:", 0);
+    // print("------- ", term[0]);
+    // print("------- ", term[1]);
+    // print("------- ", term[2]);
+
+    float3 N_u = vertices[1].normal - vertices[0].normal;
+    float3 N_v = vertices[2].normal - vertices[0].normal;
+
+    dndu = mul(term, N_u);
+    dndv = mul(term, N_v);
+}
+
 // SRC: Base path
 // DST: Offset path
 float3 computeShiftedIntegrandHybridShiftSMS(
@@ -723,8 +768,6 @@ float3 computeShiftedIntegrandHybridShiftSMS(
     float3 Tp = rcData.pathThroughput;
     Tp = rcData.pathThroughput;
 
-    // TODO: Do Specular Manifold Sampling here to find the correct dstRcPrevVertex
-
     if (all(Tp == float3(1.0f)))
     {
         print("----- Something is wrong", 0);
@@ -746,7 +789,8 @@ float3 computeShiftedIntegrandHybridShiftSMS(
 
     if (conditions)
     {
-        print("---- Computing shifted integrand DSD", 0);
+        print("---- Prep for Manifold Exploration", 0);
+        // Prepare ingredients for Manifold Exploration
 
         // Load shading data: src and dst rcPrev, rcPrevPrev
         ShadingData dstRcPrevVertexSd = loadShadingData(dstRcPrevVertexHit, dstRcPrevVertexWo, false);
@@ -761,6 +805,7 @@ float3 computeShiftedIntegrandHybridShiftSMS(
 
         ShadingData srcRcPrevVertexSd = loadShadingDataWithPrevVertexPosition(srcRcPrevVertexHit, srcRcPrevPrevVertexSd.posW, false);
 
+        VertexData rcVertex = gScene.getVertexData(srcReservoir.rcVertexHit.getHitInfo().getTriangleHit());
 
         // Check if need to trace temporal
         if (temporalUpdateForDynamicScene
@@ -778,24 +823,42 @@ float3 computeShiftedIntegrandHybridShiftSMS(
             srcReservoir.rcVertexWi[id] = tempPathReservoir.rcVertexWi[id];
         }
 
-        VertexData rcVertex = gScene.getVertexData(srcReservoir.rcVertexHit.getHitInfo().getTriangleHit());
+        // Compute normal derivatives
 
-        print("----- Input to computeShiftedIntegrand:", 0);
+        float3 srcRcPrevDnDu, srcRcPrevDnDv;
+        computeNormalDerivatives(srcRcPrevVertexHit, srcRcPrevVertexSd.V, srcRcPrevDnDu, srcRcPrevDnDv);
+
+        float3 dstRcPrevDnDu, dstRcPrevDnDv;
+        computeNormalDerivatives(dstRcPrevVertexHit, dstRcPrevVertexSd.V, dstRcPrevDnDu, dstRcPrevDnDv);
+
+        print("----- Input to Manifold Exploration:", 0);
         print("------ rcVertex.posW", rcVertex.posW);
         print("------ srcRcPrevVertexSd.posW", srcRcPrevVertexSd.posW);
         print("------ srcRcPrevPrevVertexSd.posW", srcRcPrevPrevVertexSd.posW);
         print("------ dstRcPrevVertexSd.posW", dstRcPrevVertexSd.posW);
-        print("------ dstRcPrevPrevVertexSd.posW", dstRcPrevPrevVertexSd.posW);
+        print("------ dstRcPrevDnDu.posW", dstRcPrevDnDu);
+        print("------ dstRcPrevDnDv.posW", dstRcPrevDnDv);
+        print("------ srcRcPrevDnDu.posW", srcRcPrevDnDu);
+        print("------ srcRcPrevDnDv.posW", srcRcPrevDnDv);
+
+        // TODO:
+
+        // Update dstRcPrev dndu, dndv after the exploration
+        // computeNormalDerivatives(dstRcPrevVertexHit, dstRcPrevVertexSd.V, dstRcPrevDnDu, dstRcPrevDnDv);
 
         float reconnectionJacobian = 1.f;
 
-        // Finally compute the shifted integrand and jacobian
+        // Finally, compute the shifted integrand and jacobian
         rcTp = computeShiftedIntegrandDSD(
             params,
             dstRcPrevVertexSd,
             dstRcPrevPrevVertexSd,
+            dstRcPrevDnDu,
+            dstRcPrevDnDv,
             srcRcPrevVertexSd,
             srcRcPrevPrevVertexSd,
+            srcRcPrevDnDu,
+            srcRcPrevDnDv,
             srcReservoir,
             reconnectionJacobian,
             evalVisibility,
