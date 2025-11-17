@@ -263,8 +263,18 @@ struct PathReusePass
                                     print("--- Dummy RC 2", 0);
                                 }
 
-                                float3 tneighborIntegrand = computeShiftedIntegrand(params, tneighborJacobian, temporalPrimaryHitPacked, temporalPrimarySd,
-                                    centralPrimarySd, tempDstReservoir, rcData, sg, true, true); //usePrev
+                                float3 tneighborIntegrand = computeShiftedIntegrand(
+                                    params,
+                                    tneighborJacobian,
+                                    temporalPrimaryHitPacked,
+                                    temporalPrimarySd,
+                                    centralPrimarySd,
+                                    tempDstReservoir,
+                                    rcData,
+                                    sg,
+                                    true,
+                                    true
+                                ); //usePrev
                                 p_ = PathReservoir::toScalar(tneighborIntegrand) * tneighborJacobian;
                                 p_sum += p_ * temporalReservoir.M;
                             }

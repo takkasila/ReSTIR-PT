@@ -54,6 +54,8 @@ void computeNormalDerivatives(HitInfo hit, float3 viewDir, out float3 dndu, out 
 }
 
 
+// x1 closer to light source
+// x3 closer to eye
 void computeSpecularConstraintDerivatives(ShadingData x1, ShadingData x2, ShadingData x3, float3 dndu, float3 dndv, out float2x2 gradC[3])
 {
     // Compute relevant directions and a few useful projections
@@ -144,34 +146,38 @@ void computeSpecularConstraintDerivatives(ShadingData x1, ShadingData x2, Shadin
     gradC[2] = B3;
 }
 
+
+// x1 closer to eye
+// x3 closer to light source
 float computeDSDShiftJacobian(ShadingData x1, ShadingData x2, ShadingData x3, float3 dndu, float3 dndv)
 {
     // Compute Gradient C
     float2x2 gradC[3];
-
-    computeSpecularConstraintDerivatives(x1, x2, x3, dndu, dndv, gradC);
+    computeSpecularConstraintDerivatives(x3, x2, x1, dndu, dndv, gradC);
+    // NOTE: gradC[0] is respective toward x3
 
     // Compute G'(x1 <-> x2)
-    float3 wi = x1.posW - x2.posW;
-    float3 wo = x3.posW - x2.posW;
+    float3 wi = x3.posW - x2.posW;
+    float3 wo = x1.posW - x2.posW;
     float lwi = length(wi);
     float ili = 1 / lwi;
-    float ilo = 1 / length(wo);
+    float lwo = length(wo);
+    float ilo = 1 / lwo;
     wi *= ili;
     wo *= ilo;
 
-    float cosThetaX2 = dot(x2.N, wi);
-    float g_x1x2 = cosThetaX2 / (lwi * lwi);
+    float cosThetaX2 = dot(x2.N, wo);
+    float g_x1x2 = cosThetaX2 / (lwo * lwo);
 
-    // Compute Jacobian as G'(x1 <-> x2) * |A^-1 * B3|
-    float detAInv = determinant(inverse(gradC[1]));
-    float detB3 = determinant(gradC[2]);
+    // Compute Jacobian as G'(x1 <-> x2) * |B2^-1 * B1|
+    float detB2Inv = determinant(inverse(gradC[1]));
+    float detB1 = determinant(gradC[0]);
 
     print("-------- g_x1x2", g_x1x2);
-    print("-------- detAInv", detAInv);
-    print("-------- detB3", detB3);
+    print("-------- detB2Inv", detB2Inv);
+    print("-------- detB1", detB1);
 
-    float jacobian = g_x1x2 * detAInv * detB3;
+    float jacobian = g_x1x2 * detB2Inv * detB1;
     return jacobian;
 }
 
@@ -213,7 +219,34 @@ void walkManifoldDSD(
 )
 {
     print("----- walkManifoldDSD: begin()", 0);
-    // TODO:
+
+    float beta = 1.f;
+    // threshold = self.eps_threshold()
+    float3 x3ToTarget = target.posW - x3.posW;
+    float endPointDistance = length(x3ToTarget);
+
+    //  TODO: Get this from somewhere?
+    float SCENE_LENGTH = 1.f;
+
+    float2x2 gradC[3];
+
+    for (uint i = 0; i < 20; i++)
+    {
+        if (endPointDistance <= SCENE_LENGTH * FLT_EPSILON)
+            break;
+
+        // Compute tangent plane at X3
+        matrix<float, 2, 3> TX3_transpose = {
+            x3.T.x, x3.T.y, x3.T.z,
+            x3.B.x, x3.B.y, x3.B.z,
+        };
+
+        // computeSpecularConstraintDerivatives(x1, x2, x3, x2_dndu, x2_dndv, gradC);
+        // float projectDiffTo
+
+
+
+    }
 
     print("----- walkManifoldDSD: end()", 0);
 }
