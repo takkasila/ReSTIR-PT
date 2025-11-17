@@ -197,7 +197,23 @@ float computeReconnectionDSDShiftJacobian(
 
     print("------- Jacobian DSD shift dst:", dstJacobian);
     print("------- Jacobian DSD shift src:", srcJacobian);
-    print("------- Jacobian Reconnection DSD shift:", srcJacobian);
+    print("------- Jacobian Reconnection DSD shift:", Jacobian);
 
     return Jacobian;
+}
+
+void walkManifoldDSD(
+    ShadingData x1,
+    ShadingData x2,
+    ShadingData x3,
+    ShadingData target,
+    float3 x2_dndu,
+    float3 x2_dndv,
+    out ShadingData x2_new
+)
+{
+    print("----- walkManifoldDSD: begin()", 0);
+    // TODO:
+
+    print("----- walkManifoldDSD: end()", 0);
 }

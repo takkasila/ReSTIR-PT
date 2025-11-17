@@ -264,7 +264,7 @@ struct PathReusePass
                                 }
 
                                 float3 tneighborIntegrand = computeShiftedIntegrand(params, tneighborJacobian, temporalPrimaryHitPacked, temporalPrimarySd,
-                                    centralPrimarySd, tempDstReservoir, rcData, true, true); //usePrev
+                                    centralPrimarySd, tempDstReservoir, rcData, sg, true, true); //usePrev
                                 p_ = PathReservoir::toScalar(tneighborIntegrand) * tneighborJacobian;
                                 p_sum += p_ * temporalReservoir.M;
                             }
@@ -320,7 +320,7 @@ struct PathReusePass
                         float prefix_approxPdf;
 
                         float3 prefixIntegrand = computeShiftedIntegrand(params, prefixJacobian, temporalPrimaryHitPacked, temporalPrimarySd,
-                            centralPrimarySd, dstReservoir, dummyRcData, true, true); //usePrev // determinisitically select the reconnection shift
+                            centralPrimarySd, dstReservoir, dummyRcData, sg, true, true); //usePrev // determinisitically select the reconnection shift
                         prefix_approxPdf = PathReservoir::toScalar(prefixIntegrand) * prefixJacobian;
 
                         if (prefix_approxPdf > 0.f)

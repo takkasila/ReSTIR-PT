@@ -348,7 +348,7 @@ struct PathReusePass
                             //  dst: neighbor
                             //  src: central
                             float3 tneighborIntegrand = computeShiftedIntegrand(params, tneighborJacobian, tneighborPrimaryHitPacked, tneighborPrimarySd,
-                                centralPrimarySd, tempDstReservoir, dummyRcData, true);
+                                centralPrimarySd, tempDstReservoir, dummyRcData, sg, true);
                             float p_ = PathReservoir::computeWeight(tneighborIntegrand) * tneighborJacobian;
                             p_sum += p_ * tneighborReservoir.M;
                         }
@@ -438,7 +438,7 @@ struct PathReusePass
                 //  src: central
                 //  rc: central
                 float3 prefixIntegrand = computeShiftedIntegrand(params, prefixJacobian, neighborPrimaryHitPacked, neighborPrimarySd,
-                    centralPrimarySd, centralReservoir, rcData, true);
+                    centralPrimarySd, centralReservoir, rcData, sg, true);
 
                 prefix_approxPdf = PathReservoir::computeWeight(prefixIntegrand) * prefixJacobian;
 
@@ -624,7 +624,7 @@ struct PathReusePass
                         int shiftCount = 0;
 
                         float3 prefixIntegrand = computeShiftedIntegrand(params, prefixJacobian, prefixPrimaryHitPacked, prefixPrimarySd,
-                            centralPrimarySd, dstReservoir, dummyRcData, true);
+                            centralPrimarySd, dstReservoir, dummyRcData, sg, true);
                         prefix_approxPdf = PathReservoir::computeWeight(prefixIntegrand) * prefixJacobian;
 
                         if (prefix_approxPdf > 0.f) count += prefixReservoir.M;

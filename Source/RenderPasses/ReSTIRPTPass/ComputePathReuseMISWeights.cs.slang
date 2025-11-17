@@ -69,7 +69,7 @@ struct PathReusePass
 
     int2 getPathReuseNextNeighborPixel(int4 NRookQuery, int2 pixel, int i)
     {
-        // 
+        //
         if (PathReusePattern(gSpatialReusePattern) == PathReusePattern::Block)
         {
             int2 block = pixel / 4;
@@ -164,7 +164,7 @@ struct PathReusePass
                     float tneighborJacobian = 0.f;
                     float output2 = 0.f;
                     float3 tneighborIntegrand = computeShiftedIntegrandExtraOutput(params, tneighborJacobian, output2, tneighborPrimaryHitPacked, tneighborPrimarySd,
-                        centralPrimarySd, centralReservoir, dummyRcData, true);
+                        centralPrimarySd, centralReservoir, dummyRcData, sg, true);
                     p = tneighborJacobian;
                     p_NEE = output2;
                 }

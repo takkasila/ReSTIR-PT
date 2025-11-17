@@ -23,11 +23,11 @@ ParameterBlock<PathTracer> gPathTracer;
 
 float3 computeShiftedIntegrandExtraOutput(
     const RestirPathTracerParams params, inout float dstJacobian, inout float output2, const PackedHitInfo dstPrimaryHitPacked, const ShadingData dstPrimarySd,
-    const ShadingData srcPrimarySd, const PathReservoir srcReservoir, ReconnectionData rcData, bool evalVisibility, bool usePrev = false, bool temporalUpdateForDynamicScene = false)
+    const ShadingData srcPrimarySd, const PathReservoir srcReservoir, ReconnectionData rcData, SampleGenerator sg, bool evalVisibility, bool usePrev = false, bool temporalUpdateForDynamicScene = false)
 {
     PathReservoir tempReservoir = srcReservoir;
     float3 res = computeShiftedIntegrand_(params, dstJacobian, dstPrimaryHitPacked, dstPrimarySd,
-        srcPrimarySd, tempReservoir, rcData, evalVisibility, usePrev, temporalUpdateForDynamicScene);
+        srcPrimarySd, tempReservoir, rcData, sg, evalVisibility, usePrev, temporalUpdateForDynamicScene);
     if (PathSamplingMode(kPathSamplingMode) == PathSamplingMode::PathReuse) // for precomputing MIS weights
     {
         dstJacobian = tempReservoir.cachedJacobian[0];
@@ -38,11 +38,11 @@ float3 computeShiftedIntegrandExtraOutput(
 
 float3 computeShiftedIntegrand(
     const RestirPathTracerParams params, inout float dstJacobian, const PackedHitInfo dstPrimaryHitPacked, const ShadingData dstPrimarySd,
-    const ShadingData srcPrimarySd, const PathReservoir srcReservoir, ReconnectionData rcData, bool evalVisibility, bool usePrev = false, bool temporalUpdateForDynamicScene = false)
+    const ShadingData srcPrimarySd, const PathReservoir srcReservoir, ReconnectionData rcData, SampleGenerator sg, bool evalVisibility, bool usePrev = false, bool temporalUpdateForDynamicScene = false)
 {
     PathReservoir tempReservoir = srcReservoir;
     float3 res = computeShiftedIntegrand_(params, dstJacobian, dstPrimaryHitPacked, dstPrimarySd,
-        srcPrimarySd, tempReservoir, rcData, evalVisibility, usePrev, temporalUpdateForDynamicScene);
+        srcPrimarySd, tempReservoir, rcData, sg, evalVisibility, usePrev, temporalUpdateForDynamicScene);
     if (PathSamplingMode(kPathSamplingMode) == PathSamplingMode::PathReuse) // for precomputing MIS weights
     {
         dstJacobian = tempReservoir.cachedJacobian[0];
@@ -50,8 +50,19 @@ float3 computeShiftedIntegrand(
     return res;
 }
 
-float3 computeShiftedIntegrand_(const RestirPathTracerParams params, inout float dstJacobian, const PackedHitInfo dstPrimaryHitPacked, const ShadingData dstPrimarySd,
-    const ShadingData srcPrimarySd, inout PathReservoir srcReservoir, ReconnectionData rcData, bool evalVisibility, bool usePrev = false, bool temporalUpdateForDynamicScene = false)
+float3 computeShiftedIntegrand_(
+    const RestirPathTracerParams params,
+    inout float dstJacobian,
+    const PackedHitInfo dstPrimaryHitPacked,
+    const ShadingData dstPrimarySd,
+    const ShadingData srcPrimarySd,
+    inout PathReservoir srcReservoir,
+    ReconnectionData rcData,
+    SampleGenerator sg,
+    bool evalVisibility,
+    bool usePrev = false,
+    bool temporalUpdateForDynamicScene = false
+)
 {
     dstJacobian = 0.f;
 
@@ -111,7 +122,7 @@ float3 computeShiftedIntegrand_(const RestirPathTracerParams params, inout float
         {
             print("--- Doing DSD RC in HybridShiftSMS", 0);
             // DSD reconnection
-            tmp = computeShiftedIntegrandHybridShiftSMS(params, usePrev, temporalUpdateForDynamicScene, dstJacobian, dstPrimaryHitPacked, dstPrimarySd, srcPrimarySd, srcReservoir, rcData, evalVisibility);
+            tmp = computeShiftedIntegrandHybridShiftSMS(params, usePrev, temporalUpdateForDynamicScene, dstJacobian, dstPrimaryHitPacked, dstPrimarySd, srcPrimarySd, srcReservoir, rcData, evalVisibility, sg);
 
             print("--- integrand", tmp);
         }
@@ -592,7 +603,8 @@ float3 computeShiftedIntegrandHybridShiftSMS(
     const ShadingData srcPrimarySd,
     inout PathReservoir tempPathReservoir,
     ReconnectionData rcData,
-    bool evalVisibility
+    bool evalVisibility,
+    SampleGenerator sg
 )
 {
     dstJacobian = 0.f;
@@ -664,6 +676,7 @@ float3 computeShiftedIntegrandHybridShiftSMS(
         ShadingData srcRcPrevVertexSd = loadShadingDataWithPrevVertexPosition(srcRcPrevVertexHit, srcRcPrevPrevVertexSd.posW, false);
 
         VertexData rcVertex = gScene.getVertexData(srcReservoir.rcVertexHit.getHitInfo().getTriangleHit());
+        ShadingData rcVertexSd = loadShadingDataWithPrevVertexPosition(srcReservoir.rcVertexHit.getHitInfo(), srcRcPrevVertexSd.posW, false);
 
         // Check if need to trace temporal
         if (temporalUpdateForDynamicScene
@@ -682,24 +695,86 @@ float3 computeShiftedIntegrandHybridShiftSMS(
         }
 
         // Compute normal derivatives
-
         float3 srcRcPrevDnDu, srcRcPrevDnDv;
         computeNormalDerivatives(srcRcPrevVertexHit, srcRcPrevVertexSd.V, srcRcPrevDnDu, srcRcPrevDnDv);
 
         float3 dstRcPrevDnDu, dstRcPrevDnDv;
         computeNormalDerivatives(dstRcPrevVertexHit, dstRcPrevVertexSd.V, dstRcPrevDnDu, dstRcPrevDnDv);
 
+        // Find the physically correct dst x3 position that reflect from dst_x1 -> dst_x2
+        HitInfo dstFalseRcHit = {};
+        ShadingData dstFlaseRcSd;
+        {
+            // Sample scatter direction at x2
+            // Generate a BSDF sample.
+            bool valid;
+            BSDFSample_ result;
+
+            valid = sampleBSDF(dstRcPrevVertexSd, sg, result, !kSeparatePathBSDF);
+
+            // Valid sample
+            if (valid)
+            {
+                print("----- Valid scatter dir", result.wi);
+
+                // Setup ray
+                RayDesc ray = { dstRcPrevVertexSd.posW, 0.f, result.wi, kRayTMax };
+
+                logTraceRay(PixelStatsRayType::ClosestHit);
+                float hitT;
+                SceneRayQuery<kUseAlphaTest> sceneRayQuery;
+
+                // Trace ray
+                if (sceneRayQuery.traceRay(ray, dstFalseRcHit, hitT, RAY_FLAG_NONE, 0xff))
+                {
+                    // Valid hit
+                    print("------ Successful trace", 0);
+
+                    dstFlaseRcSd = loadShadingDataWithPrevVertexPosition(dstFalseRcHit, dstRcPrevVertexSd.posW, false);
+                    // Why does dstFlaseRcSd is sometimes the same as dstRcPrevVertexSd?
+                }
+                else
+                {
+                    print("------ Unsuccessful trace", 0);
+                }
+            }
+            else
+            {
+                print("----- Invalid scatter dir", result.wi);
+            }
+        }
+
         print("----- Input to Manifold Exploration:", 0);
-        print("------ rcVertex.posW", rcVertex.posW);
+        print("------ rcVertexSd.posW", rcVertexSd.posW);
         print("------ srcRcPrevVertexSd.posW", srcRcPrevVertexSd.posW);
         print("------ srcRcPrevPrevVertexSd.posW", srcRcPrevPrevVertexSd.posW);
+
+        print("\n------ dstFlaseRcSd.posW", dstFlaseRcSd.posW);
         print("------ dstRcPrevVertexSd.posW", dstRcPrevVertexSd.posW);
-        print("------ dstRcPrevDnDu.posW", dstRcPrevDnDu);
+        print("------ dstRcPrevPrevVertexSd.posW", dstRcPrevPrevVertexSd.posW);
+
+        print("\n------ dstRcPrevDnDu.posW", dstRcPrevDnDu);
         print("------ dstRcPrevDnDv.posW", dstRcPrevDnDv);
         print("------ srcRcPrevDnDu.posW", srcRcPrevDnDu);
         print("------ srcRcPrevDnDv.posW", srcRcPrevDnDv);
 
-        // TODO:
+        // TODO: Handle when dstFlaseRcHit is invalid
+        if (!dstFalseRcHit.isValid())
+        {
+            // Does this means the shift is not feasible?
+        }
+
+        // Manifold Exploration to find the correct x2
+        ShadingData x2_new;
+        walkManifoldDSD(
+            dstRcPrevPrevVertexSd,
+            dstRcPrevVertexSd,
+            dstFlaseRcSd,
+            rcVertexSd,
+            dstRcPrevDnDu,
+            dstRcPrevDnDv,
+            x2_new
+        );
 
         // Update dstRcPrev dndu, dndv after the exploration
         // computeNormalDerivatives(dstRcPrevVertexHit, dstRcPrevVertexSd.V, dstRcPrevDnDu, dstRcPrevDnDv);
@@ -1283,7 +1358,7 @@ bool shiftAndMergeReservoir(const RestirPathTracerParams params, bool temporalUp
 
     // Compute srcReservoir shiftedIntegrand with its reconnection data
     float3 dstIntegrand = computeShiftedIntegrand_(params, dstJacobian, dstPrimaryHitPacked, dstPrimarySd, srcPrimarySd,
-                                                            tempPathReservoir, rcData, evalVisibility, false, temporalUpdateForDynamicScene);
+    tempPathReservoir, rcData, sg, evalVisibility, false, temporalUpdateForDynamicScene);
 
     if (PathSamplingMode(kPathSamplingMode) == PathSamplingMode::PathReuse)
     {
