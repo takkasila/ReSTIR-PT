@@ -17,6 +17,7 @@ import Scene.Scene;
 import PathTracer;
 import RenderPasses.Shared.Denoising.NRDData;
 import DebugPathDataType;
+import SpecularManifold;
 
 ParameterBlock<PathTracer> gPathTracer;
 
@@ -297,107 +298,6 @@ float3 computeShiftedIntegrandHybrid(const RestirPathTracerParams params, bool u
     return Tp * rcTp;
 }
 
-float computeShiftJacobianDSD(ShadingData x1, ShadingData x2, ShadingData x3, float3 dndu, float3 dndv, inout float3 cachedJacobian)
-{
-    // Compute relevant directions and a few useful projections
-    // Actually, is wi and wo swapped in this case?
-    // Yes, just swap the name when declaring
-    float3 wi = x1.posW - x2.posW;
-    float3 wo = x3.posW - x2.posW;
-    float lwi = length(wi);
-    float ili = 1 / lwi;
-    float ilo = 1 / length(wo);
-    wi *= ili;
-    wo *= ilo;
-
-    // Half vector
-    float3 H = wi + x2.eta * wo;
-    float ilh = 1 / length(H);
-    H *= ilh;
-
-    float dot_H_n = dot(x2.N, H);
-    float dot_H_dndu = dot(dndu, H);
-    float dot_H_dndv = dot(dndv, H);
-    float dot_u_n = dot(x2.T, x2.N);
-    float dot_v_n = dot(x2.B, x2.N);
-
-    // Local shading tangent frame
-    float3 s = x2.T - dot_u_n * x2.N;
-    float3 t = x2.B - dot_v_n * x2.N;
-
-    ilo *= x2.eta * ilh;
-    ili *= ilh;
-
-    // Derivatives of C with respect to x1
-    float3 dH_du = (x1.T - wi * dot(wi, x1.T)) * ili;
-    float3 dH_dv = (x1.B - wi * dot(wi, x1.B)) * ili;
-
-    dH_du -= H * dot(dH_du, H);
-    dH_dv -= H * dot(dH_dv, H);
-
-    float2x2 B1 = float2x2(
-        dot(dH_du, s), dot(dH_dv, s),
-        dot(dH_du, t), dot(dH_dv, t)
-    );
-
-    print("-------- B1:", 0);
-    print("--------- ", B1[0]);
-    print("--------- ", B1[1]);
-
-    // Derivatives of C with respect to x2
-    dH_du = -x2.T * (ili + ilo)
-            + wi * (dot(wi, x2.T) * ili)
-            + wo * (dot(wo, x2.T) * ilo);
-    dH_dv = -x2.B * (ili + ilo)
-            + wi * (dot(wi, x2.B) * ili)
-            + wo * (dot(wo, x2.B) * ilo);
-
-    dH_du -= H * dot(dH_du, H);
-    dH_dv -= H * dot(dH_dv, H);
-
-    float2x2 A = float2x2(
-        dot(dH_du, s) - dot(x2.T, dndu) * dot_H_n - dot_u_n * dot_H_dndu,
-        dot(dH_dv, s) - dot(x2.T, dndv) * dot_H_n - dot_u_n * dot_H_dndv,
-        dot(dH_du, t) - dot(x2.B, dndu) * dot_H_n - dot_v_n * dot_H_dndu,
-        dot(dH_dv, t) - dot(x2.B, dndv) * dot_H_n - dot_v_n * dot_H_dndv
-    );
-
-    print("-------- A:", 0);
-    print("--------- ", A[0]);
-    print("--------- ", A[1]);
-
-    // Derivatives of C with respect to x3
-    dH_du = (x3.T - wo * dot(wo, x3.T)) * ilo;
-    dH_dv = (x3.B - wo * dot(wo, x3.B)) * ilo;
-
-    dH_du -= H * dot(dH_du, H);
-    dH_dv -= H * dot(dH_dv, H);
-
-    float2x2 B3 = float2x2(
-        dot(dH_du, s), dot(dH_dv, s),
-        dot(dH_du, t), dot(dH_dv, t)
-    );
-
-    print("-------- B3:", 0);
-    print("--------- ", B3[0]);
-    print("--------- ", B3[1]);
-
-    // Compute G'(x1 <-> x2)
-    float cosThetaX2 = dot(x2.N, wi);
-    float g_x1x2 = cosThetaX2 / (lwi * lwi);
-
-    // Compute Jacobian as G'(x1 <-> x2) * |A^-1 * B3|
-    float detAInv = determinant(inverse(A));
-    float detB3 = determinant(B3);
-
-    print("-------- g_x1x2", g_x1x2);
-    print("-------- detAInv", detAInv);
-    print("-------- detB3", detB3);
-
-    float jacobian = g_x1x2 * detAInv * detB3;
-    return jacobian;
-}
-
 // dstPdf * dstJacobian transforms pdf in dst space to src space
 // srcPdf / dstJacobian transforms pdf in src space to dst space
 float3 computeShiftedIntegrandDSD(
@@ -456,14 +356,18 @@ float3 computeShiftedIntegrandDSD(
     // Compute Jacobian of the shift
     //
     print("------ Compute Jacobian", 0);
-
-    float dstJacobianPart = computeShiftJacobianDSD(dstPrevPrevRcSd, dstPrevRcSd, rcVertexSd, dstRcPrevDnDu, dstRcPrevDnDv, srcReservoir.cachedJacobian);
-    print("------- Jacobian DSD shift dst:", dstJacobianPart);
-
-    float srcJacobianPart = computeShiftJacobianDSD(srcPrevPrevRcSd, srcPrevRcSd, rcVertexSd, srcRcPrevDnDu, srcRcPrevDnDv, srcReservoir.cachedJacobian);
-    print("------- Jacobian DSD shift src:", srcJacobianPart);
-
-    float Jacobian = dstJacobianPart / srcJacobianPart;
+    float Jacobian = computeReconnectionDSDShiftJacobian(
+        srcPrevPrevRcSd,
+        srcPrevRcSd,
+        rcVertexSd,
+        srcRcPrevDnDu,
+        srcRcPrevDnDv,
+        dstPrevPrevRcSd,
+        dstPrevRcSd,
+        rcVertexSd,
+        dstRcPrevDnDu,
+        dstRcPrevDnDv
+    );
 
     if (isJacobianInvalid(Jacobian))
     {
@@ -674,52 +578,6 @@ float3 computeShiftedIntegrandDSD(
     print("------ computeShiftedIntegrandDSD: end()", 0);
 
     return dstIntgPrevPrevRc;
-}
-
-void computeNormalDerivatives(HitInfo hit, float3 viewDir, out float3 dndu, out float3 dndv)
-{
-    TriangleHit triHit = hit.getTriangleHit();
-
-    float curveSphereRadius = {};
-    uint materialID = {};
-    VertexData v = loadVertexData(hit, viewDir, materialID, curveSphereRadius);
-    // print("------ v.normalW", v.normalW);
-
-    // Get 3 corner vertices of the triangle
-    const uint3 vtxIndices = gScene.getIndices(triHit.instanceID, triHit.primitiveIndex);
-    StaticVertexData vertices[3] = {
-        gScene.getVertex(vtxIndices[0]),
-        gScene.getVertex(vtxIndices[1]),
-        gScene.getVertex(vtxIndices[2])
-    };
-
-    // print("------ vertices[0].normal", vertices[0].normal);
-    // print("------ vertices[1].normal", vertices[1].normal);
-    // print("------ vertices[2].normal", vertices[2].normal);
-
-    float N_dot_N = dot(v.normalW, v.normalW);
-
-    float3x3 I3 = {
-        1, 0, 0,
-        0, 1, 0,
-        0, 0, 1,
-    };
-
-    matrix<float, 3, 1> n = { v.normalW.x, v.normalW.y, v.normalW.z };
-    matrix<float, 1, 3> nT = { v.normalW.x, v.normalW.y, v.normalW.z };
-
-    float3x3 term = (I3 - (mul(n, nT) / N_dot_N)) / sqrt(N_dot_N);
-
-    // print("------ Matrix:", 0);
-    // print("------- ", term[0]);
-    // print("------- ", term[1]);
-    // print("------- ", term[2]);
-
-    float3 N_u = vertices[1].normal - vertices[0].normal;
-    float3 N_v = vertices[2].normal - vertices[0].normal;
-
-    dndu = mul(term, N_u);
-    dndv = mul(term, N_v);
 }
 
 // SRC: Base path
