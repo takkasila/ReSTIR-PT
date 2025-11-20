@@ -153,12 +153,12 @@ float computeDSDShiftJacobian(ShadingData x1, ShadingData x2, ShadingData x3, fl
 {
     // Compute Gradient C
     float2x2 gradC[3];
-    computeSpecularConstraintDerivatives(x3, x2, x1, dndu, dndv, gradC);
+    computeSpecularConstraintDerivatives(x1, x2, x3, dndu, dndv, gradC);
     // NOTE: gradC[0] is respective toward x3
 
-    // Compute G'(x1 <-> x2)
-    float3 wi = x3.posW - x2.posW;
-    float3 wo = x1.posW - x2.posW;
+    // Compute G'(x2 <-> x3)
+    float3 wi = x1.posW - x2.posW;
+    float3 wo = x3.posW - x2.posW;
     float lwi = length(wi);
     float ili = 1 / lwi;
     float lwo = length(wo);
@@ -166,10 +166,9 @@ float computeDSDShiftJacobian(ShadingData x1, ShadingData x2, ShadingData x3, fl
     wi *= ili;
     wo *= ilo;
 
-    float cosThetaX2 = dot(x2.N, wo);
-    float g_x1x2 = cosThetaX2 / (lwo * lwo);
+    float g_x1x2 = dot(x2.N, wo) / (lwo * lwo);
 
-    // Compute Jacobian as G'(x1 <-> x2) * |B2^-1 * B1|
+    // Compute Jacobian as G'(x2 <-> x3) * |B2^-1 * B1|
     float detB2Inv = determinant(inverse(gradC[1]));
     float detB1 = determinant(gradC[0]);
 
@@ -181,7 +180,8 @@ float computeDSDShiftJacobian(ShadingData x1, ShadingData x2, ShadingData x3, fl
     return jacobian;
 }
 
-
+// x1 closer to eye
+// x3 closer to light source
 float computeReconnectionDSDShiftJacobian(
     ShadingData srcX1,
     ShadingData srcX2,
@@ -208,13 +208,13 @@ float computeReconnectionDSDShiftJacobian(
     return Jacobian;
 }
 
+// x1 closer to eye, fixed
+// x3 closer to light source, move to target
 void walkManifoldDSD(
-    ShadingData x1,
-    ShadingData x2,
-    ShadingData x3,
-    ShadingData target,
-    float3 x2_dndu,
-    float3 x2_dndv,
+    const ShadingData x1_in,
+    const HitInfo x2Hit_in,
+    const ShadingData x3_in,
+    const ShadingData target,
     out ShadingData x2_new
 )
 {
@@ -222,29 +222,94 @@ void walkManifoldDSD(
 
     float beta = 1.f;
     // threshold = self.eps_threshold()
-    float3 x3ToTarget = target.posW - x3.posW;
-    float endPointDistance = length(x3ToTarget);
+    float3 x3ToTarget;
+    float endPointDistance;
 
     //  TODO: Get this from somewhere?
-    float SCENE_LENGTH = 1.f;
+    const float SCENE_LENGTH = 1.f;
+    const uint MAX_ITER = 20;
+    const float EPS = 1e-05F; // or FLT_EPSILON
 
     float2x2 gradC[3];
 
-    for (uint i = 0; i < 20; i++)
-    {
-        if (endPointDistance <= SCENE_LENGTH * FLT_EPSILON)
-            break;
+    float3 x2_dndu;
+    float3 x2_dndv;
+    HitInfo x2Hit = x2Hit_in;
+    ShadingData x2 = {};
 
-        // Compute tangent plane at X3
+    ShadingData x3 = x3_in;
+
+    for (uint i = 0; i < MAX_ITER; i++)
+    {
+        print("----- Round", i);
+
+        // Check if close enough
+        x3ToTarget = target.posW - x3.posW;
+        endPointDistance = length(x3ToTarget);
+
+        print("------ End point distance", endPointDistance);
+
+        if (endPointDistance <= SCENE_LENGTH * EPS)
+        {
+            print("------ stop: close enough", 0);
+            break;
+        }
+
+        // Prep ingredients
+        x2 = loadShadingDataWithPrevVertexPosition(x2Hit, x3.posW, false);
+        computeNormalDerivatives(x2Hit, x2.V, x2_dndu, x2_dndv);
+        computeSpecularConstraintDerivatives(x1_in, x2, x3, x2_dndu, x2_dndv, gradC);
+
+        print("------ x2.posW", x2.posW);
+
+        // Contruct tangent plane at X3
         matrix<float, 2, 3> TX3_transpose = {
             x3.T.x, x3.T.y, x3.T.z,
             x3.B.x, x3.B.y, x3.B.z,
         };
 
-        // computeSpecularConstraintDerivatives(x1, x2, x3, x2_dndu, x2_dndv, gradC);
-        // float projectDiffTo
+        // Project distancement to tangent plane
+        float2 projectedDisplacement = mul(TX3_transpose, x3ToTarget);
 
+        print("------ projectedDisplacement", projectedDisplacement);
 
+        // Displacement of x2 is A^-1 * B3
+        float2x2 displacementX3ToX2 = inverse(gradC[1]) * gradC[2];
+        float2 displacementX2 = mul(displacementX3ToX2, projectedDisplacement);
+
+        print("------ displacementX2", displacementX2);
+
+        // P2
+        float2x2 P2 = {
+            1.0f, 0,
+            0, 1.0f
+        };
+        P2 = -P2; // Or is it?
+
+        // Project the displacement onto second vertex tangent space
+        float2 displacementX2ProjectedX2 = mul(P2, displacementX2);
+        print("------ displacementX2ProjectedX2", displacementX2ProjectedX2);
+
+        // Construct tangent plane at X2
+        matrix<float, 3, 2> TX2 = {
+            x2.T.x, x2.B.x,
+            x2.T.y, x2.B.y,
+            x2.T.z, x2.B.z,
+        };
+
+        // Transform displacement on tangent plane to world space
+        float3 displacementWorld = mul(TX2, displacementX2ProjectedX2);
+        print("------ displacementWorld", displacementWorld);
+
+        // Apply the step size
+        displacementWorld *= beta;
+        print("------ displacementWorld with step size", displacementWorld);
+
+        // Extrapolated position
+        float3 x2_new = x2.posW - displacementWorld;
+        print("------ x2_new", x2_new);
+
+        break;
 
     }
 

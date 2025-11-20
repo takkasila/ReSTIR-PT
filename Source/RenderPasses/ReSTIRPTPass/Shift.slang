@@ -368,14 +368,14 @@ float3 computeShiftedIntegrandDSD(
     //
     print("------ Compute Jacobian", 0);
     float Jacobian = computeReconnectionDSDShiftJacobian(
-        srcPrevPrevRcSd,
-        srcPrevRcSd,
         rcVertexSd,
+        srcPrevRcSd,
+        srcPrevPrevRcSd,
         srcRcPrevDnDu,
         srcRcPrevDnDv,
-        dstPrevPrevRcSd,
-        dstPrevRcSd,
         rcVertexSd,
+        dstPrevRcSd,
+        dstPrevPrevRcSd,
         dstRcPrevDnDu,
         dstRcPrevDnDv
     );
@@ -702,6 +702,7 @@ float3 computeShiftedIntegrandHybridShiftSMS(
         computeNormalDerivatives(dstRcPrevVertexHit, dstRcPrevVertexSd.V, dstRcPrevDnDu, dstRcPrevDnDv);
 
         // Find the physically correct dst x3 position that reflect from dst_x1 -> dst_x2
+        /*
         HitInfo dstFalseRcHit = {};
         ShadingData dstFlaseRcSd;
         {
@@ -743,14 +744,14 @@ float3 computeShiftedIntegrandHybridShiftSMS(
                 print("----- Invalid scatter dir", result.wi);
             }
         }
+        */
 
         print("----- Input to Manifold Exploration:", 0);
         print("------ rcVertexSd.posW", rcVertexSd.posW);
         print("------ srcRcPrevVertexSd.posW", srcRcPrevVertexSd.posW);
         print("------ srcRcPrevPrevVertexSd.posW", srcRcPrevPrevVertexSd.posW);
 
-        print("\n------ dstFlaseRcSd.posW", dstFlaseRcSd.posW);
-        print("------ dstRcPrevVertexSd.posW", dstRcPrevVertexSd.posW);
+        print("\n------ dstRcPrevVertexSd.posW", dstRcPrevVertexSd.posW);
         print("------ dstRcPrevPrevVertexSd.posW", dstRcPrevPrevVertexSd.posW);
 
         print("\n------ dstRcPrevDnDu.posW", dstRcPrevDnDu);
@@ -758,21 +759,13 @@ float3 computeShiftedIntegrandHybridShiftSMS(
         print("------ srcRcPrevDnDu.posW", srcRcPrevDnDu);
         print("------ srcRcPrevDnDv.posW", srcRcPrevDnDv);
 
-        // TODO: Handle when dstFlaseRcHit is invalid
-        if (!dstFalseRcHit.isValid())
-        {
-            // Does this means the shift is not feasible?
-        }
-
         // Manifold Exploration to find the correct x2
         ShadingData x2_new;
         walkManifoldDSD(
-            dstRcPrevPrevVertexSd,
-            dstRcPrevVertexSd,
-            dstFlaseRcSd,
             rcVertexSd,
-            dstRcPrevDnDu,
-            dstRcPrevDnDv,
+            dstRcPrevVertexHit,
+            srcRcPrevPrevVertexSd,
+            dstRcPrevPrevVertexSd,
             x2_new
         );
 

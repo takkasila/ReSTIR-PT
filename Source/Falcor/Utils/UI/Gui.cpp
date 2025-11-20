@@ -775,7 +775,7 @@ namespace Falcor
         }
         else
         {
-            logError("Unsupported slider type");
+            //logError("Unsupported slider type");
             return false;
         }
     }
