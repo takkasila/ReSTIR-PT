@@ -701,50 +701,6 @@ float3 computeShiftedIntegrandHybridShiftSMS(
         float3 dstRcPrevDnDu, dstRcPrevDnDv;
         computeNormalDerivatives(dstRcPrevVertexHit, dstRcPrevVertexSd.V, dstRcPrevDnDu, dstRcPrevDnDv);
 
-        // Find the physically correct dst x3 position that reflect from dst_x1 -> dst_x2
-        /*
-        HitInfo dstFalseRcHit = {};
-        ShadingData dstFlaseRcSd;
-        {
-            // Sample scatter direction at x2
-            // Generate a BSDF sample.
-            bool valid;
-            BSDFSample_ result;
-
-            valid = sampleBSDF(dstRcPrevVertexSd, sg, result, !kSeparatePathBSDF);
-
-            // Valid sample
-            if (valid)
-            {
-                print("----- Valid scatter dir", result.wi);
-
-                // Setup ray
-                RayDesc ray = { dstRcPrevVertexSd.posW, 0.f, result.wi, kRayTMax };
-
-                logTraceRay(PixelStatsRayType::ClosestHit);
-                float hitT;
-                SceneRayQuery<kUseAlphaTest> sceneRayQuery;
-
-                // Trace ray
-                if (sceneRayQuery.traceRay(ray, dstFalseRcHit, hitT, RAY_FLAG_NONE, 0xff))
-                {
-                    // Valid hit
-                    print("------ Successful trace", 0);
-
-                    dstFlaseRcSd = loadShadingDataWithPrevVertexPosition(dstFalseRcHit, dstRcPrevVertexSd.posW, false);
-                    // Why does dstFlaseRcSd is sometimes the same as dstRcPrevVertexSd?
-                }
-                else
-                {
-                    print("------ Unsuccessful trace", 0);
-                }
-            }
-            else
-            {
-                print("----- Invalid scatter dir", result.wi);
-            }
-        }
-        */
 
         print("----- Input to Manifold Exploration:", 0);
         print("------ rcVertexSd.posW", rcVertexSd.posW);
@@ -761,13 +717,15 @@ float3 computeShiftedIntegrandHybridShiftSMS(
 
         // Manifold Exploration to find the correct x2
         ShadingData x2_new;
-        walkManifoldDSD(
+        bool isManifoldSuccess = walkManifoldDSD(
             rcVertexSd,
             dstRcPrevVertexHit,
             srcRcPrevPrevVertexSd,
             dstRcPrevPrevVertexSd,
             x2_new
         );
+
+        print("----- Is update manifold success:", isManifoldSuccess);
 
         // Update dstRcPrev dndu, dndv after the exploration
         // computeNormalDerivatives(dstRcPrevVertexHit, dstRcPrevVertexSd.V, dstRcPrevDnDu, dstRcPrevDnDv);

@@ -1,11 +1,14 @@
 #include "Utils/Math/MathConstants.slangh"
+import Params;
+import PathState;
 import PathReservoir;
 import LoadShadingData;
-import Params;
 import Utils.Debug.PixelDebug;
 import Utils.Math.MathHelpers;
 import Scene.Scene;
-
+import Scene.RaytracingInline;
+import Rendering.Utils.PixelStats;
+import Rendering.Materials.MaterialShading;
 
 void computeNormalDerivatives(HitInfo hit, float3 viewDir, out float3 dndu, out float3 dndv)
 {
@@ -56,7 +59,7 @@ void computeNormalDerivatives(HitInfo hit, float3 viewDir, out float3 dndu, out 
 
 // x1 closer to light source
 // x3 closer to eye
-void computeSpecularConstraintDerivatives(ShadingData x1, ShadingData x2, ShadingData x3, float3 dndu, float3 dndv, out float2x2 gradC[3])
+bool computeSpecularConstraintDerivatives(ShadingData x1, ShadingData x2, ShadingData x3, float3 dndu, float3 dndv, out float2x2 gradC[3])
 {
     // Compute relevant directions and a few useful projections
     // Actually, is wi and wo swapped in this case?
@@ -144,16 +147,23 @@ void computeSpecularConstraintDerivatives(ShadingData x1, ShadingData x2, Shadin
     gradC[0] = B1;
     gradC[1] = B2;
     gradC[2] = B3;
+
+    // Check validity
+    bool isValid = any(isnan(gradC[0])) || any(isnan(gradC[0])) || any(isnan(gradC[0]));
+    return !isValid;
 }
 
-
-// x1 closer to eye
-// x3 closer to light source
+// x1 closer to light source
+// x3 closer to eye
 float computeDSDShiftJacobian(ShadingData x1, ShadingData x2, ShadingData x3, float3 dndu, float3 dndv)
 {
     // Compute Gradient C
     float2x2 gradC[3];
-    computeSpecularConstraintDerivatives(x1, x2, x3, dndu, dndv, gradC);
+    if (!computeSpecularConstraintDerivatives(x1, x2, x3, dndu, dndv, gradC))
+    {
+        print("-------- Invalid gradC", 0);
+        return 0;
+    }
     // NOTE: gradC[0] is respective toward x3
 
     // Compute G'(x2 <-> x3)
@@ -180,8 +190,8 @@ float computeDSDShiftJacobian(ShadingData x1, ShadingData x2, ShadingData x3, fl
     return jacobian;
 }
 
-// x1 closer to eye
-// x3 closer to light source
+// x1 closer to light source
+// x3 closer to eye
 float computeReconnectionDSDShiftJacobian(
     ShadingData srcX1,
     ShadingData srcX2,
@@ -208,9 +218,9 @@ float computeReconnectionDSDShiftJacobian(
     return Jacobian;
 }
 
-// x1 closer to eye, fixed
-// x3 closer to light source, move to target
-void walkManifoldDSD(
+// x1 closer to light source
+// x3 closer to eye
+bool walkManifoldDSD(
     const ShadingData x1_in,
     const HitInfo x2Hit_in,
     const ShadingData x3_in,
@@ -225,18 +235,19 @@ void walkManifoldDSD(
     float3 x3ToTarget;
     float endPointDistance;
 
-    //  TODO: Get this from somewhere?
+    //  TODO: Get SCENE_LENGTH from somewhere?
     const float SCENE_LENGTH = 1.f;
     const uint MAX_ITER = 20;
     const float EPS = 1e-05F; // or FLT_EPSILON
 
     float2x2 gradC[3];
 
+    HitInfo x2Hit = x2Hit_in;
+    ShadingData x2 = loadShadingDataWithPrevVertexPosition(x2Hit, x3_in.posW, false);
     float3 x2_dndu;
     float3 x2_dndv;
-    HitInfo x2Hit = x2Hit_in;
-    ShadingData x2 = {};
 
+    HitInfo x3Hit = {};
     ShadingData x3 = x3_in;
 
     for (uint i = 0; i < MAX_ITER; i++)
@@ -256,9 +267,12 @@ void walkManifoldDSD(
         }
 
         // Prep ingredients
-        x2 = loadShadingDataWithPrevVertexPosition(x2Hit, x3.posW, false);
         computeNormalDerivatives(x2Hit, x2.V, x2_dndu, x2_dndv);
-        computeSpecularConstraintDerivatives(x1_in, x2, x3, x2_dndu, x2_dndv, gradC);
+        if (!computeSpecularConstraintDerivatives(x1_in, x2, x3, x2_dndu, x2_dndv, gradC))
+        {
+            print("------ invalid gradC", 0);
+            return false;
+        }
 
         print("------ x2.posW", x2.posW);
 
@@ -305,13 +319,55 @@ void walkManifoldDSD(
         displacementWorld *= beta;
         print("------ displacementWorld with step size", displacementWorld);
 
-        // Extrapolated position
+        // Extrapolate position
         float3 x2_new = x2.posW - displacementWorld;
         print("------ x2_new", x2_new);
 
-        break;
+        // Trace ray to update new positions
+        {
+            // Trace ray x1 -> x2
+            float3 rayDir = normalize(x2_new - x1_in.posW);
+            RayDesc ray = { x1_in.posW, 0.f, rayDir, kRayTMax };
+
+            float hitT;
+            SceneRayQuery<kUseAlphaTest> sceneRayQuery;
+            logTraceRay(PixelStatsRayType::ClosestHit);
+
+            // Trace ray
+            if (!sceneRayQuery.traceRay(ray, x2Hit, hitT, RAY_FLAG_NONE, 0xff))
+            {
+                print("------ Unsuccessful trace x1 -> x2", 0);
+                return false;
+            }
+
+            // Valid hit
+            print("------ Successful trace x1 -> x2", 0);
+
+            // Trace ray x2 -> x3
+            x2 = loadShadingDataWithPrevVertexPosition(x2Hit, x1_in.posW, false);
+            print("Updated x2", x2.posW);
+
+            rayDir = normalize(x3.posW - x2.posW);
+            ray = { x2.posW, 0.f, rayDir, kRayTMax };
+
+            logTraceRay(PixelStatsRayType::ClosestHit);
+
+            // Trace ray
+            if (!sceneRayQuery.traceRay(ray, x3Hit, hitT, RAY_FLAG_NONE, 0xff))
+            {
+                print("------ Unsuccessful trace x2 -> x3", 0);
+                return false;
+            }
+
+            // Valid hit
+            print("------ Successful trace x2 -> x3", 0);
+
+            x3 = loadShadingDataWithPrevVertexPosition(x3Hit, x2.posW, false);
+            print("Updated x3", x3.posW);
+        }
 
     }
 
     print("----- walkManifoldDSD: end()", 0);
+    return true;
 }
