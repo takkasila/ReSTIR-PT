@@ -412,6 +412,10 @@ struct PathReservoir
             rcLightPdf = inReservoir.rcLightPdf;
 #endif
             F = in_F;
+            // HybridShiftSMS
+            rcPrevVertexHit = inReservoir.rcPrevVertexHit;
+            rcPrevPrevVertexHit = inReservoir.rcPrevPrevVertexHit;
+            rcPrevPrevVertexWo = inReservoir.rcPrevPrevVertexWo;
             return true;
         }
 
@@ -447,6 +451,10 @@ struct PathReservoir
             rcLightPdf = inReservoir.rcLightPdf;
 #endif
             F = in_F;
+            // HybridShiftSMS
+            rcPrevVertexHit = inReservoir.rcPrevVertexHit;
+            rcPrevPrevVertexHit = inReservoir.rcPrevPrevVertexHit;
+            rcPrevPrevVertexWo = inReservoir.rcPrevPrevVertexWo;
             return true;
         }
 
@@ -484,6 +492,10 @@ struct PathReservoir
             rcLightPdf = inReservoir.rcLightPdf;
 #endif
             F = inReservoir.F;
+            // HybridShiftSMS
+            rcPrevVertexHit = inReservoir.rcPrevVertexHit;
+            rcPrevPrevVertexHit = inReservoir.rcPrevPrevVertexHit;
+            rcPrevPrevVertexWo = inReservoir.rcPrevPrevVertexWo;
             return true;
         }
 

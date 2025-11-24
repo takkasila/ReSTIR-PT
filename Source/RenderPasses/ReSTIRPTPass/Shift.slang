@@ -716,7 +716,7 @@ float3 computeShiftedIntegrandHybridShiftSMS(
         print("------ srcRcPrevDnDv", srcRcPrevDnDv);
 
         // Manifold Exploration to find the correct x2
-        ShadingData x2_new;
+        HitInfo x2_new;
         bool isManifoldSuccess = walkManifoldDSD(
             rcVertexSd,
             dstRcPrevVertexHit,
@@ -727,8 +727,21 @@ float3 computeShiftedIntegrandHybridShiftSMS(
 
         print("----- Is update manifold success:", isManifoldSuccess);
 
-        // Update dstRcPrev dndu, dndv after the exploration
-        // computeNormalDerivatives(dstRcPrevVertexHit, dstRcPrevVertexSd.V, dstRcPrevDnDu, dstRcPrevDnDv);
+        if (isManifoldSuccess)
+        {
+            // Update dstRcPrev as the new x2
+            dstRcPrevVertexHit = x2_new;
+            dstRcPrevVertexSd = loadShadingDataWithPrevVertexPosition(dstRcPrevVertexHit, dstRcPrevPrevVertexSd.posW, false);
+
+            // Update dstRcPrev dndu, dndv after the exploration
+            computeNormalDerivatives(dstRcPrevVertexHit, dstRcPrevVertexSd.V, dstRcPrevDnDu, dstRcPrevDnDv);
+
+            print("------ Updated dstRcPrevVertex", 0);
+            print("------ dstRcPrevVertexSd.posW", dstRcPrevVertexSd.posW);
+            print("------ dstRcPrevDnDu", dstRcPrevDnDu);
+            print("------ dstRcPrevDnDv", dstRcPrevDnDv);
+        }
+
 
         float reconnectionJacobian = 1.f;
 

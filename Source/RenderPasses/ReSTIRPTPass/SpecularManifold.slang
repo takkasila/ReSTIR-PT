@@ -225,7 +225,7 @@ bool walkManifoldDSD(
     const HitInfo x2Hit_in,
     const ShadingData x3_in,
     const ShadingData target,
-    out ShadingData x2_new
+    out HitInfo x2Hit_out
 )
 {
     print("----- walkManifoldDSD: begin()", 0);
@@ -394,6 +394,8 @@ bool walkManifoldDSD(
         }
 
     }
+
+    x2Hit_out = x2Hit;
 
     print("----- walkManifoldDSD: end()", 0);
     return true;
