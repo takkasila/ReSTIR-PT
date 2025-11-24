@@ -250,6 +250,11 @@ bool walkManifoldDSD(
     HitInfo x3Hit = {};
     ShadingData x3 = x3_in;
 
+    ShadingData x2_temp;
+    ShadingData x3_temp;
+    HitInfo x2Hit_temp;
+    HitInfo x3Hit_temp;
+
     for (uint i = 0; i < MAX_ITER; i++)
     {
         print("----- Round", i);
@@ -298,7 +303,6 @@ bool walkManifoldDSD(
             1.0f, 0,
             0, 1.0f
         };
-        P2 = -P2; // Or is it?
 
         // Project the displacement onto second vertex tangent space
         float2 displacementX2ProjectedX2 = mul(P2, displacementX2);
@@ -334,36 +338,59 @@ bool walkManifoldDSD(
             logTraceRay(PixelStatsRayType::ClosestHit);
 
             // Trace ray
-            if (!sceneRayQuery.traceRay(ray, x2Hit, hitT, RAY_FLAG_NONE, 0xff))
+            if (!sceneRayQuery.traceRay(ray, x2Hit_temp, hitT, RAY_FLAG_NONE, 0xff))
             {
                 print("------ Unsuccessful trace x1 -> x2", 0);
-                return false;
+                beta = beta / 2.f;
+                continue;
             }
 
             // Valid hit
             print("------ Successful trace x1 -> x2", 0);
 
             // Trace ray x2 -> x3
-            x2 = loadShadingDataWithPrevVertexPosition(x2Hit, x1_in.posW, false);
-            print("Updated x2", x2.posW);
+            x2_temp = loadShadingDataWithPrevVertexPosition(x2Hit_temp, x1_in.posW, false);
+            print("------ Updated x2", x2_temp.posW);
 
-            rayDir = normalize(x3.posW - x2.posW);
-            ray = { x2.posW, 0.f, rayDir, kRayTMax };
+            // Assume perfect specular
+            rayDir = normalize(reflect(rayDir, x2_temp.N));
+            ray = { x2_temp.posW, 0.f, rayDir, kRayTMax };
 
             logTraceRay(PixelStatsRayType::ClosestHit);
 
             // Trace ray
-            if (!sceneRayQuery.traceRay(ray, x3Hit, hitT, RAY_FLAG_NONE, 0xff))
+            if (!sceneRayQuery.traceRay(ray, x3Hit_temp, hitT, RAY_FLAG_NONE, 0xff))
             {
                 print("------ Unsuccessful trace x2 -> x3", 0);
-                return false;
+                beta = beta / 2.f;
+                continue;
             }
 
             // Valid hit
             print("------ Successful trace x2 -> x3", 0);
 
-            x3 = loadShadingDataWithPrevVertexPosition(x3Hit, x2.posW, false);
-            print("Updated x3", x3.posW);
+            x3_temp = loadShadingDataWithPrevVertexPosition(x3Hit_temp, x2_temp.posW, false);
+            print("------ Updated x3", x3_temp.posW);
+        }
+
+        float newDistance = length(x3_temp.posW - target.posW);
+        print("------ new distance", newDistance);
+
+        if (newDistance < endPointDistance)
+        {
+            print("------ New distance is lower", 0);
+            // Update successful
+            x2 = x2_temp;
+            x2Hit = x2Hit_temp;
+            x3 = x3_temp;
+            x3Hit = x3Hit_temp;
+
+            beta = min(1, 2 * beta);
+        }
+        else
+        {
+            print("------ New distance is higer", 0);
+            beta = beta / 2.f;
         }
 
     }

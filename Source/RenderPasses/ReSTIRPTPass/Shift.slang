@@ -710,10 +710,10 @@ float3 computeShiftedIntegrandHybridShiftSMS(
         print("\n------ dstRcPrevVertexSd.posW", dstRcPrevVertexSd.posW);
         print("------ dstRcPrevPrevVertexSd.posW", dstRcPrevPrevVertexSd.posW);
 
-        print("\n------ dstRcPrevDnDu.posW", dstRcPrevDnDu);
-        print("------ dstRcPrevDnDv.posW", dstRcPrevDnDv);
-        print("------ srcRcPrevDnDu.posW", srcRcPrevDnDu);
-        print("------ srcRcPrevDnDv.posW", srcRcPrevDnDv);
+        print("\n------ dstRcPrevDnDu", dstRcPrevDnDu);
+        print("------ dstRcPrevDnDv", dstRcPrevDnDv);
+        print("------ srcRcPrevDnDu", srcRcPrevDnDu);
+        print("------ srcRcPrevDnDv", srcRcPrevDnDv);
 
         // Manifold Exploration to find the correct x2
         ShadingData x2_new;
