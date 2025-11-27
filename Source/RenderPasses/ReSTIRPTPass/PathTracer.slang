@@ -1019,6 +1019,7 @@ struct PathTracer
         debugVertexState.pos = sdPosW;
 
         print("- path.hitId", th.instanceID.index);
+        print("- hit.posW", sdPosW);
 
         // Optionally disable emissive lights inside volumes.
         if (!kUseLightsInDielectricVolumes && path.isInsideDielectricVolume()) sd.emissive = float3(0.f);
@@ -1803,6 +1804,10 @@ struct PathTracer
                         // path.rcPrevVertexHit = ...
                         // path.rcPrevVertexWo = ...
                         // Because we doesn't have this data during retrace, it needs to be handled by upper level traceRandomReplayPathHybridSimple(). In there we will check ReconnectionData.rcPrevHit.isValid()
+
+                        print("--- Found good offset path DSD (assumed specular vertex)", 0);
+                        path.terminate();
+                        return;
                     }
                 }
 
@@ -1813,20 +1818,20 @@ struct PathTracer
                     if (shouldTerminate)
                     {
                         // We have a good offset path ready for reconnection
+                        print("--- Found good offset path DSD", 0);
                         path.rcPrevVertexHit = path.hit;
                         path.rcPrevVertexWo = sd.V;
                         path.rcPrevPrevVertexHit = path.prevHit;
                         path.rcPrevPrevVertexWo = path.prevWo;
                         path.terminate();
-                        print("--- Found good offset path DSD", 0);
                         return;
                     }
                 }
                 else
                 {
                     // Offset path is non-invertible. Terminate and return.
-                    invalidateAndTerminateReplayPath(path);
                     print("--- Invalidate offset path DSD", 0);
+                    invalidateAndTerminateReplayPath(path);
                     return;
                 }
             }
