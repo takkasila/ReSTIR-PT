@@ -210,6 +210,7 @@ void tracePath(uint pathID, inout PathReservoir giReservoir, uint sampleIdx)
     print("- RcSpecularBounce", outputReservoirs.pathFlags.decodeIsSpecularBounce(false));
     print("- prevRcSpecularBounce", outputReservoirs.pathFlags.decodeIsSpecularBounce(true));
     print("- rcVertexIrradiance", outputReservoirs.rcVertexIrradiance[0]);
+    print("- rcPrevPrevVertexWo", outputReservoirs.rcPrevPrevVertexWo);
 
     if (isAtDebugPixel)
     {

@@ -457,13 +457,22 @@ struct PathReusePass
                 dstReservoir.finalizeRIS();
             }
 
-            if (dstReservoir.weight < 0.f || isinf(dstReservoir.weight) || isnan(dstReservoir.weight)) dstReservoir.weight = 0.f;
+            if (dstReservoir.weight < 0.f || isinf(dstReservoir.weight) || isnan(dstReservoir.weight))
+                dstReservoir.weight = 0.f;
+
+            checkReservoirValidity(dstReservoir);
+
             outputReservoirs[centralOffset] = dstReservoir;
             color = dstReservoir.F * dstReservoir.weight;
 
             print("- dstReservoir.F", dstReservoir.F);
             print("- dstReservoir.weight", dstReservoir.weight);
             print("- color", color);
+
+            if (any(color > 10.f))
+            {
+                print("Alert! high color value", color);
+            }
 
 
             if (gIsLastRound)

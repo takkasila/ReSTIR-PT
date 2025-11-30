@@ -2510,6 +2510,8 @@ struct PathTracer
 
         generateRandomReplayPath(path, hit, ray, initRandomSeed, pathFlags.pathLength(), pathFlags.lastVertexNEE(), isRcVertexEscapedVertex);
 
+        print("-- path.origin v0", path.origin);
+
         if (ShiftMapping(kShiftStrategy) == ShiftMapping::HybridShiftSMS)
         {
             path.replayMode = ReplayMode::HybridShiftSMS;
@@ -2532,6 +2534,7 @@ struct PathTracer
 
         // Advance to next vertex (primary hit)
         path.origin = sd.computeNewRayOrigin();
+        print("-- path.origin v1", path.origin);
 
         debugPathData.vertices[debugPathData.vertexCount] = float4(path.origin, 1);
         debugPathData.vertexCount += 1;
@@ -2550,6 +2553,8 @@ struct PathTracer
         // set up the two scatter directions (or half vectors) for reuse
 
         //  Generate a scattered direction without prio direction
+
+
         generateReplayPrimaryScatterRay(path, sd);
 
 
@@ -2583,16 +2588,18 @@ struct PathTracer
         //  path.prevHit = v1
         //  path.prevPrevHit = NONE
         //  path.dir = v1 -> v2
-        //  path.wo = v2 -> v1
-        path.wo = -path.dir;
+        //  path.wo = v1 -> v0
+
+        // Only update path.wo after hit has been processed and new scatter direction is found
+
         //  path.prevWo = v1 -> v0
         //  path.length = 1
         //  path.isLastVertexClassifiedAsRough = is v1 rough;
         //  path.isLastLastVertexClassifiedAsRough = false;
 
-        print("randomReplayIsEscaped:", path.randomReplayIsEscaped);
-        print("path.isLastVertexClassifiedAsRough", path.isLastVertexClassifiedAsRough);
-        print("path.isLastLastVertexClassifiedAsRough", path.isLastLastVertexClassifiedAsRough);
+        print("-- randomReplayIsEscaped:", path.randomReplayIsEscaped);
+        print("-- path.isLastVertexClassifiedAsRough", path.isLastVertexClassifiedAsRough);
+        print("-- path.isLastLastVertexClassifiedAsRough", path.isLastLastVertexClassifiedAsRough);
 
         DebugVertexState debugVertexState;
 
@@ -2601,16 +2608,10 @@ struct PathTracer
         {
             // Volume scattering is ignored
             // Handle surface hit
-            if (path.isActive())
-            {
-                if (path.isHit())
-                {
-                    handleHit(path, debugVertexState);
+            handleHit(path, debugVertexState);
 
-                    debugPathData.vertices[debugPathData.vertexCount] = float4(path.origin, 1);
-                    debugPathData.vertexCount += 1;
-                }
-            }
+            debugPathData.vertices[debugPathData.vertexCount] = float4(path.origin, 1);
+            debugPathData.vertexCount += 1;
 
             // Move to the next path vertex.
             if (path.isActive() && path.isHit())
