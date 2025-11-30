@@ -559,6 +559,7 @@ struct PathTracer
         case MISHeuristic::Balance:
         {
             // Balance heuristic
+            // Default case
             float q0 = n0 * p0;
             float q1 = n1 * p1;
             return q0 / (q0 + q1);
@@ -1462,7 +1463,6 @@ struct PathTracer
                     )
                 );
 
-                print("-- canConnectDSD", canConnectDSD);
             }
 
             print("- canConnect", canConnect);
@@ -1872,11 +1872,13 @@ struct PathTracer
 
                     // Determine if upper/lower hemispheres need to be sampled.
                     bool sampleUpperHemisphere = ((lobes & (uint)LobeType::NonDeltaReflection) != 0);
-                    if (!kUseLightsInDielectricVolumes && path.isInsideDielectricVolume()) sampleUpperHemisphere = false;
+
+                    if (!kUseLightsInDielectricVolumes && path.isInsideDielectricVolume())
+                        sampleUpperHemisphere = false;
+
                     bool sampleLowerHemisphere = ((lobes & (uint)LobeType::NonDeltaTransmission) != 0);
 
                     // Sample a light.
-
                     validSample = generateLightSample(vertex, sampleUpperHemisphere, sampleLowerHemisphere, path.sg, ls);
 
                     path.setLightSampled(sampleUpperHemisphere, sampleLowerHemisphere);
@@ -1904,14 +1906,26 @@ struct PathTracer
                     if (kUseMIS && ls.lightType != (uint)LightSampleType::Analytic)
                     {
                         scatterPdf = evalPdfBSDF(sd, ls.dir);
-
-                        misWeight *= evalMIS(1, ls.pdf, 1, scatterPdf);
+                        float MIS = evalMIS(1, ls.pdf, 1, scatterPdf);
+                        misWeight *= MIS;
+                        print("--- scatterPdf", scatterPdf);
+                        print("--- ls.pdf", ls.pdf);
+                        print("--- MIS", MIS);
                     }
+
+                    print("--- ls.Li", ls.Li);
+                    print("--- misWeight", misWeight);
+
                     ls.Li *= misWeight;
+
+                    print("--- ls.Li * misWeight", ls.Li);
 
                     float3 weight = evalBSDFCosine(sd, ls.dir);
 
                     float3 Lr = weight * ls.Li * path.getCurrentThp();
+
+                    print("--- weight", weight);
+                    print("--- path.getCurrentThp()", path.getCurrentThp());
 
                     if (any(Lr > 0.f))
                     {
@@ -1935,7 +1949,9 @@ struct PathTracer
                                 if (is_rcVertex)
                                 {
                                     weight = 1.f;
+                                    print("--- modified weight at RC", weight);
                                 }
+
 #if BPR
                                 if (!is_rcVertex)
                                 {
@@ -1949,8 +1965,19 @@ struct PathTracer
                                 //  addNeeSampledLightVertex
                                 //      Try to add current path contribution (Lr) into the reservoir.
                                 //      If successful (accepted sample), set the reservoir data to path.pathBuilder's data
-                                bool selected = path.pathBuilder.addNeeVertex(params, path.length, ls.dir, Lr, weight * ls.Li * path.thp,
-                                    path.russianRoulettePdf, misWeight, ls.pdf, ls.lightType, path.pathReservoir, path.enableRandomReplay);
+                                bool selected = path.pathBuilder.addNeeVertex(
+                                    params,
+                                    path.length,
+                                    ls.dir,
+                                    Lr,
+                                    weight * ls.Li * path.thp,
+                                    path.russianRoulettePdf,
+                                    misWeight,
+                                    ls.pdf,
+                                    ls.lightType,
+                                    path.pathReservoir,
+                                    path.enableRandomReplay
+                                );
 
                                 print("--- Add sampledLightVertex to reservoir", selected);
 #endif

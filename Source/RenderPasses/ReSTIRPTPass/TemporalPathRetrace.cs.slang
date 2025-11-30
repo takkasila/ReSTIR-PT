@@ -11,6 +11,7 @@ import Utils.Debug.PixelDebug;
 import Rendering.Utils.PixelStats;
 import Utils.Sampling.TinyUniformSampleGenerator;
 import Utils.Math.Ray;
+#include "Utils/Math/MathConstants.slangh"
 import LoadShadingData;
 import Rendering.Materials.MaterialShading;
 import DebugPathDataType;
@@ -233,6 +234,35 @@ struct PathRetracePass
         //
         else if (isReservoirDSD && !isReservoirDD && !isReservoirWeight0)
         {
+            // Check closeness of rcPrev, rcPrevPrev
+
+            float3 baseRcPrevPosW = gScene.getVertexData(reservoir.rcPrevVertexHit.getHitInfo().getTriangleHit()).posW;
+            float3 baseRcPrevPrevPosW = gScene.getVertexData(reservoir.rcPrevPrevVertexHit.getHitInfo().getTriangleHit()).posW;
+
+            float3 offsetRcPrevPosW = gScene.getVertexData(reconnectionData.rcPrevHit.getTriangleHit()).posW;
+            float3 offsetRcPrevPrevPosW = gScene.getVertexData(reconnectionData.rcPrevPrevHit.getTriangleHit()).posW;
+
+            float diffRcPrev = length(baseRcPrevPosW - offsetRcPrevPosW);
+            float diffRcPrevPrev = length(baseRcPrevPrevPosW - offsetRcPrevPrevPosW);
+
+            if (diffRcPrev > FLT_EPSILON)
+            {
+                print("Alert! RcPrev base and offset is different", diffRcPrev);
+                print("- baseRcPrevPosW", baseRcPrevPosW);
+                print("- base instance id", reservoir.rcPrevVertexHit.instanceID);
+                print("- offsetRcPrevPosW", offsetRcPrevPosW);
+                print("- offset instance id", reconnectionData.rcPrevHit.getTriangleHit().instanceID.index);
+            }
+
+            if (diffRcPrevPrev > FLT_EPSILON)
+            {
+                print("Alert! RcPrevPrev base and offset is different", diffRcPrevPrev);
+                print("- baseRcPrevPrevPosW", baseRcPrevPrevPosW);
+                print("- base instance id", reservoir.rcPrevPrevVertexHit.instanceID);
+                print("- offsetRcPrevPrevPosW", offsetRcPrevPrevPosW);
+                print("- offset instance id", reconnectionData.rcPrevPrevHit.getTriangleHit().instanceID.index);
+            }
+
             // Case 4.1: Offset path is invertible and has an RC
             if (isRcPrevValid & isRcPrevPrevValid & !isRcPrevWo0 & !isRcPrevPrevWo0 & !isThroughput0)
             {
@@ -261,6 +291,97 @@ struct PathRetracePass
         print("- rcData.rcPrevWo", reconnectionData.rcPrevWo);
         print("- rcData.rcPrevPrevWo", reconnectionData.rcPrevPrevWo);
         print("- rcData.pathThroughput", reconnectionData.pathThroughput);
+    }
+
+    void checkReservoirValidity(PathReservoir reservoir)
+    {
+        bool isDD = reservoir.pathFlags.decodeIsDD();
+        bool isDSD = reservoir.pathFlags.decodeIsDSD();
+        bool isWeight0 = reservoir.weight == 0.f;
+
+        bool isRcValid = reservoir.rcVertexHit.getHitInfo().isValid();
+        bool isRcPrevValid = reservoir.rcPrevVertexHit.getHitInfo().isValid();
+        bool isRcPrevPrevValid = reservoir.rcPrevPrevVertexHit.getHitInfo().isValid();
+        bool isRcPrevPrevWo0 = all(reservoir.rcPrevPrevVertexWo == 0.f);
+
+        int pathLength = reservoir.pathFlags.pathLength();
+        int rcVertexLength = reservoir.pathFlags.rcVertexLength();
+
+        //
+        // Case 1: no RC
+        //
+        if (!isDD && !isDSD)
+        {
+            // Case 1.1: Miss
+            if (isWeight0)
+            {
+                if (!isRcValid && isRcPrevValid && isRcPrevPrevValid && (rcVertexLength == 15) && (pathLength == 0))
+                {
+                    return;
+                }
+                else
+                {
+                    print("Alert! Invalid reservoir case", 1);
+                }
+            }
+            // Case 1.2: Hit but no RC
+            else
+            {
+                if (!isRcValid && !isRcPrevValid && !isRcPrevPrevValid && (rcVertexLength == 15) && (pathLength > 0))
+                {
+                    return;
+                }
+                else
+                {
+                    print("Alert! Invalid reservoir case", 2);
+                }
+            }
+        }
+        //
+        // Case 2: DD RC
+        //
+        else if (isDD && !isDSD)
+        {
+            if (isRcValid && !isRcPrevValid && !isRcPrevPrevValid && (rcVertexLength > 0) && (pathLength > 0) && !isWeight0)
+            {
+                return;
+            }
+            else
+            {
+                print("Alert! Invalid reservoir case", 3);
+            }
+        }
+        //
+        // Case 3: DSD RC
+        //
+        else if (!isDD && isDSD)
+        {
+            if (isRcValid && isRcPrevValid && isRcPrevPrevValid && (rcVertexLength > 0) && (pathLength > 0) && !isWeight0)
+            {
+                return;
+            }
+            else
+            {
+                print("Alert! Invalid reservoir case", 4);
+            }
+        }
+        //
+        // Case 4: RC is both DD and DSD -- incorrect
+        //
+        else
+        {
+            print("Alert! Invalid reservoir case", 5);
+        }
+
+        print("The reservoir in question:", 0);
+        print("- rcVertexHit id:", reservoir.rcVertexHit.instanceID);
+        print("- rcPrevVertexHit id:", reservoir.rcPrevVertexHit.instanceID);
+        print("- rcPrevPrevVertexHit id:", reservoir.rcPrevPrevVertexHit.instanceID);
+        print("- isDD", reservoir.pathFlags.decodeIsDD());
+        print("- isDSD", reservoir.pathFlags.decodeIsDSD());
+        print("- rcVertexLength", reservoir.pathFlags.rcVertexLength());
+        print("- pathLength", reservoir.pathFlags.pathLength());
+        print("- weight", reservoir.weight);
     }
 
     /*
@@ -325,6 +446,7 @@ struct PathRetracePass
         print("- rcPrevPrevVertexHit.instanceID", centralReservoir.rcPrevPrevVertexHit.instanceID);
         print("- isDD", centralReservoir.pathFlags.decodeIsDD());
         print("- isDSD", centralReservoir.pathFlags.decodeIsDSD());
+        checkReservoirValidity(centralReservoir);
 
         print("Temporal reservoir:", 0);
         print("- rcVertexHit.instanceID", temporalReservoir.rcVertexHit.instanceID);
@@ -332,6 +454,7 @@ struct PathRetracePass
         print("- rcPrevPrevVertexHit.instanceID", temporalReservoir.rcPrevPrevVertexHit.instanceID);
         print("- isDD", temporalReservoir.pathFlags.decodeIsDD());
         print("- isDSD", temporalReservoir.pathFlags.decodeIsDSD());
+        checkReservoirValidity(temporalReservoir);
 
         // talbot MIS
         // compute mis weight for current pixel
@@ -343,7 +466,8 @@ struct PathRetracePass
         {
             print("- traceHybridShiftRays centralReservoir: begin", 0);
 
-            //  Use previous frame data
+            //  Trace rays to find connection from previous frame's primary hit to
+            //      current frame's reservoir.
             traceHybridShiftRays(
                 params,
                 true,
@@ -361,7 +485,7 @@ struct PathRetracePass
             print("-- rcData.rcPrevPrevWo", centralReservoirReconnectionData.rcPrevPrevWo);
             print("-- rcData.pathThroughput", centralReservoirReconnectionData.pathThroughput);
 
-            // Check if the case of need to fill in DSD data
+            // Check if need to fill in DSD data
             detectAndfillInAssumedSpecularVertex(centralReservoir, centralReservoirReconnectionData);
 
             // Set to buffer
@@ -387,6 +511,8 @@ struct PathRetracePass
         {
             print("- traceHybridShiftRays temporalReservoir: begin", 0);
 
+            //  Trace rays to find connection from current frame's primary hit to
+            //      previous frame's reservoir.
             traceHybridShiftRays(
                 params,
                 false,

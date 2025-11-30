@@ -64,6 +64,7 @@ struct PathBuilder
     bool addEscapeVertex(RestirPathTracerParams params, uint pathLength, float3 wi, float3 pathWeight, float3 postfixWeight,
         float russianroulettePDF, float misWeight, float lightPdf, int lightType, inout PathReservoir pathReservoir, bool forceAdd = false)
     {
+        print("--- addEscapeVertex()", 0);
         bool selected = false;
 
         if (pathLength >= 1)
@@ -101,6 +102,7 @@ struct PathBuilder
                 pathReservoir.pathFlags.insertRcVertexLength(rcVertexLength);
                 pathReservoir.pathFlags.insertLastVertexNEE(false);
                 pathReservoir.rcVertexIrradiance[0] = postfixWeight;
+                print("---- pathReservoir.rcVertexIrradiance[0]", pathReservoir.rcVertexIrradiance[0]);
                 pathReservoir.F = pathWeight;
                 pathReservoir.rcVertexWi[0] = rcVertexWi[0];
                 pathReservoir.rcVertexHit = rcVertexHit;
@@ -118,6 +120,7 @@ struct PathBuilder
                 {
                     pathReservoir.rcVertexWi[0] = wi;
                     pathReservoir.rcVertexIrradiance[0] /= misWeight; // exclude last vertex dependent mis weight
+                    print("---- pathReservoir.rcVertexIrradiance[0] /= misWeight", pathReservoir.rcVertexIrradiance[0]);
                 }
                 pathReservoir.lightPdf = lightPdf;
                 pathReservoir.pathFlags.insertLightType(lightType);
@@ -130,9 +133,22 @@ struct PathBuilder
 
     // addNeeSampledLightVertex
     [mutating]
-    bool addNeeVertex(RestirPathTracerParams params, uint pathLength, float3 wi, float3 pathWeight, float3 postfixWeight,
-        float russianroulettePDF, float misWeight, float lightPdf, int lightType, inout PathReservoir pathReservoir, bool forceAdd = false)
+    bool addNeeVertex(
+        RestirPathTracerParams params,
+        uint pathLength,
+        float3 wi,
+        float3 pathWeight,
+        float3 postfixWeight,
+        float russianroulettePDF,
+        float misWeight,
+        float lightPdf,
+        int lightType,
+        inout PathReservoir pathReservoir,
+        bool forceAdd = false
+    )
     {
+        print("--- addNeeVertex()", 0);
+
         bool selected = false;
 
         if (pathLength >= 1)
@@ -172,6 +188,7 @@ struct PathBuilder
                 pathReservoir.pathFlags.insertRcVertexLength(rcVertexLength);
                 pathReservoir.pathFlags.insertLastVertexNEE(true);
                 pathReservoir.rcVertexIrradiance[0] = postfixWeight;
+                print("---- pathReservoir.rcVertexIrradiance[0]", pathReservoir.rcVertexIrradiance[0]);
                 pathReservoir.F = pathWeight;
                 pathReservoir.rcVertexWi[0] = rcVertexWi[0];
                 pathReservoir.rcVertexHit = rcVertexHit;
@@ -187,7 +204,19 @@ struct PathBuilder
 
                 if (is_rcVertex) // at rcVertex
                 {
+                    print("----- is RC", 0);
+                    print("----- pathReservoir.rcVertexIrradiance[0]", pathReservoir.rcVertexIrradiance[0]);
+                    print("----- lightPdf", lightPdf);
+                    print("----- misWeight", misWeight);
+                    print("----- lightPdf / misWeight", lightPdf / misWeight);
+
+                    // This basically set to
+                    //  = rcVertexIrradiance * lightPdf
+                    // But why do we remove misWeight(lightPdf, scatterPdf) here?
                     pathReservoir.rcVertexIrradiance[0] = pathReservoir.rcVertexIrradiance[0] * lightPdf / misWeight;
+
+                    print("----- pathReservoir.rcVertexIrradiance[0] * lightPdf / misWeight", pathReservoir.rcVertexIrradiance[0]);
+
                     pathReservoir.rcVertexWi[0] = wi;
                 }
                 pathReservoir.lightPdf = lightPdf;
@@ -202,6 +231,8 @@ struct PathBuilder
     [mutating] void markEscapeVertexAsRcVertex(RestirPathTracerParams params, uint pathLength, inout PathReservoir pathReservoir, HitInfo hit, HitInfo prevHit, HitInfo prevPrevHit, float3 prevPrevPrevWo, bool isDD, bool isDSD, bool isDelta,
         bool isTransmission, bool isSpecularBounce, float lightPdf, uint lightType, float3 rcVertexIrradiance, float3 rcVertexWi, float prevScatterPdf, float geometryFactor)
     {
+        print("--- markEscapeVertexAsRcVertex()", 0);
+
         pathReservoir.pathFlags.insertRcVertexLength(pathLength);
 
         pathReservoir.rcVertexHit.initFromHitInfo(hit);

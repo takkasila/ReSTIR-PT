@@ -209,6 +209,7 @@ void tracePath(uint pathID, inout PathReservoir giReservoir, uint sampleIdx)
     print("- weight", outputReservoirs.weight);
     print("- RcSpecularBounce", outputReservoirs.pathFlags.decodeIsSpecularBounce(false));
     print("- prevRcSpecularBounce", outputReservoirs.pathFlags.decodeIsSpecularBounce(true));
+    print("- rcVertexIrradiance", outputReservoirs.rcVertexIrradiance[0]);
 
     if (isAtDebugPixel)
     {

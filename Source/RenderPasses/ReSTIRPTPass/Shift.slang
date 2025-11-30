@@ -764,6 +764,9 @@ float3 computeShiftedIntegrandHybridShiftSMS(
         dstJacobian *= reconnectionJacobian;
 
         // tempPathReservoir.cachedJacobian = srcReservoir.cachedJacobian;
+        // tempPathReservoir.cachedJacobian[0] = 0.f;
+        // tempPathReservoir.cachedJacobian[1] = 0.f;
+        // tempPathReservoir.cachedJacobian[2] = 0.f;
     }
     else
     {
@@ -994,6 +997,7 @@ float3 computeShiftedIntegrandReconnection(
     bool useCachedJacobian = false
 )
 {
+    // useCachedJacobian = false;
     float3 dstCachedJacobian;
     dstJacobian = 0.f;
 
@@ -1140,6 +1144,7 @@ float3 computeShiftedIntegrandReconnection(
     //  det((partial(offset incident)/partial(base incident)))
     float Jacobian;
 
+    print("------ If were to use cached Jacobian", dstCachedJacobian.z / srcReservoir.cachedJacobian.z);
     if (useCachedJacobian)
     {
         Jacobian = dstCachedJacobian.z / srcReservoir.cachedJacobian.z;
