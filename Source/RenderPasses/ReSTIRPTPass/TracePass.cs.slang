@@ -100,7 +100,7 @@ void checkReservoirValidity(PathReservoir reservoir)
         print("Alert! Invalid reservoir case", 5);
     }
 
-    print("The reservoir in question:", 0);
+    print("The reservoir in question", 0);
     print("- rcVertexHit id:", reservoir.rcVertexHit.instanceID);
     print("- rcPrevVertexHit id:", reservoir.rcPrevVertexHit.instanceID);
     print("- rcPrevPrevVertexHit id:", reservoir.rcPrevPrevVertexHit.instanceID);
@@ -127,15 +127,17 @@ void tracePath(uint pathID, inout PathReservoir giReservoir, uint sampleIdx)
 
     uint vertexCount = 0;
 
+    print("{tracePath", 0);
+
     print("pixel", pixel);
     print("pathID", pathID);
 
-
+    print("{traceLoop", 0);
     while (path.isActive())
     {
+        print("{loop", 0);
         print("vertex", path.origin);
         print("path.length", path.length);
-        print("path.isSpecularBounce", path.isSpecularBounce());
 
         //  vertex 0 at camera
         if (path.length == 0 && isAtDebugPixel)
@@ -164,7 +166,8 @@ void tracePath(uint pathID, inout PathReservoir giReservoir, uint sampleIdx)
             // After handle
             if (path.isTerminated())
             {
-                print("Terminated", 0);
+                print("terminated", 0);
+                print("}loop", 0);
                 break;
             }
 
@@ -178,10 +181,9 @@ void tracePath(uint pathID, inout PathReservoir giReservoir, uint sampleIdx)
             gPathTracer.handleMiss(path);
         }
 
-        print("- in loop path.pathReservoir.rcVertexHit.instanceID", path.pathReservoir.rcVertexHit.instanceID);
-
-        print("", 0);   // empty line
+        print("}loop", 0);
     }
+    print("}traceLoop", 0);
 
     print("Path Radiance", path.L);
 
@@ -196,9 +198,7 @@ void tracePath(uint pathID, inout PathReservoir giReservoir, uint sampleIdx)
     const PathReservoir outputReservoirs = gPathTracer.outputReservoirs[reservoirIdx];
     const float4 outputColor = gPathTracer.outputColor[reservoirIdx];
 
-    print("Output color", outputColor);
-
-    print("Output reservoir:", 0);
+    print("Output reservoir", 0);
     print("- rcVertexHit id:", outputReservoirs.rcVertexHit.instanceID);
     print("- rcPrevVertexHit id:", outputReservoirs.rcPrevVertexHit.instanceID);
     print("- rcPrevPrevVertexHit id:", outputReservoirs.rcPrevPrevVertexHit.instanceID);
@@ -207,8 +207,6 @@ void tracePath(uint pathID, inout PathReservoir giReservoir, uint sampleIdx)
     print("- rcVertexLength", outputReservoirs.pathFlags.rcVertexLength());
     print("- pathLength", outputReservoirs.pathFlags.pathLength());
     print("- weight", outputReservoirs.weight);
-    print("- RcSpecularBounce", outputReservoirs.pathFlags.decodeIsSpecularBounce(false));
-    print("- prevRcSpecularBounce", outputReservoirs.pathFlags.decodeIsSpecularBounce(true));
     print("- rcVertexIrradiance", outputReservoirs.rcVertexIrradiance[0]);
     print("- rcPrevPrevVertexWo", outputReservoirs.rcPrevPrevVertexWo);
 
@@ -221,58 +219,9 @@ void tracePath(uint pathID, inout PathReservoir giReservoir, uint sampleIdx)
         pixelDebugPathDataBuffer[0].vertexCount = vertexCount;
 
         pixelDebugPathDataBuffer[0].L = float4(path.L, 1);
-
-        //  Check if have RC vertex
-        HitInfo rcVertexHitInfo = outputReservoirs.rcVertexHit.getHitInfo();
-        HitInfo rcPrevVertexHitInfo = outputReservoirs.rcPrevVertexHit.getHitInfo();
-        HitInfo rcPrevPrevVertexHitInfo = outputReservoirs.rcPrevPrevVertexHit.getHitInfo();
-
-        print("rcVertexHitInfo", rcVertexHitInfo.isValid());
-        print("rcPrevVertexHitInfo", rcPrevVertexHitInfo.isValid());
-        print("rcPrevPrevVertexHitInfo", rcPrevPrevVertexHitInfo.isValid());
-
-        if (!rcVertexHitInfo.isValid())
-        {
-            print("Doesn't have RC vertex", 0);
-            pixelDebugPathDataBuffer[0].hasRcVertex = false;
-        }
-        else
-        {
-            bool isDD = outputReservoirs.pathFlags.decodeIsDD();
-            bool isDSD = outputReservoirs.pathFlags.decodeIsDSD();
-
-            if(!rcPrevVertexHitInfo.isValid() && !rcPrevPrevVertexHitInfo.isValid() && isDD)
-            {
-                print("RC is DD", 0);
-                pixelDebugPathDataBuffer[0].hasRcVertex = true;
-                pixelDebugPathDataBuffer[0].isRcDSD = false;
-                pixelDebugPathDataBuffer[0].rcVertexIndex = outputReservoirs.pathFlags.rcVertexLength() + 1;
-            }
-            else if(rcPrevVertexHitInfo.isValid() && rcPrevPrevVertexHitInfo.isValid() && isDSD)
-            {
-                print("RC is DSD", 0);
-                pixelDebugPathDataBuffer[0].hasRcVertex = true;
-                pixelDebugPathDataBuffer[0].isRcDSD = true;
-                pixelDebugPathDataBuffer[0].rcVertexIndex = outputReservoirs.pathFlags.rcVertexLength() + 1;
-            }
-            else
-            {
-                print("Something is wrong in TracePass!", 0);
-            }
-        }
     }
 
-    bool isDelta1 = outputReservoirs.pathFlags.decodeIsDeltaEvent(true);
-    bool isDelta2 = outputReservoirs.pathFlags.decodeIsDeltaEvent(false);
-
-    if(isDelta1 || isDelta2)
-    {
-        print("- base path does have some delta", (isDelta1 ? 1 : 0) | (isDelta2 ? 2 : 0));
-    }
-    else
-    {
-        print("- base path does not have delta", 0);
-    }
+    print("}tracePath", 0);
 }
 
 [numthreads(16, 16, 1)]

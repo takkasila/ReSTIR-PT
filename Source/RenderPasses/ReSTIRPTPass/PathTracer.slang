@@ -428,7 +428,7 @@ struct PathTracer
         {
             path.thp = 0.f;
         }
-        print("-- is valid scatter ray", valid);
+        print("Is valid scatter ray", valid);
 
         return valid;
     }
@@ -766,24 +766,18 @@ struct PathTracer
         bool valid = false;
         if (kUseEnvLight && lightType == (uint)LightSampleType::EnvMap)
         {
-            print("---- Sample light: EnvMap", 0);
             valid = generateEnvMapSample(vertex, sg, ls);
         }
         if (kUseEmissiveLights && lightType == (uint)LightSampleType::Emissive)
         {
             // Emissive light samplers have an option to exclusively sample the upper hemisphere.
             bool upperHemisphere = sampleUpperHemisphere && !sampleLowerHemisphere;
-
-            print("---- Sample light: Emissive", 0);
-
             {
                 valid = generateEmissiveSample(vertex, upperHemisphere, sg, ls);
             }
         }
         if (kUseAnalyticLights && lightType == (uint)LightSampleType::Analytic)
         {
-            print("---- Sample light: Analytic", 0);
-
             valid = generateAnalyticLightSample(vertex, sg, ls);
         }
         if (!valid) return false;
@@ -984,7 +978,7 @@ struct PathTracer
         // - Sample scatter ray or terminate
 
         // setupPathLogging(path);
-        print("handleHit -- begin", 0);
+        print("{handleHit", 0);
 
         TriangleHit th = path.hit.getTriangleHit();
 
@@ -1008,9 +1002,17 @@ struct PathTracer
 
         // Reject false hits in nested dielectrics.
 
-        if (handleHomogeneousVolumeExtinction(path, sd)) return;
+        if (handleHomogeneousVolumeExtinction(path, sd))
+        {
+            print("}handleHit", 0);
+            return;
+        }
 
-        if (!handleNestedDielectrics(sd, path)) return;
+        if (!handleNestedDielectrics(sd, path))
+        {
+            print("}handleHit", 0);
+            return;
+        }
 
         logPathVertex();
 
@@ -1019,8 +1021,8 @@ struct PathTracer
         //  Store to debugVertex
         debugVertexState.pos = sdPosW;
 
-        print("- path.hitId", th.instanceID.index);
-        print("- hit.posW", sdPosW);
+        print("path.hitId", th.instanceID.index);
+        print("hit.posW", sdPosW);
 
         // Optionally disable emissive lights inside volumes.
         if (!kUseLightsInDielectricVolumes && path.isInsideDielectricVolume()) sd.emissive = float3(0.f);
@@ -1060,8 +1062,7 @@ struct PathTracer
             float misWeight = 1.f;
             float3 Lr = 0.f;
 
-            print("- Compute emissive: Begin", 0);
-
+            print("{Compute emissive", 0);
 
             if (kUseEmissiveLights && kUseNEE && kUseMIS && !isPrimaryHit && path.isLightSampled() && isLightSamplable)
             {
@@ -1084,14 +1085,14 @@ struct PathTracer
                 // Note we can assume path.pdf > 0.f since we shouldn't have got here otherwise.
                 misWeight = evalMIS(1, path.pdf, 1, lightPdf);
 
-                print("-- Compute emissive", 0);
+                print("Compute emissive", 0);
 
             }
 
             // Accumulate emitted radiance weighted by path throughput and MIS weight.
             if (!kDisableDirectIllumination || !isPrimaryHit || !isLightSamplable)
             {
-                print("-- Compute emissive", 1);
+                print("Compute emissive", 1);
                 Lr = path.getCurrentThp() * sd.emissive * misWeight;
             }
 
@@ -1100,7 +1101,7 @@ struct PathTracer
             // daqi: Since ScreenSpaceReSTIR cannot handle transmission and delta reflection, we must include the contribution in the color buffer
             if (!path.enableRandomReplay || terminateRandomReplayForEscape)
             {
-                print("-- Compute emissive", 2);
+                print("Compute emissive", 2);
 
                 if (!kDisableDirectIllumination || path.length > 1) path.L += Lr;
                 // will change this to path.IsDelta() if ScreenSpaceReSTIR can handle transmission
@@ -1115,7 +1116,7 @@ struct PathTracer
                 && PathSamplingMode(kPathSamplingMode) != PathSamplingMode::PathTracing)
             {
 
-                print("-- Decide if should add emissive contribution to reservoir", 0);
+                print("Decide if should add emissive contribution to reservoir", 0);
 #if BPR
                 if (path.length - 1 > path.pathBuilder.rcVertexLength)
                 {
@@ -1144,7 +1145,7 @@ struct PathTracer
 #endif
 
 
-                print("-- Is added emissive to reservoir", selectedCurrentPath);
+                print("Is added emissive to reservoir", selectedCurrentPath);
 
                 // daqi: if current escaped vertex has path.length >= 2, then it can be used as a rcVertex
                 //  Why not path.length >= 1 ? Yes, it should be >= 1.
@@ -1154,7 +1155,7 @@ struct PathTracer
                     && path.length < path.pathBuilder.rcVertexLength
                 )
                 {
-                    print("--- Check if the current emissive vertex can be an RC (HybridShift)", 0);
+                    print("Check if the current emissive vertex can be an RC (HybridShift)", 0);
 
                     // daqi: ideally, this should use a smaller nearFieldDistance than the default threshold
                     bool isFarField = length(sd.posW - path.origin) >= params.nearFieldDistance;
@@ -1168,7 +1169,7 @@ struct PathTracer
                         {
                             // We can connect to emissive surface as a RC
 
-                            print("---- The current emissive surface is an RC", 0);
+                            print("The current emissive surface is an RC", 0);
 
                             // we found an RC vertex!
                             // set rcVertexLength to current length (this will make rcVertexLength = reseroivr.pathLength + 1)
@@ -1205,7 +1206,7 @@ struct PathTracer
                             // 2. The current vertex is suitable to be a RC. Which is earlier than the base path. Thus, this path should be invalidated.
                             path.L = 0.f;
 
-                            print("---- offset path is non-invertible", 0);
+                            print("offset path is non-invertible", 0);
                         }
                     }
 
@@ -1216,7 +1217,7 @@ struct PathTracer
                     && path.length < path.pathBuilder.rcVertexLength
                 )
                 {
-                    print("--- Check if the current emissive vertex can be an RC (HybridShiftSMS)", 0);
+                    print("Check if the current emissive vertex can be an RC (HybridShiftSMS)", 0);
 
                     // We have
                     // isCurrentVertexClassifiedAsRough = true
@@ -1256,7 +1257,7 @@ struct PathTracer
                         && path.isLastLastVertexClassifiedAsRough
                     );
 
-                    print("--- isDSDPath", isDSDPath);
+                    print("isDSDPath", isDSDPath);
 
                     bool canConnectDSD = false;
 
@@ -1278,7 +1279,7 @@ struct PathTracer
                             )
                         );
 
-                        print("---- canConnectDSD", canConnectDSD);
+                        print("canConnectDSD", canConnectDSD);
                     }
 
                     if (canConnect || canConnectDSD)
@@ -1290,7 +1291,7 @@ struct PathTracer
 
                             // We can connect to emissive surface as a RC
 
-                            print("---- The current emissive surface is an RC", 0);
+                            print("The current emissive surface is an RC", 0);
 
                             // we found an RC vertex!
                             // set rcVertexLength to current length (this will make rcVertexLength = reseroivr.pathLength + 1)
@@ -1324,13 +1325,13 @@ struct PathTracer
                             // 2. The current vertex is suitable to be a RC. Which is earlier than the base path. Thus, this path should be invalidated.
                             path.L = 0.f;
 
-                            print("----- offset path is non-invertible", 0);
+                            print("offset path is non-invertible", 0);
                         }
                     }
                 }
             }
 
-            print("- Compute emissive: end", 0);
+            print("}Compute emissive", 0);
         }
 
 
@@ -1347,10 +1348,11 @@ struct PathTracer
             }
 
             path.terminate();
+            print("}handleHit", 0);
             return;
         }
 
-        print("- prepare to scatter ray", 0);
+        print("Prepare to scatter ray", 0);
 
         // daqi: save as previous path origin to compute distance between vertices
         float3 pathPrevPrevOrigin = path.length >= 1 ? path.prevOrigin : path.origin;
@@ -1395,11 +1397,11 @@ struct PathTracer
         bool isCurrentVertexClassifiedAsRough =
             kSeparatePathBSDF ? hasRoughComponent(sd, params.specularRoughnessThreshold) : classifyAsRough(sd, params.specularRoughnessThreshold);
 
-        print("- isCurrentVertexClassifiedAsRough", isCurrentVertexClassifiedAsRough);
+        print("isCurrentVertexClassifiedAsRough", isCurrentVertexClassifiedAsRough);
 
         bool isLastVertexAcceptableForRcPrev = path.isLastVertexClassifiedAsRough;
 
-        print("- isLastVertexClassifiedAsRough", path.isLastVertexClassifiedAsRough);
+        print("isLastVertexClassifiedAsRough", path.isLastVertexClassifiedAsRough);
 
 
         // daqi: if we are not doing a hybrid shift replay, we should check if current vertex satisfy the condition to be used as a rcVertex
@@ -1411,7 +1413,7 @@ struct PathTracer
         // 2. and Not path tracing
         if (path.replayMode == ReplayMode::None && PathSamplingMode(kPathSamplingMode) != PathSamplingMode::PathTracing)
         {
-            print("- Considering if current vertex can be a RC", 0);
+            print("Considering if current vertex can be a RC", 0);
 
             bool canConnect = (
                 path.length >= 1
@@ -1437,7 +1439,7 @@ struct PathTracer
                 && path.isLastLastVertexClassifiedAsRough
             );
 
-            print("- isDSDPath", isDSDPath);
+            print("isDSDPath", isDSDPath);
 
             bool canConnectDSD = false;
 
@@ -1465,8 +1467,8 @@ struct PathTracer
 
             }
 
-            print("- canConnect", canConnect);
-            print("- canConnectDSD", canConnectDSD);
+            print("canConnect", canConnect);
+            print("canConnectDSD", canConnectDSD);
 
             // If either
             //  - not HybridShift or HybridShiftSMS and at primary hit
@@ -1482,7 +1484,7 @@ struct PathTracer
 
             if (conditions)
             {
-                print("-- setting is_rcVertex = true", 0);
+                print("Set RC vertex", 0);
 
                 is_rcVertex = true;
                 path.pathBuilder.rcVertexHit.initFromHitInfo(path.hit);
@@ -1511,17 +1513,9 @@ struct PathTracer
                     path.pathBuilder.rcPrevPrevVertexWo = path.prevPrevWo;
                     path.pathBuilder.pathFlags.insertIsDD(false);
                     path.pathBuilder.pathFlags.insertIsDSD(true);
-
-
-                    print("--- pathBuilder.rcVertexHit.instanceID", path.pathBuilder.rcVertexHit.instanceID);
-                    print("--- pathBuilder.rcPrevVertexHit.instanceID", path.pathBuilder.rcPrevVertexHit.instanceID);
-                    print("--- pathBuilder.rcPrevPrevVertexHit.instanceID", path.pathBuilder.rcPrevPrevVertexHit.instanceID);
                 }
 
                 // daqi: save the current path length as the rcVertex length
-
-                print("-- save the current path length as the rcVertex length", 0);
-
                 path.pathBuilder.rcVertexLength = path.length;
             }
         }
@@ -1529,7 +1523,7 @@ struct PathTracer
             && path.replayMode == ReplayMode::HybridShift )
         {
             // Currently tracing random number replay path for hybrid shift
-            print("- Check HybridShift invertibility", 0);
+            print("Check HybridShift invertibility", 0);
 
             bool invertible = true;
             bool shouldTerminate = false;
@@ -1538,12 +1532,9 @@ struct PathTracer
             //  Checking if we could find a even earlier RC than the base path's,
             //  If we can, then offset path is non-invertible.
 
-            print("-- path.length", path.length);
-            print("-- rcVertexLength", path.pathBuilder.rcVertexLength);
-
             if (path.length >= 1 && path.length <= path.pathBuilder.rcVertexLength - 1)
             {
-                print("-- Check case 1: is earlier connection", 0);
+                print("Check case 1: is earlier connection", 0);
                 if (kSeparatePathBSDF)
                 {
                     if (params.localStrategyType & (uint)LocalStrategy::RoughnessCondition)
@@ -1600,7 +1591,7 @@ struct PathTracer
 
             if (path.length == path.pathBuilder.rcVertexLength - 1 && invertible)
             {
-                print("-- Check case 2: is connectible", 0);
+                print("Check case 2: is connectible", 0);
                 // daqi: not possible to generate a diffuse bounce
 
                 // Check if the current vertex can connect to the RC in base path
@@ -1624,12 +1615,12 @@ struct PathTracer
 
             if (invertible)
             {
-                print("-- Path is invertable", 0);
+                print("Path is invertable", 0);
 
                 // daqi: if it is invertible and we should terminate, save the hit information to set up a reconnection
                 if (shouldTerminate)
                 {
-                    print("--- Should also terminate", 0);
+                    print("Should also terminate", 0);
                     path.rcPrevVertexHit = path.hit;
                     path.rcPrevVertexWo = sd.V;
                     path.terminate();
@@ -1637,22 +1628,22 @@ struct PathTracer
             }
             else //daqi: if the shift is not invertible, we should mark the case, which causes the shift to terminate when it goes back to shift.slang
             {
-                print("-- Path is NOT invertable", 0);
+                print("Path is NOT invertable", 0);
 
                 invalidateAndTerminateReplayPath(path);
             }
 
             if (!path.isActive())
             {
-                print("-- Terminate after doing replay for hybrid shift", 0);
-
+                print("Terminate after doing replay for hybrid shift", 0);
+                print("}handleHit", 0);
                 return;
             }
         }
         else if (PathSamplingMode(kPathSamplingMode) != PathSamplingMode::PathTracing
             && path.replayMode == ReplayMode::HybridShiftSMS )
         {
-            print("- Check HybridShiftSMS invertibility", 0);
+            print("Check HybridShiftSMS invertibility", 0);
 
             bool invertible = true;
             bool shouldTerminate = false;
@@ -1661,17 +1652,12 @@ struct PathTracer
 
             bool isEnableRoughnessCondition = params.localStrategyType & (uint)LocalStrategy::RoughnessCondition;
 
-            print("- path.length", path.length);
-            print("- path.pathBuilder.rcVertexLength", path.pathBuilder.rcVertexLength);
-            print("- isCurrentVertexClassifiedAsRough", isCurrentVertexClassifiedAsRough);
-            print("- path.isLastVertexClassifiedAsRough", path.isLastVertexClassifiedAsRough);
-
             if( path.pathBuilder.pathFlags.decodeIsDD() )
             {
                 //
                 // RC is DD
                 //
-                print("-- RC is DD case", 0);
+                print("RC is DD case", 0);
 
                 // 1. Check if found an earlier connection than RC
                 if (
@@ -1689,13 +1675,13 @@ struct PathTracer
                     //  2. the current vertex can also be considered as a RC in offset path
                     if (passRoughnessCondition && terminateRandomReplayForNEE)
                     {
-                        print("--- Failed case", 1);
+                        print("Failed case", 1);
                         invertible = false;
                     }
 
                     if (passDistanceCondition && passRoughnessCondition)
                     {
-                        print("--- Failed case", 2);
+                        print("Failed case", 2);
                         // Found an ealier RC than base path
                         invertible = false;
                     }
@@ -1710,7 +1696,7 @@ struct PathTracer
                     }
                     else
                     {
-                        print("--- Failed case", 3);
+                        print("Failed case", 3);
                         invertible = false;
                     }
                 }
@@ -1724,7 +1710,8 @@ struct PathTracer
                         path.rcPrevVertexHit = path.hit;
                         path.rcPrevVertexWo = sd.V;
                         path.terminate();
-                        print("--- Found good offset path DD", 0);
+                        print("Found good offset path DD", 0);
+                        print("}handleHit", 0);
                         return;
                     }
                 }
@@ -1732,7 +1719,8 @@ struct PathTracer
                 {
                     // Offset path is non-invertible. Terminate and return.
                     invalidateAndTerminateReplayPath(path);
-                    print("--- Invalidate offset path DD", 0);
+                    print("Invalidate offset path DD", 0);
+                    print("}handleHit", 0);
                     return;
                 }
             }
@@ -1741,7 +1729,7 @@ struct PathTracer
                 //
                 // RC is DSD
                 //
-                print("-- RC is DSD case", 0);
+                print("RC is DSD case", 0);
 
                 // 1. Check if found an earlier connection than RC
                 if (
@@ -1761,13 +1749,13 @@ struct PathTracer
                     //  2. the current vertex can also be considered as a RC in offset path
                     if (passRoughnessCondition && terminateRandomReplayForNEE)
                     {
-                        print("--- Failed case", 1);
+                        print("Failed case", 1);
                         invertible = false;
                     }
 
                     if(passDistanceCondition && passRoughnessCondition)
                     {
-                        print("--- Failed case", 2);
+                        print("Failed case", 2);
                         // Found an earlier RC
                         invertible = false;
                     }
@@ -1785,7 +1773,7 @@ struct PathTracer
                     }
                     else
                     {
-                        print("--- Failed case", 3);
+                        print("Failed case", 3);
                         invertible = false;
                     }
                 }
@@ -1794,7 +1782,7 @@ struct PathTracer
                 {
                     if(isCurrentVertexClassifiedAsRough)
                     {
-                        print("--- Assuming rcPrevVertex is specular", 0);
+                        print("Assuming rcPrevVertex is specular", 0);
                         // Assume that next vertex is a specular due to random number replay and can connect to RC
                         shouldTerminate = true;
                         // 1. Save current as rc prev prev.
@@ -1805,8 +1793,9 @@ struct PathTracer
                         // path.rcPrevVertexWo = ...
                         // Because we doesn't have this data during retrace, it needs to be handled by upper level traceRandomReplayPathHybridSimple(). In there we will check ReconnectionData.rcPrevHit.isValid()
 
-                        print("--- Found good offset path DSD (assumed specular vertex)", 0);
+                        print("Found good offset path DSD (assumed specular vertex)", 0);
                         path.terminate();
+                        print("}handleHit", 0);
                         return;
                     }
                 }
@@ -1818,20 +1807,22 @@ struct PathTracer
                     if (shouldTerminate)
                     {
                         // We have a good offset path ready for reconnection
-                        print("--- Found good offset path DSD", 0);
+                        print("Found good offset path DSD", 0);
                         path.rcPrevVertexHit = path.hit;
                         path.rcPrevVertexWo = sd.V;
                         path.rcPrevPrevVertexHit = path.prevHit;
                         path.rcPrevPrevVertexWo = path.prevWo;
                         path.terminate();
+                        print("}handleHit", 0);
                         return;
                     }
                 }
                 else
                 {
                     // Offset path is non-invertible. Terminate and return.
-                    print("--- Invalidate offset path DSD", 0);
+                    print("Invalidate offset path DSD", 0);
                     invalidateAndTerminateReplayPath(path);
+                    print("}handleHit", 0);
                     return;
                 }
             }
@@ -1850,16 +1841,16 @@ struct PathTracer
         //  or not a PrimaryHit (v2, v3, ...)
         if (!(kDisableDirectIllumination && isPrimaryHit))
         {
-            print("- Sample light: Begin", 0);
+            print("{Sample light", 0);
             // generate kNEESamples light samples
             if (sampleLights && (!path.enableRandomReplay || terminateRandomReplayForNEE))
             {
-                print("-- Sample light: kNEESamples light samples", 0);
+                print("Sample light: kNEESamples light samples", 0);
 
                 // cache (NEE sampling) seed for temporal validation (only possible for non early direction reuse since it uses the cachedRandomSeed slot)
                 if (path.length == path.pathBuilder.rcVertexLength)
                 {
-                    print("--- Sample light: cache seed for RC", 0);
+                    print("Sample light: cache seed for RC", 0);
 
                     path.pathBuilder.cachedRandomSeed = path.sg.getCurrentSeed();
                 }
@@ -1888,7 +1879,7 @@ struct PathTracer
                 {
                     if(gIsDebug)
                     {
-                        print("--- Sample light: valid sample", 0);
+                        print("Sample light: valid sample", 0);
 
                         debugVertexState.isSampledLight = true;
 
@@ -1908,24 +1899,13 @@ struct PathTracer
                         scatterPdf = evalPdfBSDF(sd, ls.dir);
                         float MIS = evalMIS(1, ls.pdf, 1, scatterPdf);
                         misWeight *= MIS;
-                        print("--- scatterPdf", scatterPdf);
-                        print("--- ls.pdf", ls.pdf);
-                        print("--- MIS", MIS);
                     }
 
-                    print("--- ls.Li", ls.Li);
-                    print("--- misWeight", misWeight);
-
                     ls.Li *= misWeight;
-
-                    print("--- ls.Li * misWeight", ls.Li);
 
                     float3 weight = evalBSDFCosine(sd, ls.dir);
 
                     float3 Lr = weight * ls.Li * path.getCurrentThp();
-
-                    print("--- weight", weight);
-                    print("--- path.getCurrentThp()", path.getCurrentThp());
 
                     if (any(Lr > 0.f))
                     {
@@ -1949,7 +1929,6 @@ struct PathTracer
                                 if (is_rcVertex)
                                 {
                                     weight = 1.f;
-                                    print("--- modified weight at RC", weight);
                                 }
 
 #if BPR
@@ -1979,11 +1958,9 @@ struct PathTracer
                                     path.enableRandomReplay
                                 );
 
-                                print("--- Add sampledLightVertex to reservoir", selected);
+                                print("Add sampledLightVertex to reservoir", selected);
 #endif
 
-                                //debugVertexState.isSampledLight = true;
-                                //debugVertexState.sampledLightPosition = ls.origin + ls.dir * ls.distance;
                             }
                         }
                     }
@@ -1992,7 +1969,7 @@ struct PathTracer
             else
                 // daqi: for random number replay, we should skip the random numbers for NEE if we should not terminate on current bounce
             {
-                print("-- Sample light: skip light sample", 0);
+                print("Skip light sample", 0);
 
                 if (path.enableRandomReplay && sampleLights)
                 {
@@ -2005,8 +1982,7 @@ struct PathTracer
                 skipLightSampleRandomNumbers(path.sg);
             }
 
-            print("- Sample light: End", 0);
-
+            print("}Sample light", 0);
         }
 
         // daqi: terminate the path if the bounce of random replay reaches the desired bounce and the base path is an NEE path
@@ -2014,6 +1990,7 @@ struct PathTracer
         {
             print("terminateRandomReplayForNEE", 0);
             path.terminate();
+            print("}handleHit", 0);
             return;
         }
 
@@ -2030,6 +2007,7 @@ struct PathTracer
                 if (terminatePathByRussianRoulette(path))
                 {
                     print("terminate by Russian Roulette", 0);
+                    print("}handleHit", 0);
                     return;
                 }
             }
@@ -2045,9 +2023,8 @@ struct PathTracer
         }
 
         // Generate the next path segment or terminate.
-        print("Generate scatter ray", 0);
-
         bool valid = generateScatterRay(sd, path);
+        print("Is valid Scatter Ray", valid);
 
         // forbid current vertex being rcVertex
         //      kSeparatePathBSDF is true when not PathSamplingMode::PathReuse
@@ -2074,7 +2051,7 @@ struct PathTracer
                     || !(params.localStrategyType & (uint)LocalStrategy::DistanceCondition)
                 )
                 {
-                    print("-- invalidate path because found earlier RC connection.", 0);
+                    print("Invalidate path because found earlier RC connection.", 0);
 
                     // Basically, if we're doing random number replay for
                     //  hybrid shift, and found that the current vertex is suitable to be a RC, then terminate the path.
@@ -2099,7 +2076,7 @@ struct PathTracer
                 // Tracing base path in HybridShift mapping mode and is not connectible.
                 if (is_rcVertex)
                 {
-                    print("-- invalidate current vertex from being an RC", 0);
+                    print("Invalidate current vertex from being an RC", 0);
                     // Why would this ever happen??? How??
                     is_rcVertex = false;
                     path.pathBuilder.rcVertexLength = kMaximumPathLength; // reset
@@ -2125,8 +2102,6 @@ struct PathTracer
         // daqi: save the incoming direction on rcVertex
         if (is_rcVertex && valid && (int(path.length > 1) == 0 || !BPR))
         {
-            print("- update rcVertexWi ", 0);
-
             path.pathBuilder.rcVertexWi[0] = path.dir;
         }
 
@@ -2166,7 +2141,8 @@ struct PathTracer
 
         if (!path.isActive())
         {
-            print("-- path is no longer active", 0);
+            print("Path is no longer active", 0);
+            print("}handleHit", 0);
             return;
         }
 
@@ -2176,14 +2152,14 @@ struct PathTracer
         // Terminate if this is the last path vertex and light sampling already completely sampled incident radiance.
         if (kUseNEE && !kUseMIS && isLastVertex && path.isLightSamplable())
         {
-            print("-- terminate at last vertex with NEE ", 0);
+            print("Terminate at last vertex with NEE ", 0);
             valid = false;
         }
 
         // Terminate caustics paths.
         if (kDisableCaustics && path.getBounces(BounceType::Diffuse) > 0 && path.isSpecular())
         {
-            print("-- terminate because disabled caustic path", 0);
+            print("Terminate because disabled caustic path", 0);
             valid = false;
         }
 
@@ -2192,8 +2168,7 @@ struct PathTracer
             path.terminate();
         }
 
-        print("handleHit -- end", 0);
-
+        print("}handleHit", 0);
     }
 
     /** Handle the case when a scatter ray misses the scene.
@@ -2206,8 +2181,7 @@ struct PathTracer
         // - Evaluate environment map
         // - Write guiding data
         // - Terminate the path
-        print("handleMiss -- begin", 0);
-
+        print("{handleMiss", 0);
 
         // Check if the scatter event is samplable by the light sampling technique.
         const bool isLightSamplable = path.isLightSamplable();
@@ -2218,12 +2192,12 @@ struct PathTracer
         // Disable all constributions to direct illumination if requested.
         if (kDisableDirectIllumination && path.length == 0 && isLightSamplable) computeEnv = false;
 
-        print("- computeEnv", computeEnv);
+        print("computeEnv", computeEnv);
         if (computeEnv)
         {
             logPathVertex();
 
-            print("- Compute environment lighting", 0);
+            print("Compute environment lighting", 0);
 
 
             float misWeight = 1.f;
@@ -2257,7 +2231,7 @@ struct PathTracer
                 if (!kDisableDirectIllumination || path.length > 0)
                 {
                     path.L += Lr;
-                    print("- Add env map light contribution", 0);
+                    print("Add env map light contribution", 0);
                 }
 
                 // will change this to path.IsDelta() if ScreenSpaceReSTIR can handle transmission
@@ -2280,13 +2254,13 @@ struct PathTracer
                     path.russianRoulettePdf, misWeight, lightPdf, (uint)LightSampleType::EnvMap, path.pathReservoir, path.enableRandomReplay);
 #else
 
-                print("- Add escape vertex", 0);
+                print("Add escape vertex", 0);
 
                 // addBsdfSampledLightVertex
                 bool selectedCurrentPath = path.pathBuilder.addEscapeVertex(params, path.length, path.dir, Lr, path.thp * Le * misWeight,
                     path.russianRoulettePdf, misWeight, lightPdf, (uint)LightSampleType::EnvMap, path.pathReservoir, path.enableRandomReplay);
 #endif
-                print("- is selected current path as escaped", selectedCurrentPath);
+                print("is selected current path as escaped", selectedCurrentPath);
 
                 // daqi: if current escaped vertex has path.length >= 2, then it can be used as a rcVertex
 
@@ -2301,7 +2275,7 @@ struct PathTracer
                 {
                     bool isLastVertexAcceptableForRcPrev = path.isLastVertexClassifiedAsRough;
 
-                    print("-- isLastVertexAcceptableForRcPrev", isLastVertexAcceptableForRcPrev);
+                    print("isLastVertexAcceptableForRcPrev", isLastVertexAcceptableForRcPrev);
 
                     // daqi: in the case of escaped to infinitely far, we always satisfy the far field requirement
                     if (
@@ -2315,7 +2289,7 @@ struct PathTracer
                         {
                             // We are tracing random replay path and have found an RC vertex before the base path.
                             // Therefore, we need to invalidate this offset, random replay path.
-                            print("-- non-invertiable case", 0);
+                            print("non-invertiable case", 0);
 
                             path.L = 0.f;
                         }
@@ -2323,7 +2297,7 @@ struct PathTracer
                         {
                             // We are tracing base path and found a new RC
 
-                            print("-- mark escaped as RC vertex", 0);
+                            print("mark escaped as RC vertex", 0);
                             // we found an RC vertex!
                             // set rcVertexLength to current length (this will make rcVertexLength = reseroivr.pathLength + 1)
                             HitInfo dummyHit = HitInfo();
@@ -2383,7 +2357,7 @@ struct PathTracer
                         {
                             // We are tracing random replay path and have found an RC vertex before the base path.
                             // Therefore, we need to invalidate this offset, random replay path.
-                            print("-- non-invertiable case", 0);
+                            print("non-invertiable case", 0);
 
                             path.L = 0.f;
                         }
@@ -2391,7 +2365,7 @@ struct PathTracer
                         {
                             // We are tracing base path and found a new RC
 
-                            print("-- mark escaped as RC vertex", 0);
+                            print("mark escaped as RC vertex", 0);
                             // we found an RC vertex!
                             // set rcVertexLength to current length (this will make rcVertexLength = reseroivr.pathLength + 1)
                             HitInfo dummyHit = HitInfo();
@@ -2428,7 +2402,7 @@ struct PathTracer
 
         path.terminate();
 
-        print("handleMiss -- end", 0);
+        print("}handleMiss", 0);
     }
 
     // function to trace a path using random number replay
@@ -2500,7 +2474,7 @@ struct PathTracer
         inout DebugPathData debugPathData
     )
     {
-        print("-- traceRandomReplayPathHybridSimple: begin", 0);
+        print("{traceRandomReplayPathHybridSimple", 0);
 
         //
         //  Generate random replay path
@@ -2510,7 +2484,7 @@ struct PathTracer
 
         generateRandomReplayPath(path, hit, ray, initRandomSeed, pathFlags.pathLength(), pathFlags.lastVertexNEE(), isRcVertexEscapedVertex);
 
-        print("-- path.origin v0", path.origin);
+        print("path.origin v0", path.origin);
 
         if (ShiftMapping(kShiftStrategy) == ShiftMapping::HybridShiftSMS)
         {
@@ -2534,7 +2508,7 @@ struct PathTracer
 
         // Advance to next vertex (primary hit)
         path.origin = sd.computeNewRayOrigin();
-        print("-- path.origin v1", path.origin);
+        print("path.origin v1", path.origin);
 
         debugPathData.vertices[debugPathData.vertexCount] = float4(path.origin, 1);
         debugPathData.vertexCount += 1;
@@ -2579,6 +2553,7 @@ struct PathTracer
         else
         {
             reconnectionData.pathThroughput = float3(0.f);
+            print("}traceRandomReplayPathHybridSimple", 0);
             return;
         }
 
@@ -2597,13 +2572,14 @@ struct PathTracer
         //  path.isLastVertexClassifiedAsRough = is v1 rough;
         //  path.isLastLastVertexClassifiedAsRough = false;
 
-        print("-- randomReplayIsEscaped:", path.randomReplayIsEscaped);
-        print("-- path.isLastVertexClassifiedAsRough", path.isLastVertexClassifiedAsRough);
-        print("-- path.isLastLastVertexClassifiedAsRough", path.isLastLastVertexClassifiedAsRough);
+        print("randomReplayIsEscaped:", path.randomReplayIsEscaped);
+        print("path.isLastVertexClassifiedAsRough", path.isLastVertexClassifiedAsRough);
+        print("path.isLastLastVertexClassifiedAsRough", path.isLastLastVertexClassifiedAsRough);
 
         DebugVertexState debugVertexState;
 
         // Continue tracing from v2
+        print("{traceLoop", 0);
         while (path.isActive() && path.isHit())
         {
             // Volume scattering is ignored
@@ -2617,6 +2593,7 @@ struct PathTracer
             if (path.isActive() && path.isHit())
                 nextVertex(path);
         }
+        print("}traceLoop", 0);
 
         // Handle the miss and terminate path.
         if (path.isActive())
@@ -2628,6 +2605,7 @@ struct PathTracer
             {
                 reconnectionData.pathThroughput = float3(0.f);
                 debugPathData.vertexCount = 0;
+                print("}traceRandomReplayPathHybridSimple", 0);
                 return;
             }
         }
@@ -2645,8 +2623,6 @@ struct PathTracer
             if( pathFlags.decodeIsDSD() )
             {
                 // DSD RC
-                print("--- RC vertex is for HybridSMS", 0);
-
                 reconnectionData.rcPrevPrevHit = path.rcPrevPrevVertexHit;
                 reconnectionData.rcPrevPrevWo = path.rcPrevPrevVertexWo;
 
@@ -2678,9 +2654,8 @@ struct PathTracer
             debugPathData.vertexCount = 0;
         }
 
-        print("-- traceRandomReplayPathHybridSimple: end", 0);
-
         reconnectionData.pathThroughput = L;
+        print("}traceRandomReplayPathHybridSimple", 0);
         return;
     }
 
@@ -2908,13 +2883,13 @@ struct PathTracer
 
             if (PathSamplingMode(kPathSamplingMode) != PathSamplingMode::PathTracing)
             {
-                print("- Update output reservoir", 0);
+                print("Update output reservoir", 0);
                 outputReservoirs[reservoirIdx] = path.pathReservoir;
             }
         }
         else
         {
-            print("- Multi samples case", 0);
+            print("Multi samples case", 0);
             if (PathSamplingMode(kPathSamplingMode) == PathSamplingMode::PathTracing)
             {
                 float3 L = 0.f;
@@ -2954,7 +2929,7 @@ struct PathTracer
                 {
                     if (giReservoir.mergeInSamplePixel(path.pathReservoir, path.sg))
                     {
-                        print("- Merge in sample pixel to reservoir", 0);
+                        print("Merge in sample pixel to reservoir", 0);
 
                         giReservoir.F = path.pathReservoir.F;
                     }
@@ -2987,7 +2962,7 @@ struct PathTracer
                     else
                         outputColor[pixel] += float4(L, 1.f);
 
-                    print("- Update reservoir", 0);
+                    print("Update reservoir", 0);
                     outputReservoirs[reservoirIdx] = giReservoir;
                 }
             }
