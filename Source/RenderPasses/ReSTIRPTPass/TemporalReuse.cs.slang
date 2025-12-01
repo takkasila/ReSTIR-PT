@@ -243,10 +243,12 @@ struct PathReusePass
                 static const int curSampleId = -1;
                 static const int prevSampleId = 0;
 
+                print("{loopSampleId i", 0);
                 for (int i = curSampleId; i <= prevSampleId; i++)
                 {
 
-                    print("- round", i);
+                    print("{sampleId i", 0);
+                    print("i", i);
 
                     float p_sum = 0;
                     float p_self = 0;
@@ -277,12 +279,12 @@ struct PathReusePass
                             // Also, should we check if hitinfo is valid instead?
                         )
                         {
-                            print("-- Have RC 1", 0);
+                            print("Have RC 1", 0);
                             rcData = reconnectionDataBuffer[centralOffset].data[1];
                         }
                         else
                         {
-                            print("-- Dummy RC 1", 0);
+                            print("Dummy RC 1", 0);
                             rcData = dummyRcData;
                         }
 
@@ -309,13 +311,14 @@ struct PathReusePass
                         );
                     }
 
-                    print("-- possibleToBeSelected:", possibleToBeSelected);
+                    print("possibleToBeSelected:", possibleToBeSelected);
 
                     if (possibleToBeSelected)
                     {
+                        print("{loopSampleId j", 0);
                         for (int j = curSampleId; j <= prevSampleId; ++j)
                         {
-                            print("--- j", j);
+                            print("{sampleId j", 0);
 
                             if (j == curSampleId)
                             {
@@ -329,6 +332,7 @@ struct PathReusePass
                                 {
                                     p_self = PathReservoir::toScalar(temporalReservoir.F) / dstJacobian * temporalReservoir.M;
                                     p_sum += p_self;
+                                    print("}sampleId j", 0);
                                     continue;
                                 }
 
@@ -345,13 +349,13 @@ struct PathReusePass
                                     && tempDstReservoir.pathFlags.rcVertexLength() > 1
                                 )
                                 {
-                                    print("--- have RC 2", 0);
+                                    print("Have RC 2", 0);
                                     rcData = reconnectionDataBuffer[centralOffset].data[0];
                                 }
                                 else
                                 {
                                     rcData = dummyRcData;
-                                    print("--- Dummy RC 2", 0);
+                                    print("Dummy RC 2", 0);
                                 }
 
                                 float3 tneighborIntegrand = computeShiftedIntegrand(
@@ -369,7 +373,10 @@ struct PathReusePass
                                 p_ = PathReservoir::toScalar(tneighborIntegrand) * tneighborJacobian;
                                 p_sum += p_ * temporalReservoir.M;
                             }
+
+                            print("}sampleId j", 0);
                         }
+                        print("}loopSampleId j", 0);
                     }
 
                     float misWeight = p_sum == 0.f ? 0.f : p_self / p_sum;
@@ -379,7 +386,10 @@ struct PathReusePass
 
                     // Finally merge into base reservoir (dstReservoir)
                     mergeReservoirWithResamplingMIS(params, tempDstReservoir.F, dstJacobian, dstReservoir, tempDstReservoir, neighborReservoir, sg, false, misWeight);
+
+                    print("}sampleId i", 0);
                 }
+                print("}loopSampleId i", 0);
 
                 if (dstReservoir.weight > 0)
                 {
@@ -465,9 +475,9 @@ struct PathReusePass
             outputReservoirs[centralOffset] = dstReservoir;
             color = dstReservoir.F * dstReservoir.weight;
 
-            print("- dstReservoir.F", dstReservoir.F);
-            print("- dstReservoir.weight", dstReservoir.weight);
-            print("- color", color);
+            print("dstReservoir.F", dstReservoir.F);
+            print("dstReservoir.weight", dstReservoir.weight);
+            print("color", color);
 
             if (any(color > 10.f))
             {
@@ -485,7 +495,7 @@ struct PathReusePass
 
                 outputColor[pixel] += float4(color / kSamplesPerPixel, 1.f);
 
-                print("- outputColor[pixel]", outputColor[pixel]);
+                print("outputColor[pixel]", outputColor[pixel]);
             }
         }
 
@@ -503,9 +513,9 @@ struct PathReusePass
         printSetPixel(pixel);
         logSetPixel(pixel);
 
-        print("Temporal path reuse: begin", 0);
+        print("{Temporal Reuse", 0);
         ReSTIR(pixel);
-        print("Temporal path reuse: end", 0);
+        print("}Temporal Reuse", 0);
     }
 };
 

@@ -123,7 +123,7 @@ struct PathRetracePass
             && reconnectionData.rcPrevPrevHit.isValid()
         )
         {
-            print("- fill in assumed specular vertex", 0);
+            print("Fill in assumed specular vertex", 0);
 
             reconnectionData.rcPrevHit = reservoir.rcPrevVertexHit.getHitInfo();
 
@@ -345,44 +345,55 @@ struct PathRetracePass
 
         const uint startIndex = sampleNext1D(sg) * kNeighborOffsetCount;
 
+        print("{Neighbor loop", 0);
         for (int i = 0; i < neighborCount; ++i)
         {
-            print("- neighbor", i);
+            print("{neighbor", 0);
+            print("i", i);
 
             int2 neighborPixel = getNextNeighborPixel(startIndex, pixel, i);
 
             // Check if not in screen
             if (!isValidScreenRegion(neighborPixel))
+            {
+                print("}neighbor", 0);
                 continue;
+            }
 
             PathReservoir neighborReservoir = outputReservoirs[params.getReservoirOffset(neighborPixel)];
 
-            print("- Neighbor reservoir:", 0);
-            print("-- rcVertexHit id", neighborReservoir.rcVertexHit.instanceID);
-            print("-- rcPrevVertexHit id", neighborReservoir.rcPrevVertexHit.instanceID);
-            print("-- rcPrevPrevVertexHit id", neighborReservoir.rcPrevPrevVertexHit.instanceID);
-            print("-- isDD", neighborReservoir.pathFlags.decodeIsDD());
-            print("-- isDSD", neighborReservoir.pathFlags.decodeIsDSD());
-            print("-- rcVertexLength", neighborReservoir.pathFlags.rcVertexLength());
-            print("-- pathLength", neighborReservoir.pathFlags.pathLength());
-            print("-- weight", neighborReservoir.weight);
+            print("Neighbor reservoir:", 0);
+            print("- rcVertexHit id", neighborReservoir.rcVertexHit.instanceID);
+            print("- rcPrevVertexHit id", neighborReservoir.rcPrevVertexHit.instanceID);
+            print("- rcPrevPrevVertexHit id", neighborReservoir.rcPrevPrevVertexHit.instanceID);
+            print("- isDD", neighborReservoir.pathFlags.decodeIsDD());
+            print("- isDSD", neighborReservoir.pathFlags.decodeIsDSD());
+            print("- rcVertexLength", neighborReservoir.pathFlags.rcVertexLength());
+            print("- pathLength", neighborReservoir.pathFlags.pathLength());
+            print("- weight", neighborReservoir.weight);
 
             PackedHitInfo neighborPrimaryHitPacked;
             ShadingData neighborPrimarySd = getPixelShadingData(neighborPixel, neighborPrimaryHitPacked);
             // Check if not
             if (!isValidPackedHitInfo(neighborPrimaryHitPacked))
+            {
+                print("}neighbor", 0);
                 continue;
+            }
 
             // Both surfaces are close and plausible to connect with each other
             if (!isValidGeometry(centralPrimarySd, neighborPrimarySd))
+            {
+                print("}neighbor", 0);
                 continue;
+            }
 
             ReconnectionData centralReservoirReconnectionData;
             ReconnectionData neighborReservoirReconnectionData;
 
             if (centralReservoir.pathFlags.rcVertexLength() > 1)
             {
-                print("- traceHybridShiftRays centralReservoir: begin", 0);
+                print("{traceHybridShiftRays centralReservoir", 0);
 
                 traceHybridShiftRays(
                     params,
@@ -394,12 +405,12 @@ struct PathRetracePass
                     debugPathData1
                 );
 
-                print("- Output Central ReconnectionData", 0);
-                print("-- rcData.rcPrevHit", centralReservoirReconnectionData.rcPrevHit.isValid());
-                print("-- rcData.rcPrevPrevHit", centralReservoirReconnectionData.rcPrevPrevHit.isValid());
-                print("-- rcData.rcPrevWo", centralReservoirReconnectionData.rcPrevWo);
-                print("-- rcData.rcPrevPrevWo", centralReservoirReconnectionData.rcPrevPrevWo);
-                print("-- rcData.pathThroughput", centralReservoirReconnectionData.pathThroughput);
+                print("Output Central ReconnectionData", 0);
+                print("- rcData.rcPrevHit", centralReservoirReconnectionData.rcPrevHit.isValid());
+                print("- rcData.rcPrevPrevHit", centralReservoirReconnectionData.rcPrevPrevHit.isValid());
+                print("- rcData.rcPrevWo", centralReservoirReconnectionData.rcPrevWo);
+                print("- rcData.rcPrevPrevWo", centralReservoirReconnectionData.rcPrevPrevWo);
+                print("- rcData.pathThroughput", centralReservoirReconnectionData.pathThroughput);
 
                 // Check if the case of need to fill in DSD data
                 detectAndfillInAssumedSpecularVertex(centralReservoir, centralReservoirReconnectionData);
@@ -416,16 +427,12 @@ struct PathRetracePass
                     fillDebugPathData(centralReservoirReconnectionData, centralReservoir, debugPathData1, debugCentralResevoirPathDataBuffer);
                 }
 
-                print("- traceHybridShiftRays centralReservoir: end", 0);
-            }
-            else
-            {
-                print("- Central rcVertexLength is too short or assumed", centralReservoir.pathFlags.rcVertexLength());
+                print("}traceHybridShiftRays centralReservoir", 0);
             }
 
             if (neighborReservoir.pathFlags.rcVertexLength() > 1)
             {
-                print("- traceHybridShiftRays neighborReservoir: begin", 0);
+                print("{traceHybridShiftRays neighborReservoir", 0);
 
                 traceHybridShiftRays(
                     params,
@@ -437,12 +444,12 @@ struct PathRetracePass
                     debugPathData2
                 );
 
-                print("- Output Neighbor ReconnectionData", 0);
-                print("-- rcData.rcPrevHit", neighborReservoirReconnectionData.rcPrevHit.isValid());
-                print("-- rcData.rcPrevPrevHit", neighborReservoirReconnectionData.rcPrevPrevHit.isValid());
-                print("-- rcData.rcPrevWo", neighborReservoirReconnectionData.rcPrevWo);
-                print("-- rcData.rcPrevPrevWo", neighborReservoirReconnectionData.rcPrevPrevWo);
-                print("-- rcData.pathThroughput", neighborReservoirReconnectionData.pathThroughput);
+                print("Output Neighbor ReconnectionData", 0);
+                print("- rcData.rcPrevHit", neighborReservoirReconnectionData.rcPrevHit.isValid());
+                print("- rcData.rcPrevPrevHit", neighborReservoirReconnectionData.rcPrevPrevHit.isValid());
+                print("- rcData.rcPrevWo", neighborReservoirReconnectionData.rcPrevWo);
+                print("- rcData.rcPrevPrevWo", neighborReservoirReconnectionData.rcPrevPrevWo);
+                print("- rcData.pathThroughput", neighborReservoirReconnectionData.pathThroughput);
 
                 // Check if the case of need to fill in DSD data
                 detectAndfillInAssumedSpecularVertex(neighborReservoir, neighborReservoirReconnectionData);
@@ -458,14 +465,12 @@ struct PathRetracePass
                     fillDebugPathData(neighborReservoirReconnectionData, neighborReservoir, debugPathData2, debugNeighborResevoirPathDataBuffer);
                 }
 
-                print("- traceHybridShiftRays neighborReservoir: end", 0);
+                print("}traceHybridShiftRays neighborReservoir", 0);
             }
-            else
-            {
-                print("- Neighbor rcVertexLength is too short or assumed", neighborReservoir.pathFlags.rcVertexLength());
-            }
-        }
 
+            print("}neighbor", 0);
+        }
+        print("}Neighbor loop", 0);
     }
 
     /** Entry point for merge pass.
@@ -480,9 +485,9 @@ struct PathRetracePass
         printSetPixel(pixel);
         logSetPixel(pixel);
 
-        print("Spatial path retrace: begin", 0);
+        print("{Spatial Retrace", 0);
         ReSTIR(pixel);
-        print("Spatial path retrace: end", 0);
+        print("}Spatial Retrace", 0);
     }
 };
 

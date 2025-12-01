@@ -94,7 +94,7 @@ struct PathRetracePass
             && reconnectionData.rcPrevPrevHit.isValid()
         )
         {
-            print("- fill in assumed specular vertex", 0);
+            print("Fill in assumed specular vertex", 0);
 
             reconnectionData.rcPrevHit = reservoir.rcPrevVertexHit.getHitInfo();
 
@@ -236,32 +236,32 @@ struct PathRetracePass
         {
             // Check closeness of rcPrev, rcPrevPrev
 
-            float3 baseRcPrevPosW = gScene.getVertexData(reservoir.rcPrevVertexHit.getHitInfo().getTriangleHit()).posW;
-            float3 baseRcPrevPrevPosW = gScene.getVertexData(reservoir.rcPrevPrevVertexHit.getHitInfo().getTriangleHit()).posW;
+            // float3 baseRcPrevPosW = gScene.getVertexData(reservoir.rcPrevVertexHit.getHitInfo().getTriangleHit()).posW;
+            // float3 baseRcPrevPrevPosW = gScene.getVertexData(reservoir.rcPrevPrevVertexHit.getHitInfo().getTriangleHit()).posW;
 
-            float3 offsetRcPrevPosW = gScene.getVertexData(reconnectionData.rcPrevHit.getTriangleHit()).posW;
-            float3 offsetRcPrevPrevPosW = gScene.getVertexData(reconnectionData.rcPrevPrevHit.getTriangleHit()).posW;
+            // float3 offsetRcPrevPosW = gScene.getVertexData(reconnectionData.rcPrevHit.getTriangleHit()).posW;
+            // float3 offsetRcPrevPrevPosW = gScene.getVertexData(reconnectionData.rcPrevPrevHit.getTriangleHit()).posW;
 
-            float diffRcPrev = length(baseRcPrevPosW - offsetRcPrevPosW);
-            float diffRcPrevPrev = length(baseRcPrevPrevPosW - offsetRcPrevPrevPosW);
+            // float diffRcPrev = length(baseRcPrevPosW - offsetRcPrevPosW);
+            // float diffRcPrevPrev = length(baseRcPrevPrevPosW - offsetRcPrevPrevPosW);
 
-            if (diffRcPrev > FLT_EPSILON)
-            {
-                print("Alert! RcPrev base and offset is different", diffRcPrev);
-                print("- baseRcPrevPosW", baseRcPrevPosW);
-                print("- base instance id", reservoir.rcPrevVertexHit.instanceID);
-                print("- offsetRcPrevPosW", offsetRcPrevPosW);
-                print("- offset instance id", reconnectionData.rcPrevHit.getTriangleHit().instanceID.index);
-            }
+            // if (diffRcPrev > FLT_EPSILON)
+            // {
+            //     print("Alert! RcPrev base and offset is different", diffRcPrev);
+            //     print("- baseRcPrevPosW", baseRcPrevPosW);
+            //     print("- base instance id", reservoir.rcPrevVertexHit.instanceID);
+            //     print("- offsetRcPrevPosW", offsetRcPrevPosW);
+            //     print("- offset instance id", reconnectionData.rcPrevHit.getTriangleHit().instanceID.index);
+            // }
 
-            if (diffRcPrevPrev > FLT_EPSILON)
-            {
-                print("Alert! RcPrevPrev base and offset is different", diffRcPrevPrev);
-                print("- baseRcPrevPrevPosW", baseRcPrevPrevPosW);
-                print("- base instance id", reservoir.rcPrevPrevVertexHit.instanceID);
-                print("- offsetRcPrevPrevPosW", offsetRcPrevPrevPosW);
-                print("- offset instance id", reconnectionData.rcPrevPrevHit.getTriangleHit().instanceID.index);
-            }
+            // if (diffRcPrevPrev > FLT_EPSILON)
+            // {
+            //     print("Alert! RcPrevPrev base and offset is different", diffRcPrevPrev);
+            //     print("- baseRcPrevPrevPosW", baseRcPrevPrevPosW);
+            //     print("- base instance id", reservoir.rcPrevPrevVertexHit.instanceID);
+            //     print("- offsetRcPrevPrevPosW", offsetRcPrevPrevPosW);
+            //     print("- offset instance id", reconnectionData.rcPrevPrevHit.getTriangleHit().instanceID.index);
+            // }
 
             // Case 4.1: Offset path is invertible and has an RC
             if (isRcPrevValid & isRcPrevPrevValid & !isRcPrevWo0 & !isRcPrevPrevWo0 & !isThroughput0)
@@ -464,7 +464,7 @@ struct PathRetracePass
 
         if (centralReservoir.pathFlags.rcVertexLength() > 1)
         {
-            print("- traceHybridShiftRays centralReservoir: begin", 0);
+            print("{traceHybridShiftRays centralReservoir", 0);
 
             //  Trace rays to find connection from previous frame's primary hit to
             //      current frame's reservoir.
@@ -478,12 +478,12 @@ struct PathRetracePass
                 debugPathData1
             );
 
-            print("- Output Central ReconnectionData", 0);
-            print("-- rcData.rcPrevHit", centralReservoirReconnectionData.rcPrevHit.isValid());
-            print("-- rcData.rcPrevPrevHit", centralReservoirReconnectionData.rcPrevPrevHit.isValid());
-            print("-- rcData.rcPrevWo", centralReservoirReconnectionData.rcPrevWo);
-            print("-- rcData.rcPrevPrevWo", centralReservoirReconnectionData.rcPrevPrevWo);
-            print("-- rcData.pathThroughput", centralReservoirReconnectionData.pathThroughput);
+            print("Output Central ReconnectionData", 0);
+            print("- rcData.rcPrevHit", centralReservoirReconnectionData.rcPrevHit.isValid());
+            print("- rcData.rcPrevPrevHit", centralReservoirReconnectionData.rcPrevPrevHit.isValid());
+            print("- rcData.rcPrevWo", centralReservoirReconnectionData.rcPrevWo);
+            print("- rcData.rcPrevPrevWo", centralReservoirReconnectionData.rcPrevPrevWo);
+            print("- rcData.pathThroughput", centralReservoirReconnectionData.pathThroughput);
 
             // Check if need to fill in DSD data
             detectAndfillInAssumedSpecularVertex(centralReservoir, centralReservoirReconnectionData);
@@ -500,16 +500,12 @@ struct PathRetracePass
             // Sanity check
             checkValidReconnectionData(centralReservoir, centralReservoirReconnectionData);
 
-            print("- traceHybridShiftRays centralReservoir: end", 0);
-        }
-        else
-        {
-            print("- Central rcVertexLength is too short or assumed", centralReservoir.pathFlags.rcVertexLength());
+            print("}traceHybridShiftRays centralReservoir", 0);
         }
 
         if (temporalReservoir.pathFlags.rcVertexLength() > 1)
         {
-            print("- traceHybridShiftRays temporalReservoir: begin", 0);
+            print("{traceHybridShiftRays temporalReservoir", 0);
 
             //  Trace rays to find connection from current frame's primary hit to
             //      previous frame's reservoir.
@@ -523,12 +519,12 @@ struct PathRetracePass
                 debugPathData2
             );
 
-            print("- Output Temporal ReconnectionData", 0);
-            print("-- rcData.rcPrevHit", temporalReservoirReconnectionData.rcPrevHit.isValid());
-            print("-- rcData.rcPrevPrevHit", temporalReservoirReconnectionData.rcPrevPrevHit.isValid());
-            print("-- rcData.rcPrevWo", temporalReservoirReconnectionData.rcPrevWo);
-            print("-- rcData.rcPrevPrevWo", temporalReservoirReconnectionData.rcPrevPrevWo);
-            print("-- rcData.pathThroughput", temporalReservoirReconnectionData.pathThroughput);
+            print("Output Temporal ReconnectionData", 0);
+            print("- rcData.rcPrevHit", temporalReservoirReconnectionData.rcPrevHit.isValid());
+            print("- rcData.rcPrevPrevHit", temporalReservoirReconnectionData.rcPrevPrevHit.isValid());
+            print("- rcData.rcPrevWo", temporalReservoirReconnectionData.rcPrevWo);
+            print("- rcData.rcPrevPrevWo", temporalReservoirReconnectionData.rcPrevPrevWo);
+            print("- rcData.pathThroughput", temporalReservoirReconnectionData.pathThroughput);
 
             // Check if the case of need to fill in DSD data
             detectAndfillInAssumedSpecularVertex(temporalReservoir, temporalReservoirReconnectionData);
@@ -545,14 +541,8 @@ struct PathRetracePass
             // Sanity check
             checkValidReconnectionData(temporalReservoir, temporalReservoirReconnectionData);
 
-            print("- traceHybridShiftRays temporalReservoir: end", 0);
-
+            print("}traceHybridShiftRays temporalReservoir", 0);
         }
-        else
-        {
-            print("- Temporal rcVertexLength is too short or assumed", temporalReservoir.pathFlags.rcVertexLength());
-        }
-
     }
 
     /** Entry point for merge pass.
@@ -567,9 +557,9 @@ struct PathRetracePass
         printSetPixel(pixel);
         logSetPixel(pixel);
 
-        print("Temporal path retrace: begin", 0);
+        print("{Temporal Retrace", 0);
         ReSTIR(pixel);
-        print("Temporal path retrace: end", 0);
+        print("}Temporal Retrace", 0);
     }
 };
 
