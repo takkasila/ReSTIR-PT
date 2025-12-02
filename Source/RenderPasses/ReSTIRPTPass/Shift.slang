@@ -1143,7 +1143,8 @@ float3 computeShiftedIntegrandReconnection(
         // Jac = (dstAngle / dstDist^2) * (srcDist^2 / srcAngle)
         //     = (dstAngle / srcAngle) * (srcDist^2 / dstDist^2)
         Jacobian = dstCachedJacobian.z * original_dist2 / original_cosine;
-        // TODO: Investigate why is this always 1???
+
+        print("srcReservoir.cachedJacobian G'", srcReservoir.cachedJacobian.z);
 
         print("src G':", original_cosine / original_dist2);
         print("dst G':", shifted_cosine / shifted_dist2);
@@ -1151,7 +1152,7 @@ float3 computeShiftedIntegrandReconnection(
 
     print("Jacobian Reconnection shift:", Jacobian);
     print("- If were to use cached Jacobian", jacobianFromCache);
-    if (abs(Jacobian - jacobianFromCache) > FLT_EPSILON)
+    if (abs(Jacobian - jacobianFromCache) > 1e-05F)
     {
         print("Alert! Jacobians are not the same.", 0);
     }

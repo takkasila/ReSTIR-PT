@@ -1500,7 +1500,9 @@ struct PathTracer
                 if (canConnect)
                 {
                     // daqi: save geometry term as part of cachedJacobian
+                    // G'(x-1 <-> x) = angle / dist^2
                     path.pathBuilder.cachedJacobian.z = abs(dot(sd.faceN, sd.V)) / dot(disp, disp);
+                    print("cachedJacobian.z", path.pathBuilder.cachedJacobian.z);
                     path.pathBuilder.pathFlags.insertIsDD(true);
                     path.pathBuilder.pathFlags.insertIsDSD(false);
 
@@ -2024,7 +2026,6 @@ struct PathTracer
 
         // Generate the next path segment or terminate.
         bool valid = generateScatterRay(sd, path);
-        print("Is valid Scatter Ray", valid);
 
         // forbid current vertex being rcVertex
         //      kSeparatePathBSDF is true when not PathSamplingMode::PathReuse

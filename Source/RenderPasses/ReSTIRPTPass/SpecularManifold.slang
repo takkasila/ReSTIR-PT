@@ -160,9 +160,9 @@ float computeDSDShiftJacobian(ShadingData x1, ShadingData x2, ShadingData x3, fl
     float detB2Inv = determinant(inverse(gradC[1]));
     float detB1 = determinant(gradC[0]);
 
-    print("g_x1x2", g_x1x2);
-    print("detB2Inv", detB2Inv);
-    print("detB1", detB1);
+    // print("g_x1x2", g_x1x2);
+    // print("detB2Inv", detB2Inv);
+    // print("detB1", detB1);
 
     float jacobian = g_x1x2 * detB2Inv * detB1;
     return jacobian;
@@ -237,6 +237,7 @@ bool walkManifoldDSD(
     for (uint i = 0; i < MAX_ITER; i++)
     {
         print("i", i);
+        print("beta", beta);
 
         // Check if close enough
         x3ToTarget = target.posW - x3.posW;

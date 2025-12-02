@@ -39,22 +39,22 @@ void checkReservoirValidity(PathReservoir reservoir)
     //
     if (!isDD && !isDSD)
     {
-        // Case 1.1: Miss
-        if (isWeight0)
+        if (!isRcValid && !isRcPrevValid && !isRcPrevPrevValid && (rcVertexLength == 15))
         {
-            if (!isRcValid && isRcPrevValid && isRcPrevPrevValid && (rcVertexLength == 15) && (pathLength == 0))
+            // Case 1.1: Miss
+            if (pathLength == 0)
             {
-                return;
+                if (isWeight0)
+                {
+                    return;
+                }
+                else
+                {
+                    print("Alert! Invalid reservoir case", 1);
+                }
             }
-            else
-            {
-                print("Alert! Invalid reservoir case", 1);
-            }
-        }
-        // Case 1.2: Hit but no RC
-        else
-        {
-            if (!isRcValid && !isRcPrevValid && !isRcPrevPrevValid && (rcVertexLength == 15) && (pathLength > 0))
+            // Case 1.2: Hit but no RC
+            else if(pathLength > 0)
             {
                 return;
             }
@@ -62,6 +62,10 @@ void checkReservoirValidity(PathReservoir reservoir)
             {
                 print("Alert! Invalid reservoir case", 2);
             }
+        }
+        else
+        {
+            print("Alert! Invalid reservoir case", 3);
         }
     }
     //
@@ -98,6 +102,12 @@ void checkReservoirValidity(PathReservoir reservoir)
     else
     {
         print("Alert! Invalid reservoir case", 5);
+    }
+
+    // Check suspiciously high weight
+    if (reservoir.weight > 10.f)
+    {
+        print("Alert! Reservoir heigh weight", 0);
     }
 
     print("The reservoir in question", 0);

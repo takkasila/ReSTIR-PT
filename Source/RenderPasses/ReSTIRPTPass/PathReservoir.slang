@@ -339,6 +339,8 @@ struct PathReservoir
 
         // set rcVertex as invalid
         rcVertexHit.instanceID = 0xffffffff;
+        rcPrevVertexHit.instanceID = 0xffffffff;
+        rcPrevPrevVertexHit.instanceID = 0xffffffff;
     }
 
     static float toScalar(float3 color)

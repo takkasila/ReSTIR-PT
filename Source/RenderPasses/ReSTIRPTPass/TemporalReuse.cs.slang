@@ -479,9 +479,13 @@ struct PathReusePass
             print("dstReservoir.weight", dstReservoir.weight);
             print("color", color);
 
+            if (dstReservoir.weight > 10.f)
+            {
+                print("Alert! High weight", dstReservoir.weight);
+            }
             if (any(color > 10.f))
             {
-                print("Alert! high color value", color);
+                print("Alert! High color value", color);
             }
 
 

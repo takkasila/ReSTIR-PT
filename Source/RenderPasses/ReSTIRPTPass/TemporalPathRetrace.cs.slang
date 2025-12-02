@@ -446,6 +446,7 @@ struct PathRetracePass
         print("- rcPrevPrevVertexHit.instanceID", centralReservoir.rcPrevPrevVertexHit.instanceID);
         print("- isDD", centralReservoir.pathFlags.decodeIsDD());
         print("- isDSD", centralReservoir.pathFlags.decodeIsDSD());
+        print("- weight", centralReservoir.weight);
         checkReservoirValidity(centralReservoir);
 
         print("Temporal reservoir:", 0);
@@ -454,6 +455,7 @@ struct PathRetracePass
         print("- rcPrevPrevVertexHit.instanceID", temporalReservoir.rcPrevPrevVertexHit.instanceID);
         print("- isDD", temporalReservoir.pathFlags.decodeIsDD());
         print("- isDSD", temporalReservoir.pathFlags.decodeIsDSD());
+        print("- weight", temporalReservoir.weight);
         checkReservoirValidity(temporalReservoir);
 
         // talbot MIS

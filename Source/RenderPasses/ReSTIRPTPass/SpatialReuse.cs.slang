@@ -185,18 +185,6 @@ struct PathReusePass
         print("- pathLength", centralReservoir.pathFlags.pathLength());
         print("- weight", centralReservoir.weight);
 
-
-        print("Dst reservoir:", 0);
-        print("- rcVertexHit.instanceID", dstReservoir.rcVertexHit.instanceID);
-        print("- rcPrevVertexHit.instanceID", dstReservoir.rcPrevVertexHit.instanceID);
-        print("- rcPrevPrevVertexHit.instanceID", dstReservoir.rcPrevPrevVertexHit.instanceID);
-        print("- isDD", dstReservoir.pathFlags.decodeIsDD());
-        print("- isDSD", dstReservoir.pathFlags.decodeIsDSD());
-        print("- rcVertexLength", dstReservoir.pathFlags.rcVertexLength());
-        print("- pathLength", dstReservoir.pathFlags.pathLength());
-        print("- weight", dstReservoir.weight);
-
-
         float3 color = 0.f;
         ReconnectionData dummyRcData;
         dummyRcData.Init();
@@ -558,11 +546,15 @@ struct PathReusePass
 
             print("}Neighbor loop", 0);
 
-
-            print("dstReservoir.F", dstReservoir.F);
-            print("dstReservoir.weight", dstReservoir.weight);
-            print("centralReservoir.F", centralReservoir.F);
-            print("centralReservoir.weight", centralReservoir.weight);
+            print("Chosen Neighbor reservoir", 0);
+            print("- rcVertexHit.instanceID", dstReservoir.rcVertexHit.instanceID);
+            print("- rcPrevVertexHit.instanceID", dstReservoir.rcPrevVertexHit.instanceID);
+            print("- rcPrevPrevVertexHit.instanceID", dstReservoir.rcPrevPrevVertexHit.instanceID);
+            print("- isDD", dstReservoir.pathFlags.decodeIsDD());
+            print("- isDSD", dstReservoir.pathFlags.decodeIsDSD());
+            print("- rcVertexLength", dstReservoir.pathFlags.rcVertexLength());
+            print("- pathLength", dstReservoir.pathFlags.pathLength());
+            print("- weight", dstReservoir.weight);
 
             // Try merge centralReservoir into dstReservoir
             bool isSuccessful = mergeReservoirWithResamplingMIS(
@@ -578,23 +570,19 @@ struct PathReusePass
             );
 
             print("After merged reservoir with resampling MIS", isSuccessful);
-            print("dstReservoir.F", dstReservoir.F);
-            print("dstReservoir.weight", dstReservoir.weight);
-            print("centralReservoir.F", centralReservoir.F);
-            print("centralReservoir.weight", centralReservoir.weight);
+            print("- dstReservoir.F", dstReservoir.F);
+            print("- dstReservoir.weight", dstReservoir.weight);
 
             if (dstReservoir.weight > 0)
             {
-                print("dstReservoir.weight > 0", 0);
+                print("FinalizeGRIS", 0);
 
                 dstReservoir.finalizeGRIS();
                 dstReservoir.weight /= (validNeighborCount + 1); // compensate for the fact that pairwise resampling MIS was not divided by (k+1)
-                print("dstReservoir.F", dstReservoir.F);
-                print("dstReservoir.weight", dstReservoir.weight);
+                print("- dstReservoir.F", dstReservoir.F);
+                print("- dstReservoir.weight", dstReservoir.weight);
             }
             color = dstReservoir.F * dstReservoir.weight;
-            print("color", color);
-
         }
         /////////////////////
         /// CONSTANT RMIS ///
@@ -727,6 +715,8 @@ struct PathReusePass
         if (PathSamplingMode(kPathSamplingMode) != PathSamplingMode::PathReuse)
             temporalReservoirs[centralOffset] = dstReservoir;
 
+        print("color", color);
+
         if (any(isnan(color) || isinf(color) || color < 0.f))
         {
             print("Color is weird", color);
@@ -748,6 +738,15 @@ struct PathReusePass
             }
 
             outputColor[pixel] += float4(color / kSamplesPerPixel, 1.f);
+
+            if (any(dstReservoir.weight > 10.f))
+            {
+                print("Alert! High weight", color);
+            }
+            if (any(color > 10.f))
+            {
+                print("Alert! High color value", color);
+            }
 
             print("outputColor", outputColor[pixel]);
 
