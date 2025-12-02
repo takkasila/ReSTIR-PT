@@ -17,7 +17,6 @@ void computeNormalDerivatives(HitInfo hit, float3 viewDir, out float3 dndu, out 
     float curveSphereRadius = {};
     uint materialID = {};
     VertexData v = loadVertexData(hit, viewDir, materialID, curveSphereRadius);
-    // print("------ v.normalW", v.normalW);
 
     // Get 3 corner vertices of the triangle
     const uint3 vtxIndices = gScene.getIndices(triHit.instanceID, triHit.primitiveIndex);
@@ -26,10 +25,6 @@ void computeNormalDerivatives(HitInfo hit, float3 viewDir, out float3 dndu, out 
         gScene.getVertex(vtxIndices[1]),
         gScene.getVertex(vtxIndices[2])
     };
-
-    // print("------ vertices[0].normal", vertices[0].normal);
-    // print("------ vertices[1].normal", vertices[1].normal);
-    // print("------ vertices[2].normal", vertices[2].normal);
 
     float N_dot_N = dot(v.normalW, v.normalW);
 
@@ -43,11 +38,6 @@ void computeNormalDerivatives(HitInfo hit, float3 viewDir, out float3 dndu, out 
     matrix<float, 1, 3> nT = { v.normalW.x, v.normalW.y, v.normalW.z };
 
     float3x3 term = (I3 - (mul(n, nT) / N_dot_N)) / sqrt(N_dot_N);
-
-    // print("------ Matrix:", 0);
-    // print("------- ", term[0]);
-    // print("------- ", term[1]);
-    // print("------- ", term[2]);
 
     float3 N_u = vertices[1].normal - vertices[0].normal;
     float3 N_v = vertices[2].normal - vertices[0].normal;
@@ -102,10 +92,6 @@ bool computeSpecularConstraintDerivatives(ShadingData x1, ShadingData x2, Shadin
         dot(dH_du, t), dot(dH_dv, t)
     );
 
-    print("-------- B1:", 0);
-    print("--------- ", B1[0]);
-    print("--------- ", B1[1]);
-
     // Derivatives of C with respect to x2
     dH_du = -x2.T * (ili + ilo)
             + wi * (dot(wi, x2.T) * ili)
@@ -124,10 +110,6 @@ bool computeSpecularConstraintDerivatives(ShadingData x1, ShadingData x2, Shadin
         dot(dH_dv, t) - dot(x2.B, dndv) * dot_H_n - dot_v_n * dot_H_dndv
     );
 
-    print("-------- B2, A:", 0);
-    print("--------- ", B2[0]);
-    print("--------- ", B2[1]);
-
     // Derivatives of C with respect to x3
     dH_du = (x3.T - wo * dot(wo, x3.T)) * ilo;
     dH_dv = (x3.B - wo * dot(wo, x3.B)) * ilo;
@@ -139,10 +121,6 @@ bool computeSpecularConstraintDerivatives(ShadingData x1, ShadingData x2, Shadin
         dot(dH_du, s), dot(dH_dv, s),
         dot(dH_du, t), dot(dH_dv, t)
     );
-
-    print("-------- B3:", 0);
-    print("--------- ", B3[0]);
-    print("--------- ", B3[1]);
 
     gradC[0] = B1;
     gradC[1] = B2;
@@ -161,7 +139,7 @@ float computeDSDShiftJacobian(ShadingData x1, ShadingData x2, ShadingData x3, fl
     float2x2 gradC[3];
     if (!computeSpecularConstraintDerivatives(x1, x2, x3, dndu, dndv, gradC))
     {
-        print("-------- Invalid gradC", 0);
+        print("Invalid gradC", 0);
         return 0;
     }
     // NOTE: gradC[0] is respective toward x3
@@ -182,9 +160,9 @@ float computeDSDShiftJacobian(ShadingData x1, ShadingData x2, ShadingData x3, fl
     float detB2Inv = determinant(inverse(gradC[1]));
     float detB1 = determinant(gradC[0]);
 
-    print("-------- g_x1x2", g_x1x2);
-    print("-------- detB2Inv", detB2Inv);
-    print("-------- detB1", detB1);
+    print("g_x1x2", g_x1x2);
+    print("detB2Inv", detB2Inv);
+    print("detB1", detB1);
 
     float jacobian = g_x1x2 * detB2Inv * detB1;
     return jacobian;
@@ -211,9 +189,9 @@ float computeReconnectionDSDShiftJacobian(
 
     float Jacobian = dstJacobian / srcJacobian;
 
-    print("------- Jacobian DSD shift dst:", dstJacobian);
-    print("------- Jacobian DSD shift src:", srcJacobian);
-    print("------- Jacobian Reconnection DSD shift:", Jacobian);
+    print("Jacobian DSD shift dst:", dstJacobian);
+    print("Jacobian DSD shift src:", srcJacobian);
+    print("Jacobian Reconnection DSD shift:", Jacobian);
 
     return Jacobian;
 }
@@ -228,7 +206,7 @@ bool walkManifoldDSD(
     out HitInfo x2Hit_out
 )
 {
-    print("----- walkManifoldDSD: begin()", 0);
+    print("{WalkManifold", 0);
 
     float beta = 1.f;
     // threshold = self.eps_threshold()
@@ -255,19 +233,20 @@ bool walkManifoldDSD(
     HitInfo x2Hit_temp;
     HitInfo x3Hit_temp;
 
+    print("{Loop", 0);
     for (uint i = 0; i < MAX_ITER; i++)
     {
-        print("----- Round", i);
+        print("i", i);
 
         // Check if close enough
         x3ToTarget = target.posW - x3.posW;
         endPointDistance = length(x3ToTarget);
 
-        print("------ End point distance", endPointDistance);
+        print("distance", endPointDistance);
 
         if (endPointDistance <= SCENE_LENGTH * EPS)
         {
-            print("------ stop: close enough", 0);
+            print("Stop: close enough", 0);
             break;
         }
 
@@ -275,11 +254,13 @@ bool walkManifoldDSD(
         computeNormalDerivatives(x2Hit, x2.V, x2_dndu, x2_dndv);
         if (!computeSpecularConstraintDerivatives(x1_in, x2, x3, x2_dndu, x2_dndv, gradC))
         {
-            print("------ invalid gradC", 0);
+            print("Invalid gradC", 0);
+            print("}Loop", 0);
+            print("}WalkManifold", 0);
             return false;
         }
 
-        print("------ x2.posW", x2.posW);
+        // print("x2.posW", x2.posW);
 
         // Contruct tangent plane at X3
         matrix<float, 2, 3> TX3_transpose = {
@@ -290,13 +271,13 @@ bool walkManifoldDSD(
         // Project distancement to tangent plane
         float2 projectedDisplacement = mul(TX3_transpose, x3ToTarget);
 
-        print("------ projectedDisplacement", projectedDisplacement);
+        // print("ProjectedDisplacement", projectedDisplacement);
 
         // Displacement of x2 is A^-1 * B3
         float2x2 displacementX3ToX2 = inverse(gradC[1]) * gradC[2];
         float2 displacementX2 = mul(displacementX3ToX2, projectedDisplacement);
 
-        print("------ displacementX2", displacementX2);
+        // print("DisplacementX2", displacementX2);
 
         // P2
         float2x2 P2 = {
@@ -306,7 +287,7 @@ bool walkManifoldDSD(
 
         // Project the displacement onto second vertex tangent space
         float2 displacementX2ProjectedX2 = mul(P2, displacementX2);
-        print("------ displacementX2ProjectedX2", displacementX2ProjectedX2);
+        // print("DisplacementX2ProjectedX2", displacementX2ProjectedX2);
 
         // Construct tangent plane at X2
         matrix<float, 3, 2> TX2 = {
@@ -317,15 +298,15 @@ bool walkManifoldDSD(
 
         // Transform displacement on tangent plane to world space
         float3 displacementWorld = mul(TX2, displacementX2ProjectedX2);
-        print("------ displacementWorld", displacementWorld);
+        // print("DisplacementWorld", displacementWorld);
 
         // Apply the step size
         displacementWorld *= beta;
-        print("------ displacementWorld with step size", displacementWorld);
+        // print("DisplacementWorld with step size", displacementWorld);
 
         // Extrapolate position
         float3 x2_new = x2.posW - displacementWorld;
-        print("------ x2_new", x2_new);
+        // print("x2_new", x2_new);
 
         // Trace ray to update new positions
         {
@@ -340,17 +321,17 @@ bool walkManifoldDSD(
             // Trace ray
             if (!sceneRayQuery.traceRay(ray, x2Hit_temp, hitT, RAY_FLAG_NONE, 0xff))
             {
-                print("------ Unsuccessful trace x1 -> x2", 0);
+                print("Unsuccessful trace x1 -> x2", 0);
                 beta = beta / 2.f;
                 continue;
             }
 
             // Valid hit
-            print("------ Successful trace x1 -> x2", 0);
+            // print("Successful trace x1 -> x2", 0);
 
             // Trace ray x2 -> x3
             x2_temp = loadShadingDataWithPrevVertexPosition(x2Hit_temp, x1_in.posW, false);
-            print("------ Updated x2", x2_temp.posW);
+            // print("Updated x2", x2_temp.posW);
 
             // Assume perfect specular
             rayDir = normalize(reflect(rayDir, x2_temp.N));
@@ -361,24 +342,24 @@ bool walkManifoldDSD(
             // Trace ray
             if (!sceneRayQuery.traceRay(ray, x3Hit_temp, hitT, RAY_FLAG_NONE, 0xff))
             {
-                print("------ Unsuccessful trace x2 -> x3", 0);
+                print("Unsuccessful trace x2 -> x3", 0);
                 beta = beta / 2.f;
                 continue;
             }
 
             // Valid hit
-            print("------ Successful trace x2 -> x3", 0);
+            // print("Successful trace x2 -> x3", 0);
 
             x3_temp = loadShadingDataWithPrevVertexPosition(x3Hit_temp, x2_temp.posW, false);
-            print("------ Updated x3", x3_temp.posW);
+            // print("Updated x3", x3_temp.posW);
         }
 
         float newDistance = length(x3_temp.posW - target.posW);
-        print("------ new distance", newDistance);
+        // print("New distance", newDistance);
 
         if (newDistance < endPointDistance)
         {
-            print("------ New distance is lower", 0);
+            // print("New distance is lower", 0);
             // Update successful
             x2 = x2_temp;
             x2Hit = x2Hit_temp;
@@ -389,14 +370,14 @@ bool walkManifoldDSD(
         }
         else
         {
-            print("------ New distance is higer", 0);
+            // print("New distance is higer", 0);
             beta = beta / 2.f;
         }
-
     }
+    print("}Loop", 0);
 
     x2Hit_out = x2Hit;
 
-    print("----- walkManifoldDSD: end()", 0);
+    print("}WalkManifold", 0);
     return true;
 }

@@ -164,6 +164,7 @@ namespace Falcor
 
             // Print list of printed values.
             oss << "Pixel log:" << (mPixelLogData.empty() ? " <empty>\n" : "\n");
+            oss << "{Frame 0" << "\n";
             for (auto v : mPixelLogData)
             {
                 // Print message.
@@ -200,6 +201,8 @@ namespace Falcor
                 oss << "\n";
             }
 
+            oss << "Finished printed pixel log" << "\n";
+
             // Print list of asserts.
             if (!mAssertLogData.empty())
             {
@@ -212,6 +215,9 @@ namespace Falcor
                     oss << "\n";
                 }
             }
+
+            oss << "Finished printed assert log" << "\n";
+            oss << "}Frame 0" << "\n";
 
             widget.text(oss.str());
 
@@ -331,7 +337,7 @@ namespace Falcor
             }
 
         }
-        
+
         return pixelLogUnhashedVec;
     }
 
