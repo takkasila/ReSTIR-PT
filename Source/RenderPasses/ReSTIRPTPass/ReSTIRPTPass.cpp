@@ -378,7 +378,7 @@ ReSTIRPTPass::ReSTIRPTPass(const Dictionary& dict)
     mpCountersReadback = Buffer::create((size_t)Counters::kCount * sizeof(uint32_t), Resource::BindFlags::None, Buffer::CpuAccess::Read);
 
     mpPixelStats = PixelStats::create();
-    mpPixelDebug = PixelDebug::create(1000);
+    mpPixelDebug = PixelDebug::create(2000);
     mpPixelDebug->setEnabled(true);
     mpReadbackFence = GpuFence::create();
 }
