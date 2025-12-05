@@ -1151,11 +1151,11 @@ float3 computeShiftedIntegrandReconnection(
     }
 
     print("Jacobian Reconnection shift:", Jacobian);
-    print("- If were to use cached Jacobian", jacobianFromCache);
-    if (abs(Jacobian - jacobianFromCache) > 1e-05F)
-    {
-        print("Alert! Jacobians are not the same.", 0);
-    }
+    // print("- If were to use cached Jacobian", jacobianFromCache);
+    // if (abs(Jacobian - jacobianFromCache) > 1e-05F)
+    // {
+    //     print("Alert! Jacobians are not the same.", 0);
+    // }
 
     if (isJacobianInvalid(Jacobian))
     {

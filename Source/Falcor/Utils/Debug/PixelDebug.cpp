@@ -107,6 +107,8 @@ namespace Falcor
             mpFence->gpuSignal(pRenderContext->getLowLevelData()->getCommandQueue());
 
             mWaitingForData = true;
+
+            mFrameNum += 1;
         }
     }
 
@@ -164,7 +166,8 @@ namespace Falcor
 
             // Print list of printed values.
             oss << "Pixel log:" << (mPixelLogData.empty() ? " <empty>\n" : "\n");
-            oss << "{Frame 0" << "\n";
+            oss << "{Frame " << mFrameNum << "\n";
+
             for (auto v : mPixelLogData)
             {
                 // Print message.
@@ -214,7 +217,7 @@ namespace Falcor
                 }
             }
 
-            oss << "}Frame 0" << "\n";
+            oss << "}Frame " << mFrameNum << "\n";
 
             widget.text(oss.str());
 

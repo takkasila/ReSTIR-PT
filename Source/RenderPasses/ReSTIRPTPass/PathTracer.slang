@@ -2583,16 +2583,21 @@ struct PathTracer
         print("{traceLoop", 0);
         while (path.isActive() && path.isHit())
         {
+            print("{vertex", debugPathData.vertexCount);
+
             // Volume scattering is ignored
             // Handle surface hit
             handleHit(path, debugVertexState);
 
+
             debugPathData.vertices[debugPathData.vertexCount] = float4(path.origin, 1);
+            print("}vertex", debugPathData.vertexCount);
             debugPathData.vertexCount += 1;
 
             // Move to the next path vertex.
             if (path.isActive() && path.isHit())
                 nextVertex(path);
+
         }
         print("}traceLoop", 0);
 

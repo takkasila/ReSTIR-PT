@@ -293,97 +293,6 @@ struct PathRetracePass
         print("- rcData.pathThroughput", reconnectionData.pathThroughput);
     }
 
-    void checkReservoirValidity(PathReservoir reservoir)
-    {
-        bool isDD = reservoir.pathFlags.decodeIsDD();
-        bool isDSD = reservoir.pathFlags.decodeIsDSD();
-        bool isWeight0 = reservoir.weight == 0.f;
-
-        bool isRcValid = reservoir.rcVertexHit.getHitInfo().isValid();
-        bool isRcPrevValid = reservoir.rcPrevVertexHit.getHitInfo().isValid();
-        bool isRcPrevPrevValid = reservoir.rcPrevPrevVertexHit.getHitInfo().isValid();
-        bool isRcPrevPrevWo0 = all(reservoir.rcPrevPrevVertexWo == 0.f);
-
-        int pathLength = reservoir.pathFlags.pathLength();
-        int rcVertexLength = reservoir.pathFlags.rcVertexLength();
-
-        //
-        // Case 1: no RC
-        //
-        if (!isDD && !isDSD)
-        {
-            // Case 1.1: Miss
-            if (isWeight0)
-            {
-                if (!isRcValid && isRcPrevValid && isRcPrevPrevValid && (rcVertexLength == 15) && (pathLength == 0))
-                {
-                    return;
-                }
-                else
-                {
-                    print("Alert! Invalid reservoir case", 1);
-                }
-            }
-            // Case 1.2: Hit but no RC
-            else
-            {
-                if (!isRcValid && !isRcPrevValid && !isRcPrevPrevValid && (rcVertexLength == 15) && (pathLength > 0))
-                {
-                    return;
-                }
-                else
-                {
-                    print("Alert! Invalid reservoir case", 2);
-                }
-            }
-        }
-        //
-        // Case 2: DD RC
-        //
-        else if (isDD && !isDSD)
-        {
-            if (isRcValid && !isRcPrevValid && !isRcPrevPrevValid && (rcVertexLength > 0) && (pathLength > 0) && !isWeight0)
-            {
-                return;
-            }
-            else
-            {
-                print("Alert! Invalid reservoir case", 3);
-            }
-        }
-        //
-        // Case 3: DSD RC
-        //
-        else if (!isDD && isDSD)
-        {
-            if (isRcValid && isRcPrevValid && isRcPrevPrevValid && (rcVertexLength > 0) && (pathLength > 0) && !isWeight0)
-            {
-                return;
-            }
-            else
-            {
-                print("Alert! Invalid reservoir case", 4);
-            }
-        }
-        //
-        // Case 4: RC is both DD and DSD -- incorrect
-        //
-        else
-        {
-            print("Alert! Invalid reservoir case", 5);
-        }
-
-        print("The reservoir in question:", 0);
-        print("- rcVertexHit id:", reservoir.rcVertexHit.instanceID);
-        print("- rcPrevVertexHit id:", reservoir.rcPrevVertexHit.instanceID);
-        print("- rcPrevPrevVertexHit id:", reservoir.rcPrevPrevVertexHit.instanceID);
-        print("- isDD", reservoir.pathFlags.decodeIsDD());
-        print("- isDSD", reservoir.pathFlags.decodeIsDSD());
-        print("- rcVertexLength", reservoir.pathFlags.rcVertexLength());
-        print("- pathLength", reservoir.pathFlags.pathLength());
-        print("- weight", reservoir.weight);
-    }
-
     /*
     * Build a reservoir of paths whose suffix can be merged to a pixel's prefix.
     * This method is optimized for small windows such that we can run the entire
@@ -447,7 +356,8 @@ struct PathRetracePass
         print("- isDD", centralReservoir.pathFlags.decodeIsDD());
         print("- isDSD", centralReservoir.pathFlags.decodeIsDSD());
         print("- weight", centralReservoir.weight);
-        checkReservoirValidity(centralReservoir);
+        if(isDebug)
+            checkReservoirValidity(centralReservoir);
 
         print("Temporal reservoir:", 0);
         print("- rcVertexHit.instanceID", temporalReservoir.rcVertexHit.instanceID);
@@ -456,7 +366,8 @@ struct PathRetracePass
         print("- isDD", temporalReservoir.pathFlags.decodeIsDD());
         print("- isDSD", temporalReservoir.pathFlags.decodeIsDSD());
         print("- weight", temporalReservoir.weight);
-        checkReservoirValidity(temporalReservoir);
+        if (isDebug)
+            checkReservoirValidity(temporalReservoir);
 
         // talbot MIS
         // compute mis weight for current pixel

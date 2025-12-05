@@ -2,12 +2,8 @@
 import sys
 import re
 
-begin_obj_1 = re.compile(r'^\{(.+?)\s+0')
-end_obj_1   = re.compile(r'^\}(.+?)\s+0')
-
-begin_obj_2 = re.compile(r'^(.+?)\s*\{$')
-end_obj_2   = re.compile(r'^\}$')
-
+begin_obj = re.compile(r'^\{(.+?)\s*$')
+end_obj   = re.compile(r'^\}(.+?)\s*$')
 
 def parse_lines(lines):
     roots = []
@@ -19,7 +15,7 @@ def parse_lines(lines):
             continue
 
         # {Name 0
-        m = begin_obj_1.match(line)
+        m = begin_obj.match(line)
         if m:
             name = m.group(1)
             obj = {"__name__": name, "__content__": []}
@@ -29,7 +25,7 @@ def parse_lines(lines):
             continue
 
         # }Name 0
-        m = end_obj_1.match(line)
+        m = end_obj.match(line)
         if m:
             if stack: stack.pop()
             continue

@@ -20,107 +20,6 @@ cbuffer CB
     int gSampleId;
 }
 
-void checkReservoirValidity(PathReservoir reservoir)
-{
-    bool isDD = reservoir.pathFlags.decodeIsDD();
-    bool isDSD = reservoir.pathFlags.decodeIsDSD();
-    bool isWeight0 = reservoir.weight == 0.f;
-
-    bool isRcValid = reservoir.rcVertexHit.getHitInfo().isValid();
-    bool isRcPrevValid = reservoir.rcPrevVertexHit.getHitInfo().isValid();
-    bool isRcPrevPrevValid = reservoir.rcPrevPrevVertexHit.getHitInfo().isValid();
-    bool isRcPrevPrevWo0 = all(reservoir.rcPrevPrevVertexWo == 0.f);
-
-    int pathLength = reservoir.pathFlags.pathLength();
-    int rcVertexLength = reservoir.pathFlags.rcVertexLength();
-
-    //
-    // Case 1: no RC
-    //
-    if (!isDD && !isDSD)
-    {
-        if (!isRcValid && !isRcPrevValid && !isRcPrevPrevValid && (rcVertexLength == 15))
-        {
-            // Case 1.1: Miss
-            if (pathLength == 0)
-            {
-                if (isWeight0)
-                {
-                    return;
-                }
-                else
-                {
-                    print("Alert! Invalid reservoir case", 1);
-                }
-            }
-            // Case 1.2: Hit but no RC
-            else if(pathLength > 0)
-            {
-                return;
-            }
-            else
-            {
-                print("Alert! Invalid reservoir case", 2);
-            }
-        }
-        else
-        {
-            print("Alert! Invalid reservoir case", 3);
-        }
-    }
-    //
-    // Case 2: DD RC
-    //
-    else if (isDD && !isDSD)
-    {
-        if (isRcValid && !isRcPrevValid && !isRcPrevPrevValid && (rcVertexLength > 0) && (pathLength > 0) && !isWeight0)
-        {
-            return;
-        }
-        else
-        {
-            print("Alert! Invalid reservoir case", 3);
-        }
-    }
-    //
-    // Case 3: DSD RC
-    //
-    else if (!isDD && isDSD)
-    {
-        if (isRcValid && isRcPrevValid && isRcPrevPrevValid && (rcVertexLength > 0) && (pathLength > 0) && !isWeight0)
-        {
-            return;
-        }
-        else
-        {
-            print("Alert! Invalid reservoir case", 4);
-        }
-    }
-    //
-    // Case 4: RC is both DD and DSD -- incorrect
-    //
-    else
-    {
-        print("Alert! Invalid reservoir case", 5);
-    }
-
-    // Check suspiciously high weight
-    if (reservoir.weight > 10.f)
-    {
-        print("Alert! Reservoir heigh weight", 0);
-    }
-
-    print("The reservoir in question", 0);
-    print("- rcVertexHit id:", reservoir.rcVertexHit.instanceID);
-    print("- rcPrevVertexHit id:", reservoir.rcPrevVertexHit.instanceID);
-    print("- rcPrevPrevVertexHit id:", reservoir.rcPrevPrevVertexHit.instanceID);
-    print("- isDD", reservoir.pathFlags.decodeIsDD());
-    print("- isDSD", reservoir.pathFlags.decodeIsDSD());
-    print("- rcVertexLength", reservoir.pathFlags.rcVertexLength());
-    print("- pathLength", reservoir.pathFlags.pathLength());
-    print("- weight", reservoir.weight);
-}
-
 void tracePath(uint pathID, inout PathReservoir giReservoir, uint sampleIdx)
 {
     PathState path;
@@ -136,6 +35,7 @@ void tracePath(uint pathID, inout PathReservoir giReservoir, uint sampleIdx)
     bool isAtDebugPixel = all(selectedPixel == pixel);
 
     uint vertexCount = 0;
+    uint loopCount = 0;
 
     print("{tracePath", 0);
 
@@ -145,8 +45,8 @@ void tracePath(uint pathID, inout PathReservoir giReservoir, uint sampleIdx)
     print("{traceLoop", 0);
     while (path.isActive())
     {
-        print("{loop", 0);
-        print("vertex", path.origin);
+        print("{i", loopCount);
+        print("vertex pos", path.origin);
         print("path.length", path.length);
 
         //  vertex 0 at camera
@@ -177,7 +77,7 @@ void tracePath(uint pathID, inout PathReservoir giReservoir, uint sampleIdx)
             if (path.isTerminated())
             {
                 print("terminated", 0);
-                print("}loop", 0);
+                print("}i", loopCount);
                 break;
             }
 
@@ -191,7 +91,8 @@ void tracePath(uint pathID, inout PathReservoir giReservoir, uint sampleIdx)
             gPathTracer.handleMiss(path);
         }
 
-        print("}loop", 0);
+        print("}i", loopCount);
+        loopCount += 1;
     }
     print("}traceLoop", 0);
 

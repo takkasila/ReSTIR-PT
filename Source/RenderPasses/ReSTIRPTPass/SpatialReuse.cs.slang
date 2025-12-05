@@ -150,6 +150,8 @@ struct PathReusePass
 
     void ReSTIR(const uint2 pixel)
     {
+        bool isDebug = all(getSelctedPixelLog() == pixel);
+
         var sg = TinyUniformSampleGenerator(pixel, (kCandidateSamples + 1 + gNumSpatialRounds) * params.seed + kCandidateSamples + 1 + gSpatialRoundId);
 
         // Compute offset into per-sample buffers. All samples are stored consecutively at this offset.
@@ -184,6 +186,9 @@ struct PathReusePass
         print("- rcVertexLength", centralReservoir.pathFlags.rcVertexLength());
         print("- pathLength", centralReservoir.pathFlags.pathLength());
         print("- weight", centralReservoir.weight);
+
+        if (isDebug)
+            checkReservoirValidity(centralReservoir);
 
         float3 color = 0.f;
         ReconnectionData dummyRcData;
@@ -365,14 +370,13 @@ struct PathReusePass
 
             for (int i = 0; i < neighborCount; ++i)
             {
-                print("{neighbor", 0);
-                print("i", i);
+                print("{neighbor", i);
 
                 int2 neighborPixel = getNextNeighborPixel(startIndex, pixel, i);
 
                 if (!isValidScreenRegion(neighborPixel))
                 {
-                    print("}neighbor", 0);
+                    print("}neighbor", i);
                     continue;
                 }
 
@@ -381,12 +385,12 @@ struct PathReusePass
                 ShadingData neighborPrimarySd = getPixelShadingData(neighborPixel, neighborPrimaryHitPacked);
                 if (!isValidPackedHitInfo(neighborPrimaryHitPacked))
                 {
-                    print("}neighbor", 0);
+                    print("}neighbor", i);
                     continue;
                 }
                 if (!isValidGeometry(centralPrimarySd, neighborPrimarySd))
                 {
-                    print("}neighbor", 0);
+                    print("}neighbor", i);
                     continue;
                 }
 
@@ -401,6 +405,9 @@ struct PathReusePass
                 print("- rcVertexLength", neighborReservoir.pathFlags.rcVertexLength());
                 print("- pathLength", neighborReservoir.pathFlags.pathLength());
                 print("- weight", neighborReservoir.weight);
+
+                if (isDebug)
+                    checkReservoirValidity(neighborReservoir);
 
                 float dstJacobian;
 
@@ -541,7 +548,7 @@ struct PathReusePass
                 print("tempDstReservoir.F", tempDstReservoir.F);
                 print("dstReservoir.F", dstReservoir.F);
 
-                print("}neighbor", 0);
+                print("}neighbor", i);
             }
 
             print("}Neighbor loop", 0);
@@ -741,7 +748,7 @@ struct PathReusePass
 
             if (any(dstReservoir.weight > 10.f))
             {
-                print("Alert! High weight", color);
+                print("Alert! High weight", dstReservoir.weight);
             }
             if (any(color > 10.f))
             {

@@ -77,97 +77,6 @@ struct PathReusePass
         return sd;
     }
 
-    void checkReservoirValidity(PathReservoir reservoir)
-    {
-        bool isDD = reservoir.pathFlags.decodeIsDD();
-        bool isDSD = reservoir.pathFlags.decodeIsDSD();
-        bool isWeight0 = reservoir.weight == 0.f;
-
-        bool isRcValid = reservoir.rcVertexHit.getHitInfo().isValid();
-        bool isRcPrevValid = reservoir.rcPrevVertexHit.getHitInfo().isValid();
-        bool isRcPrevPrevValid = reservoir.rcPrevPrevVertexHit.getHitInfo().isValid();
-        bool isRcPrevPrevWo0 = all(reservoir.rcPrevPrevVertexWo == 0.f);
-
-        int pathLength = reservoir.pathFlags.pathLength();
-        int rcVertexLength = reservoir.pathFlags.rcVertexLength();
-
-        //
-        // Case 1: no RC
-        //
-        if (!isDD && !isDSD)
-        {
-            // Case 1.1: Miss
-            if (isWeight0)
-            {
-                if (!isRcValid && isRcPrevValid && isRcPrevPrevValid && (rcVertexLength == 15) && (pathLength == 0))
-                {
-                    return;
-                }
-                else
-                {
-                    print("Alert! Invalid reservoir case", 1);
-                }
-            }
-            // Case 1.2: Hit but no RC
-            else
-            {
-                if (!isRcValid && !isRcPrevValid && !isRcPrevPrevValid && (rcVertexLength == 15) && (pathLength > 0))
-                {
-                    return;
-                }
-                else
-                {
-                    print("Alert! Invalid reservoir case", 2);
-                }
-            }
-        }
-        //
-        // Case 2: DD RC
-        //
-        else if (isDD && !isDSD)
-        {
-            if (isRcValid && !isRcPrevValid && !isRcPrevPrevValid && (rcVertexLength > 0) && (pathLength > 0) && !isWeight0)
-            {
-                return;
-            }
-            else
-            {
-                print("Alert! Invalid reservoir case", 3);
-            }
-        }
-        //
-        // Case 3: DSD RC
-        //
-        else if (!isDD && isDSD)
-        {
-            if (isRcValid && isRcPrevValid && isRcPrevPrevValid && (rcVertexLength > 0) && (pathLength > 0) && !isWeight0)
-            {
-                return;
-            }
-            else
-            {
-                print("Alert! Invalid reservoir case", 4);
-            }
-        }
-        //
-        // Case 4: RC is both DD and DSD -- incorrect
-        //
-        else
-        {
-            print("Alert! Invalid reservoir case", 5);
-        }
-
-        print("The reservoir in question:", 0);
-        print("- rcVertexHit id:", reservoir.rcVertexHit.instanceID);
-        print("- rcPrevVertexHit id:", reservoir.rcPrevVertexHit.instanceID);
-        print("- rcPrevPrevVertexHit id:", reservoir.rcPrevPrevVertexHit.instanceID);
-        print("- isDD", reservoir.pathFlags.decodeIsDD());
-        print("- isDSD", reservoir.pathFlags.decodeIsDSD());
-        print("- rcVertexLength", reservoir.pathFlags.rcVertexLength());
-        print("- pathLength", reservoir.pathFlags.pathLength());
-        print("- weight", reservoir.weight);
-    }
-
     /*
     * Build a reservoir of paths whose suffix can be merged to a pixel's prefix.
     * This method is optimized for small windows such that we can run the entire
@@ -175,6 +84,8 @@ struct PathReusePass
     */
     void ReSTIR(const uint2 pixel)
     {
+        bool isDebug = all(getSelctedPixelLog() == pixel);
+
         var sg = TinyUniformSampleGenerator(pixel, (kCandidateSamples + 1 + gNumSpatialRounds) * params.seed + kCandidateSamples);
 
         // Compute offset into per-sample buffers. All samples are stored consecutively at this offset.
@@ -191,6 +102,9 @@ struct PathReusePass
         {
             dstReservoir.prepareMerging();
         }
+
+        if (isDebug)
+            checkReservoirValidity(dstReservoir);
 
         PackedHitInfo centralPrimaryHitPacked;
         ShadingData centralPrimarySd = getPixelShadingData(pixel, centralPrimaryHitPacked);
@@ -228,6 +142,9 @@ struct PathReusePass
 
             temporalReservoir.M = min(gTemporalHistoryLength * currentM, temporalReservoir.M);
 
+            if (isDebug)
+                checkReservoirValidity(temporalReservoir);
+
             float dstJacobian;
 
             ///////////////////
@@ -246,9 +163,7 @@ struct PathReusePass
                 print("{loopSampleId i", 0);
                 for (int i = curSampleId; i <= prevSampleId; i++)
                 {
-
-                    print("{sampleId i", 0);
-                    print("i", i);
+                    print("{i", i);
 
                     float p_sum = 0;
                     float p_self = 0;
@@ -309,6 +224,9 @@ struct PathReusePass
                             1.f,
                             true    // "true" means hypothetically selected as the sample
                         );
+
+                        if(isDebug)
+                            checkReservoirValidity(tempDstReservoir);
                     }
 
                     print("possibleToBeSelected:", possibleToBeSelected);
@@ -318,7 +236,7 @@ struct PathReusePass
                         print("{loopSampleId j", 0);
                         for (int j = curSampleId; j <= prevSampleId; ++j)
                         {
-                            print("{sampleId j", 0);
+                            print("{j", j);
 
                             if (j == curSampleId)
                             {
@@ -332,7 +250,7 @@ struct PathReusePass
                                 {
                                     p_self = PathReservoir::toScalar(temporalReservoir.F) / dstJacobian * temporalReservoir.M;
                                     p_sum += p_self;
-                                    print("}sampleId j", 0);
+                                    print("}j", j);
                                     continue;
                                 }
 
@@ -372,22 +290,39 @@ struct PathReusePass
                                 ); //usePrev
                                 p_ = PathReservoir::toScalar(tneighborIntegrand) * tneighborJacobian;
                                 p_sum += p_ * temporalReservoir.M;
+
                             }
 
-                            print("}sampleId j", 0);
+                            print("}j", j);
                         }
                         print("}loopSampleId j", 0);
                     }
 
                     float misWeight = p_sum == 0.f ? 0.f : p_self / p_sum;
+
                     PathReservoir neighborReservoir;
-                    if (i == curSampleId) neighborReservoir = tempDstReservoir;
-                    else neighborReservoir = temporalReservoir;
+                    if (i == curSampleId)
+                        neighborReservoir = tempDstReservoir;
+                    else
+                        neighborReservoir = temporalReservoir;
 
                     // Finally merge into base reservoir (dstReservoir)
-                    mergeReservoirWithResamplingMIS(params, tempDstReservoir.F, dstJacobian, dstReservoir, tempDstReservoir, neighborReservoir, sg, false, misWeight);
+                    mergeReservoirWithResamplingMIS(
+                        params,
+                        tempDstReservoir.F,
+                        dstJacobian,
+                        dstReservoir,
+                        tempDstReservoir,
+                        neighborReservoir,
+                        sg,
+                        false,
+                        misWeight
+                    );
 
-                    print("}sampleId i", 0);
+                    if (isDebug)
+                        checkReservoirValidity(dstReservoir);
+
+                    print("}i", i);
                 }
                 print("}loopSampleId i", 0);
 
@@ -470,7 +405,8 @@ struct PathReusePass
             if (dstReservoir.weight < 0.f || isinf(dstReservoir.weight) || isnan(dstReservoir.weight))
                 dstReservoir.weight = 0.f;
 
-            checkReservoirValidity(dstReservoir);
+            if (isDebug)
+                checkReservoirValidity(dstReservoir);
 
             outputReservoirs[centralOffset] = dstReservoir;
             color = dstReservoir.F * dstReservoir.weight;

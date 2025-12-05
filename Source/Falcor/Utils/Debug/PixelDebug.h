@@ -112,5 +112,7 @@ namespace Falcor
         std::vector<AssertLogValue> mAssertLogData;                 ///< Assert log data read back from the GPU.
 
         const uint32_t              mLogSize = 0;                   ///< Size of the log buffers in elements.
+
+        uint mFrameNum = 0;
     };
 }

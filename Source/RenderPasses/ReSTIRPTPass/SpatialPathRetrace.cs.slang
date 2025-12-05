@@ -335,6 +335,8 @@ struct PathRetracePass
         print("- rcVertexLength", centralReservoir.pathFlags.rcVertexLength());
         print("- pathLength", centralReservoir.pathFlags.pathLength());
         print("- weight", centralReservoir.weight);
+        if (isDebug)
+            checkReservoirValidity(centralReservoir);
 
         uint2 chosenPixel = pixel;
         int chosen_i = -1;
@@ -348,15 +350,14 @@ struct PathRetracePass
         print("{Neighbor loop", 0);
         for (int i = 0; i < neighborCount; ++i)
         {
-            print("{neighbor", 0);
-            print("i", i);
+            print("{neighbor", i);
 
             int2 neighborPixel = getNextNeighborPixel(startIndex, pixel, i);
 
             // Check if not in screen
             if (!isValidScreenRegion(neighborPixel))
             {
-                print("}neighbor", 0);
+                print("}neighbor", i);
                 continue;
             }
 
@@ -371,20 +372,22 @@ struct PathRetracePass
             print("- rcVertexLength", neighborReservoir.pathFlags.rcVertexLength());
             print("- pathLength", neighborReservoir.pathFlags.pathLength());
             print("- weight", neighborReservoir.weight);
+            if (isDebug)
+                checkReservoirValidity(centralReservoir);
 
             PackedHitInfo neighborPrimaryHitPacked;
             ShadingData neighborPrimarySd = getPixelShadingData(neighborPixel, neighborPrimaryHitPacked);
             // Check if not
             if (!isValidPackedHitInfo(neighborPrimaryHitPacked))
             {
-                print("}neighbor", 0);
+                print("}neighbor", i);
                 continue;
             }
 
             // Both surfaces are close and plausible to connect with each other
             if (!isValidGeometry(centralPrimarySd, neighborPrimarySd))
             {
-                print("}neighbor", 0);
+                print("}neighbor", i);
                 continue;
             }
 
@@ -468,7 +471,7 @@ struct PathRetracePass
                 print("}traceHybridShiftRays neighborReservoir", 0);
             }
 
-            print("}neighbor", 0);
+            print("}neighbor", i);
         }
         print("}Neighbor loop", 0);
     }

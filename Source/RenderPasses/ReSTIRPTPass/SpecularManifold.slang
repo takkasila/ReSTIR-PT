@@ -233,10 +233,10 @@ bool walkManifoldDSD(
     HitInfo x2Hit_temp;
     HitInfo x3Hit_temp;
 
-    print("{Loop", 0);
+    print("{walkLoop", 0);
     for (uint i = 0; i < MAX_ITER; i++)
     {
-        print("i", i);
+        print("{i", i);
         print("beta", beta);
 
         // Check if close enough
@@ -248,6 +248,7 @@ bool walkManifoldDSD(
         if (endPointDistance <= SCENE_LENGTH * EPS)
         {
             print("Stop: close enough", 0);
+            print("}i", i);
             break;
         }
 
@@ -256,7 +257,7 @@ bool walkManifoldDSD(
         if (!computeSpecularConstraintDerivatives(x1_in, x2, x3, x2_dndu, x2_dndv, gradC))
         {
             print("Invalid gradC", 0);
-            print("}Loop", 0);
+            print("}walkLoop", 0);
             print("}WalkManifold", 0);
             return false;
         }
@@ -324,6 +325,7 @@ bool walkManifoldDSD(
             {
                 print("Unsuccessful trace x1 -> x2", 0);
                 beta = beta / 2.f;
+                print("}i", i);
                 continue;
             }
 
@@ -345,6 +347,7 @@ bool walkManifoldDSD(
             {
                 print("Unsuccessful trace x2 -> x3", 0);
                 beta = beta / 2.f;
+                print("}i", i);
                 continue;
             }
 
@@ -374,8 +377,9 @@ bool walkManifoldDSD(
             // print("New distance is higer", 0);
             beta = beta / 2.f;
         }
+        print("}i", i);
     }
-    print("}Loop", 0);
+    print("}walkLoop", 0);
 
     x2Hit_out = x2Hit;
 
