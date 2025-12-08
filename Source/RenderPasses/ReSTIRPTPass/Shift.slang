@@ -629,7 +629,7 @@ float3 computeShiftedIntegrandHybridShiftSMS(
         print("Alert! Something is wrong. Tp", Tp);
     }
 
-    float3 rcTp = 1.f;
+    float3 rcTp = 0.f;
 
     // Check if the ReconnectionData is valid
     bool conditions = dstRcPrevVertexHit.isValid()
@@ -723,33 +723,34 @@ float3 computeShiftedIntegrandHybridShiftSMS(
             print("dstRcPrevVertexSd.posW", dstRcPrevVertexSd.posW);
             print("dstRcPrevDnDu", dstRcPrevDnDu);
             print("dstRcPrevDnDv", dstRcPrevDnDv);
+
+            float reconnectionJacobian = 1.f;
+
+            // Finally, compute the shifted integrand and jacobian
+            rcTp = computeShiftedIntegrandDSD(
+                params,
+                dstRcPrevVertexSd,
+                dstRcPrevPrevVertexSd,
+                dstRcPrevDnDu,
+                dstRcPrevDnDv,
+                srcRcPrevVertexSd,
+                srcRcPrevPrevVertexSd,
+                srcRcPrevDnDu,
+                srcRcPrevDnDv,
+                srcReservoir,
+                reconnectionJacobian,
+                // evalVisibility,
+                false
+            );
+
+            dstJacobian *= reconnectionJacobian;
+            print("dstJacobian", dstJacobian);
+
+            // tempPathReservoir.cachedJacobian = srcReservoir.cachedJacobian;
+            // tempPathReservoir.cachedJacobian[0] = 0.f;
+            // tempPathReservoir.cachedJacobian[1] = 0.f;
+            // tempPathReservoir.cachedJacobian[2] = 0.f;
         }
-
-        float reconnectionJacobian = 1.f;
-
-        // Finally, compute the shifted integrand and jacobian
-        rcTp = computeShiftedIntegrandDSD(
-            params,
-            dstRcPrevVertexSd,
-            dstRcPrevPrevVertexSd,
-            dstRcPrevDnDu,
-            dstRcPrevDnDv,
-            srcRcPrevVertexSd,
-            srcRcPrevPrevVertexSd,
-            srcRcPrevDnDu,
-            srcRcPrevDnDv,
-            srcReservoir,
-            reconnectionJacobian,
-            evalVisibility,
-        );
-
-        dstJacobian *= reconnectionJacobian;
-        print("dstJacobian", dstJacobian);
-
-        // tempPathReservoir.cachedJacobian = srcReservoir.cachedJacobian;
-        // tempPathReservoir.cachedJacobian[0] = 0.f;
-        // tempPathReservoir.cachedJacobian[1] = 0.f;
-        // tempPathReservoir.cachedJacobian[2] = 0.f;
     }
     else
     {

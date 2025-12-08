@@ -209,14 +209,12 @@ bool walkManifoldDSD(
     print("{WalkManifold", 0);
 
     float beta = 1.f;
-    // threshold = self.eps_threshold()
-    float3 x3ToTarget;
-    float endPointDistance;
 
     //  TODO: Get SCENE_LENGTH from somewhere?
     const float SCENE_LENGTH = 1.f;
     const uint MAX_ITER = 20;
     const float EPS = 1e-05F; // or FLT_EPSILON
+    const float THRESHOLD_DISTANCE = EPS * SCENE_LENGTH;
 
     float2x2 gradC[3];
 
@@ -233,6 +231,9 @@ bool walkManifoldDSD(
     HitInfo x2Hit_temp;
     HitInfo x3Hit_temp;
 
+    float3 x3ToTarget = target.posW - x3.posW;
+    float endPointDistance = length(x3ToTarget);
+
     print("{walkLoop", 0);
     for (uint i = 0; i < MAX_ITER; i++)
     {
@@ -240,12 +241,9 @@ bool walkManifoldDSD(
         print("beta", beta);
 
         // Check if close enough
-        x3ToTarget = target.posW - x3.posW;
-        endPointDistance = length(x3ToTarget);
-
         print("distance", endPointDistance);
 
-        if (endPointDistance <= SCENE_LENGTH * EPS)
+        if (endPointDistance <= THRESHOLD_DISTANCE)
         {
             print("Stop: close enough", 0);
             print("}i", i);
@@ -323,18 +321,19 @@ bool walkManifoldDSD(
             // Trace ray
             if (!sceneRayQuery.traceRay(ray, x2Hit_temp, hitT, RAY_FLAG_NONE, 0xff))
             {
-                print("Unsuccessful trace x1 -> x2", 0);
                 beta = beta / 2.f;
+                print("Unsuccessful trace x1 -> x2", 0);
+                print("x2", 0);
                 print("}i", i);
                 continue;
             }
 
             // Valid hit
-            // print("Successful trace x1 -> x2", 0);
 
             // Trace ray x2 -> x3
             x2_temp = loadShadingDataWithPrevVertexPosition(x2Hit_temp, x1_in.posW, false);
-            // print("Updated x2", x2_temp.posW);
+
+            print("x2", x2_temp.posW);
 
             // Assume perfect specular
             rayDir = normalize(reflect(rayDir, x2_temp.N));
@@ -345,8 +344,9 @@ bool walkManifoldDSD(
             // Trace ray
             if (!sceneRayQuery.traceRay(ray, x3Hit_temp, hitT, RAY_FLAG_NONE, 0xff))
             {
-                print("Unsuccessful trace x2 -> x3", 0);
                 beta = beta / 2.f;
+                print("Unsuccessful trace x2 -> x3", 0);
+                print("x3", 0);
                 print("}i", i);
                 continue;
             }
@@ -356,33 +356,45 @@ bool walkManifoldDSD(
 
             x3_temp = loadShadingDataWithPrevVertexPosition(x3Hit_temp, x2_temp.posW, false);
             // print("Updated x3", x3_temp.posW);
+            print("x3", x3_temp.posW);
         }
 
-        float newDistance = length(x3_temp.posW - target.posW);
+        float newDistance = length(target.posW - x3_temp.posW);
         // print("New distance", newDistance);
 
         if (newDistance < endPointDistance)
         {
-            // print("New distance is lower", 0);
             // Update successful
             x2 = x2_temp;
             x2Hit = x2Hit_temp;
             x3 = x3_temp;
             x3Hit = x3Hit_temp;
 
+            x3ToTarget = target.posW - x3.posW;
+            endPointDistance = newDistance;
+
             beta = min(1, 2 * beta);
+            print("isSuccessStep", true);
         }
         else
         {
             // print("New distance is higer", 0);
             beta = beta / 2.f;
+            print("isSuccessStep", false);
         }
         print("}i", i);
     }
     print("}walkLoop", 0);
 
-    x2Hit_out = x2Hit;
-
     print("}WalkManifold", 0);
-    return true;
+
+    if (endPointDistance <= THRESHOLD_DISTANCE)
+    {
+        x2Hit_out = x2Hit;
+        return true;
+    }
+    else
+    {
+        return false;
+    }
 }
