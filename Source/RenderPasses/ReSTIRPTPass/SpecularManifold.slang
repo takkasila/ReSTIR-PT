@@ -63,7 +63,20 @@ bool computeSpecularConstraintDerivatives(ShadingData x1, ShadingData x2, Shadin
     wo *= ilo;
 
     // Half vector
-    float3 H = wi + x2.eta * wo;
+    float eta = x2.eta;
+    // print("x2.eta", x2.eta);
+    // float tmpSign = dot(wi, x2.N) * dot(wo, x2.N);
+    // if (tmpSign > 0)
+    // {
+    //     print("Reflection", 0);
+    //     eta = 1;
+    // }
+    // else
+    // {
+    //     print("Refraction", 0);
+    // }
+
+    float3 H = wi + eta * wo;
     float ilh = 1 / length(H);
     H *= ilh;
 
@@ -77,7 +90,7 @@ bool computeSpecularConstraintDerivatives(ShadingData x1, ShadingData x2, Shadin
     float3 s = x2.T - dot_u_n * x2.N;
     float3 t = x2.B - dot_v_n * x2.N;
 
-    ilo *= x2.eta * ilh;
+    ilo *= eta * ilh;
     ili *= ilh;
 
     // Derivatives of C with respect to x1
@@ -160,9 +173,9 @@ float computeDSDShiftJacobian(ShadingData x1, ShadingData x2, ShadingData x3, fl
     float detB2Inv = determinant(inverse(gradC[1]));
     float detB1 = determinant(gradC[0]);
 
-    // print("g_x1x2", g_x1x2);
-    // print("detB2Inv", detB2Inv);
-    // print("detB1", detB1);
+    print("g_x1x2", g_x1x2);
+    print("detB2Inv", detB2Inv);
+    print("detB1", detB1);
 
     float jacobian = g_x1x2 * detB2Inv * detB1;
     return jacobian;
