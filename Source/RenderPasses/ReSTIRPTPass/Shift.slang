@@ -26,8 +26,21 @@ float3 computeShiftedIntegrandExtraOutput(
     const ShadingData srcPrimarySd, const PathReservoir srcReservoir, ReconnectionData rcData, SampleGenerator sg, bool evalVisibility, bool usePrev = false, bool temporalUpdateForDynamicScene = false)
 {
     PathReservoir tempReservoir = srcReservoir;
-    float3 res = computeShiftedIntegrand_(params, dstJacobian, dstPrimaryHitPacked, dstPrimarySd,
-        srcPrimarySd, tempReservoir, rcData, sg, evalVisibility, usePrev, temporalUpdateForDynamicScene);
+    DebugManifoldWalk debugManifoldWalk;
+    float3 res = computeShiftedIntegrand_(
+        params,
+        dstJacobian,
+        dstPrimaryHitPacked,
+        dstPrimarySd,
+        srcPrimarySd,
+        tempReservoir,
+        rcData,
+        sg,
+        evalVisibility,
+        debugManifoldWalk,
+        usePrev,
+        temporalUpdateForDynamicScene
+    );
     if (PathSamplingMode(kPathSamplingMode) == PathSamplingMode::PathReuse) // for precomputing MIS weights
     {
         dstJacobian = tempReservoir.cachedJacobian[0];
@@ -37,12 +50,35 @@ float3 computeShiftedIntegrandExtraOutput(
 }
 
 float3 computeShiftedIntegrand(
-    const RestirPathTracerParams params, inout float dstJacobian, const PackedHitInfo dstPrimaryHitPacked, const ShadingData dstPrimarySd,
-    const ShadingData srcPrimarySd, const PathReservoir srcReservoir, ReconnectionData rcData, SampleGenerator sg, bool evalVisibility, bool usePrev = false, bool temporalUpdateForDynamicScene = false)
+    const RestirPathTracerParams params,
+    inout float dstJacobian,
+    const PackedHitInfo dstPrimaryHitPacked,
+    const ShadingData dstPrimarySd,
+    const ShadingData srcPrimarySd,
+    const PathReservoir srcReservoir,
+    ReconnectionData rcData,
+    SampleGenerator sg,
+    bool evalVisibility,
+    out DebugManifoldWalk debugManifoldWalk,
+    bool usePrev = false,
+    bool temporalUpdateForDynamicScene = false
+)
 {
     PathReservoir tempReservoir = srcReservoir;
-    float3 res = computeShiftedIntegrand_(params, dstJacobian, dstPrimaryHitPacked, dstPrimarySd,
-        srcPrimarySd, tempReservoir, rcData, sg, evalVisibility, usePrev, temporalUpdateForDynamicScene);
+    float3 res = computeShiftedIntegrand_(
+        params,
+        dstJacobian,
+        dstPrimaryHitPacked,
+        dstPrimarySd,
+        srcPrimarySd,
+        tempReservoir,
+        rcData,
+        sg,
+        evalVisibility,
+        debugManifoldWalk,
+        usePrev,
+        temporalUpdateForDynamicScene
+    );
     if (PathSamplingMode(kPathSamplingMode) == PathSamplingMode::PathReuse) // for precomputing MIS weights
     {
         dstJacobian = tempReservoir.cachedJacobian[0];
@@ -60,6 +96,7 @@ float3 computeShiftedIntegrand_(
     ReconnectionData rcData,
     SampleGenerator sg,
     bool evalVisibility,
+    DebugManifoldWalk debugManifoldWalk,
     bool usePrev = false,
     bool temporalUpdateForDynamicScene = false
 )
@@ -112,7 +149,20 @@ float3 computeShiftedIntegrand_(
         {
             print("Doing DSD RC in HybridShiftSMS", 0);
             // DSD reconnection
-            tmp = computeShiftedIntegrandHybridShiftSMS(params, usePrev, temporalUpdateForDynamicScene, dstJacobian, dstPrimaryHitPacked, dstPrimarySd, srcPrimarySd, srcReservoir, rcData, evalVisibility, sg);
+            tmp = computeShiftedIntegrandHybridShiftSMS(
+                params,
+                usePrev,
+                temporalUpdateForDynamicScene,
+                dstJacobian,
+                dstPrimaryHitPacked,
+                dstPrimarySd,
+                srcPrimarySd,
+                srcReservoir,
+                rcData,
+                evalVisibility,
+                sg,
+                debugManifoldWalk
+            );
 
             print("Integrand", tmp);
         }
@@ -589,7 +639,8 @@ float3 computeShiftedIntegrandHybridShiftSMS(
     inout PathReservoir tempPathReservoir,
     ReconnectionData rcData,
     bool evalVisibility,
-    SampleGenerator sg
+    SampleGenerator sg,
+    out DebugManifoldWalk debugManifoldWalk
 )
 {
     print("{Compute ShiftedIntegrand HybridShiftSMS", 0);
@@ -700,12 +751,14 @@ float3 computeShiftedIntegrandHybridShiftSMS(
 
         // Manifold Exploration to find the correct x2
         HitInfo x2_new;
+
         bool isManifoldSuccess = walkManifoldDSD(
             rcVertexSd,
             dstRcPrevVertexHit,
             srcRcPrevPrevVertexSd,
             dstRcPrevPrevVertexSd,
-            x2_new
+            x2_new,
+            debugManifoldWalk
         );
 
         print("Is manifold walk success:", isManifoldSuccess);
@@ -1330,16 +1383,41 @@ float3 computeShiftedIntegrandReconnection(
     return dstIntegrand;
 }
 
-
-bool shiftAndMergeReservoir(const RestirPathTracerParams params, bool temporalUpdateForDynamicScene, inout float dstJacobian, const PackedHitInfo dstPrimaryHitPacked, const ShadingData dstPrimarySd, inout PathReservoir dstReservoir,
-                                    const ShadingData srcPrimarySd, const PathReservoir srcReservoir, ReconnectionData rcData, bool evalVisibility, inout SampleGenerator sg, bool isSpatialReuse, float misWeight = 1.f, bool forceMerge = false)
+bool shiftAndMergeReservoir(
+    const RestirPathTracerParams params,
+    bool temporalUpdateForDynamicScene,
+    inout float dstJacobian,
+    const PackedHitInfo dstPrimaryHitPacked,
+    const ShadingData dstPrimarySd,
+    inout PathReservoir dstReservoir,
+    const ShadingData srcPrimarySd,
+    const PathReservoir srcReservoir,
+    ReconnectionData rcData,
+    bool evalVisibility,
+    inout SampleGenerator sg,
+    out DebugManifoldWalk debugManifoldWalk,
+    bool isSpatialReuse,
+    float misWeight = 1.f,
+    bool forceMerge = false)
 {
     // Merge srcReservoir into dstReservoir
     PathReservoir tempPathReservoir = srcReservoir;
 
     // Compute srcReservoir shiftedIntegrand with its reconnection data
-    float3 dstIntegrand = computeShiftedIntegrand_(params, dstJacobian, dstPrimaryHitPacked, dstPrimarySd, srcPrimarySd,
-    tempPathReservoir, rcData, sg, evalVisibility, false, temporalUpdateForDynamicScene);
+    float3 dstIntegrand = computeShiftedIntegrand_(
+        params,
+        dstJacobian,
+        dstPrimaryHitPacked,
+        dstPrimarySd,
+        srcPrimarySd,
+        tempPathReservoir,
+        rcData,
+        sg,
+        evalVisibility,
+        debugManifoldWalk,
+        false,
+        temporalUpdateForDynamicScene
+    );
 
     if (PathSamplingMode(kPathSamplingMode) == PathSamplingMode::PathReuse)
     {

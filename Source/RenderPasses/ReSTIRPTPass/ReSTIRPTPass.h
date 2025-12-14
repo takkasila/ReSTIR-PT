@@ -129,7 +129,7 @@ private:
         mStaticParams = StaticParams();
         mParams = RestirPathTracerParams();
         mEnableTemporalReuse = true;
-        mEnableSpatialReuse = false;
+        mEnableSpatialReuse = true;
         mSpatialReusePattern = SpatialReusePattern::Default;
         mPathReusePattern = PathReusePattern::NRooksShift;
         mSmallWindowRestirWindowRadius = 2;
@@ -172,7 +172,7 @@ private:
 
     // params below
     bool                            mEnableTemporalReuse = true;
-    bool                            mEnableSpatialReuse = false;
+    bool                            mEnableSpatialReuse = true;
     SpatialReusePattern             mSpatialReusePattern = SpatialReusePattern::Default;
     PathReusePattern                mPathReusePattern = PathReusePattern::NRooksShift;
     uint32_t                        mSmallWindowRestirWindowRadius = 2;
@@ -229,15 +229,26 @@ private:
     Buffer::SharedPtr               mpPixelDebugPathBuffer;
     DebugPathData                   mDebugPathData;
 
+    //  Temporal path retrace
     Buffer::SharedPtr               mpTemporalCentralPathDataBuffer;
     DebugPathData                   mTemporalCentralPathData;
     Buffer::SharedPtr               mpTemporalTemporalPathDataBuffer;
     DebugPathData                   mTemporalTemporalPathData;
 
+    //  Temporal reuse
+    Buffer::SharedPtr               mpTemporalDebugManifoldWalk1Buffer;
+    DebugManifoldWalk               mTemporalDebugManifoldWalk1;
+    Buffer::SharedPtr               mpTemporalDebugManifoldWalk2Buffer;
+    DebugManifoldWalk               mTemporalDebugManifoldWalk2;
+
+    //  Spatial path retrace
     Buffer::SharedPtr               mpSpatialCentralPathDataBuffer;
     DebugPathData                   mSpatialCentralPathData;
     Buffer::SharedPtr               mpSpatialNeighborPathDataBuffer;
     DebugPathData                   mSpatialNeighborPathData;
+
+    //  Spatial reuse
+
 
     uint nFrameSinceLastRCVertex = 0;
 };

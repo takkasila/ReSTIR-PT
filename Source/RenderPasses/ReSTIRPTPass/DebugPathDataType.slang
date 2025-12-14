@@ -16,6 +16,7 @@ BEGIN_NAMESPACE_FALCOR
 
 #define kMaxPathLength 15
 #define kMaxVertices (kMaxPathLength+1)
+#define kMaxManifoldIteration 20
 
 struct DebugPathData
 {
@@ -94,6 +95,43 @@ struct DebugVertexState
     bool isSampledLight = false;
     float3 sampledLightPosition = float3(0, 0, 0);
     float3 sampledLightRadiance = float3(0, 0, 0);
+};
+
+struct DebugManifoldWalk
+{
+    float4 x1, x2, x3, target;
+    float4 x2_i[kMaxManifoldIteration];
+    float4 x3_i[kMaxManifoldIteration];
+    int numIter = -1;   // Indicates that it has not been written into
+
+#ifdef HOST_CODE
+    void init()
+    {
+        float4 zero = float4(0, 0, 0, 0);
+        x1 = x2 = x3 = target = zero;
+        numIter = -1;
+
+        for (uint i = 0; i < kMaxManifoldIteration; i++)
+        {
+            x2_i[i] = zero;
+            x3_i[i] = zero;
+        }
+    }
+
+#else
+    [mutating] void init()
+    {
+        float4 zero = float4(0, 0, 0, 0);
+        x1 = x2 = x3 = target = zero;
+        numIter = -1;
+
+        for (uint i = 0; i < kMaxManifoldIteration; i++)
+        {
+            x2_i[i] = zero;
+            x3_i[i] = zero;
+        }
+    }
+#endif
 };
 
 END_NAMESPACE_FALCOR

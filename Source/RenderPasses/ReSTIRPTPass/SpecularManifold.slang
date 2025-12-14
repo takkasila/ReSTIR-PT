@@ -9,6 +9,7 @@ import Scene.Scene;
 import Scene.RaytracingInline;
 import Rendering.Utils.PixelStats;
 import Rendering.Materials.MaterialShading;
+import DebugPathDataType;
 
 void computeNormalDerivatives(HitInfo hit, float3 viewDir, out float3 dndu, out float3 dndv)
 {
@@ -216,7 +217,8 @@ bool walkManifoldDSD(
     const HitInfo x2Hit_in,
     const ShadingData x3_in,
     const ShadingData target,
-    out HitInfo x2Hit_out
+    out HitInfo x2Hit_out,
+    out DebugManifoldWalk debugManifoldWalk
 )
 {
     print("{WalkManifold", 0);
@@ -246,6 +248,12 @@ bool walkManifoldDSD(
 
     float3 x3ToTarget = target.posW - x3.posW;
     float endPointDistance = length(x3ToTarget);
+
+    // Debug data for visualization
+    debugManifoldWalk.init();
+    debugManifoldWalk.x1 = float4(x1_in.posW, 1);
+    debugManifoldWalk.x2 = float4(x2.posW, 1);
+    debugManifoldWalk.target = float4(target.posW, 1);
 
     print("{walkLoop", 0);
     for (uint i = 0; i < MAX_ITER; i++)
@@ -348,6 +356,9 @@ bool walkManifoldDSD(
 
             print("x2", x2_temp.posW);
 
+            debugManifoldWalk.x2_i[i] = float4(x2_temp.posW, 1);
+            debugManifoldWalk.numIter = i;
+
             // Assume perfect specular
             rayDir = normalize(reflect(rayDir, x2_temp.N));
             ray = { x2_temp.posW, 0.f, rayDir, kRayTMax };
@@ -370,6 +381,8 @@ bool walkManifoldDSD(
             x3_temp = loadShadingDataWithPrevVertexPosition(x3Hit_temp, x2_temp.posW, false);
             // print("Updated x3", x3_temp.posW);
             print("x3", x3_temp.posW);
+
+            debugManifoldWalk.x3_i[i] = float4(x3_temp.posW, 1);
         }
 
         float newDistance = length(target.posW - x3_temp.posW);
