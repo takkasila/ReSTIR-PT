@@ -1280,6 +1280,7 @@ void ReSTIRPTPass::prepareResources(RenderContext* pRenderContext, const RenderD
     }
 
 
+    //  TracePass
     if (!mpPixelDebugPathBuffer) {
 
         // RWStructuredBuffer<PathState>
@@ -1296,6 +1297,7 @@ void ReSTIRPTPass::prepareResources(RenderContext* pRenderContext, const RenderD
         mpPixelDebugPathBuffer = Buffer::createStructured(var["pixelDebugPathDataBuffer"], 1);
     }
 
+    //  Temporal
     if (!mpTemporalCentralPathDataBuffer)
     {
         mpTemporalCentralPathDataBuffer = Buffer::createStructured(var["pixelDebugPathDataBuffer"], 1);
@@ -1306,7 +1308,17 @@ void ReSTIRPTPass::prepareResources(RenderContext* pRenderContext, const RenderD
         mpTemporalTemporalPathDataBuffer = Buffer::createStructured(var["pixelDebugPathDataBuffer"], 1);
     }
 
+    if (!mpTemporalDebugManifoldWalk1Buffer)
+    {
+        mpTemporalDebugManifoldWalk1Buffer = Buffer::createStructured(var["debugManifoldWalkBuffer"], 1);
+    }
+    if (!mpTemporalDebugManifoldWalk2Buffer)
+    {
+        mpTemporalDebugManifoldWalk2Buffer = Buffer::createStructured(var["debugManifoldWalkBuffer"], 1);
+    }
 
+
+    //  Spatial
     if (!mpSpatialCentralPathDataBuffer)
     {
         mpSpatialCentralPathDataBuffer = Buffer::createStructured(var["pixelDebugPathDataBuffer"], 1);
@@ -1627,12 +1639,17 @@ void ReSTIRPTPass::endFrame(RenderContext* pRenderContext, const RenderData& ren
     mVarsChanged = false;
 
     // Pass debugPathData onto renderData dict
+    //
+    //  Trace Pass
+    //
     DebugPathData* debugPathData = static_cast<DebugPathData*>( mpPixelDebugPathBuffer->map(Buffer::MapType::Read) );
     mDebugPathData = *debugPathData;
     renderData.getDictionary()["debugPathData"] = &mDebugPathData;
     mpPixelDebugPathBuffer->unmap();
 
+    //
     //  Temporal retrace paths
+    //
     DebugPathData* temporalCentralPathData = static_cast<DebugPathData*>(mpTemporalCentralPathDataBuffer->map(Buffer::MapType::Read));
     mTemporalCentralPathData = *temporalCentralPathData;
     renderData.getDictionary()["temporalCentralPathData"] = &mTemporalCentralPathData;
@@ -1643,7 +1660,24 @@ void ReSTIRPTPass::endFrame(RenderContext* pRenderContext, const RenderData& ren
     renderData.getDictionary()["temporalTemporalPathData"] = &mTemporalTemporalPathData;
     mpTemporalTemporalPathDataBuffer->unmap();
 
+    //
+    //  Temporal reuse paths
+    //
+    //
+    DebugManifoldWalk* temporalDebugManifoldWalk1 = static_cast<DebugManifoldWalk*>(mpTemporalDebugManifoldWalk1Buffer->map(Buffer::MapType::Read));
+    mTemporalDebugManifoldWalk1 = *temporalDebugManifoldWalk1;
+    renderData.getDictionary()["temporalDebugManifoldWalk1"] = &mTemporalDebugManifoldWalk1;
+    mpTemporalDebugManifoldWalk1Buffer->unmap();
+
+    DebugManifoldWalk* temporalDebugManifoldWalk2 = static_cast<DebugManifoldWalk*>(mpTemporalDebugManifoldWalk2Buffer->map(Buffer::MapType::Read));
+    mTemporalDebugManifoldWalk2 = *temporalDebugManifoldWalk2;
+    renderData.getDictionary()["temporalDebugManifoldWalk2"] = &mTemporalDebugManifoldWalk2;
+    mpTemporalDebugManifoldWalk2Buffer->unmap();
+
+
+    //
     //  Spatial retrace paths
+    //
     DebugPathData* spatialCentralPathData = static_cast<DebugPathData*>(mpSpatialCentralPathDataBuffer->map(Buffer::MapType::Read));
     mSpatialCentralPathData = *spatialCentralPathData;
     renderData.getDictionary()["spatialCentralPathData"] = &mSpatialCentralPathData;
@@ -1788,8 +1822,13 @@ void ReSTIRPTPass::PathReusePass(RenderContext* pRenderContext, uint32_t restir_
         var["motionVectors"] = renderData[kInputMotionVectors]->asTexture();
         var["gEnableTemporalReprojection"] = mEnableTemporalReprojection;
         var["gNoResamplingForTemporalReuse"] = mNoResamplingForTemporalReuse;
-        if (!mUseMaxHistory) var["gTemporalHistoryLength"] = 1e30f;
-        else var["gTemporalHistoryLength"] = (float)mTemporalHistoryLength;
+        if (!mUseMaxHistory)
+            var["gTemporalHistoryLength"] = 1e30f;
+        else
+            var["gTemporalHistoryLength"] = (float)mTemporalHistoryLength;
+
+        var["debugManifoldWalk1Buffer"] = mpTemporalDebugManifoldWalk1Buffer;
+        var["debugManifoldWalk2Buffer"] = mpTemporalDebugManifoldWalk2Buffer;
     }
     else
     {

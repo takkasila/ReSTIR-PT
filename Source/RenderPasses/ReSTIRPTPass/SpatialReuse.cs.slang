@@ -18,6 +18,7 @@ import RenderPasses.Shared.Denoising.NRDData;
 import RenderPasses.Shared.Denoising.NRDBuffers;
 import RenderPasses.Shared.Denoising.NRDConstants;
 import NRDHelpers;
+import DebugPathDataType;
 
 struct PathReusePass
 {
@@ -252,8 +253,24 @@ struct PathReusePass
                 }
                 else
                 {
-                    shiftAndMergeReservoir(params, false, dstJacobian, centralPrimaryHitPacked, centralPrimarySd, tempDstReservoir,
-                        neighborPrimarySd, neighborReservoir, dummyRcData, true, sg, true, 1.f, true); // "true" means hypothetically selected as the sample
+                    DebugManifoldWalk debugManifoldWalk;
+                    shiftAndMergeReservoir(
+                        params,
+                        false,
+                        dstJacobian,
+                        centralPrimaryHitPacked,
+                        centralPrimarySd,
+                        tempDstReservoir,
+                        neighborPrimarySd,
+                        neighborReservoir,
+                        dummyRcData,
+                        true,
+                        sg,
+                        debugManifoldWalk,
+                        true,
+                        1.f,
+                        true // "true" means hypothetically selected as the sample
+                    );
                 }
 
                 {
@@ -305,8 +322,24 @@ struct PathReusePass
                     //  dst: central
                     //  src: neighbor
                     //  rcData:
-                    possibleToBeSelected = shiftAndMergeReservoir(params, false, dstJacobian, centralPrimaryHitPacked, centralPrimarySd, tempDstReservoir,
-                        neighborPrimarySd, neighborReservoir, dummyRcData, true, sg, true, 1.f, true); // "true" means hypothetically selected as the sample
+                    DebugManifoldWalk debugManifoldWalk;
+                    possibleToBeSelected = shiftAndMergeReservoir(
+                        params,
+                        false,
+                        dstJacobian,
+                        centralPrimaryHitPacked,
+                        centralPrimarySd,
+                        tempDstReservoir,
+                        neighborPrimarySd,
+                        neighborReservoir,
+                        dummyRcData,
+                        true,
+                        sg,
+                        debugManifoldWalk,
+                        true,
+                        1.f,
+                        true // "true" means hypothetically selected as the sample
+                    );
                 }
 
                 if (possibleToBeSelected)
@@ -337,10 +370,21 @@ struct PathReusePass
                             if (!isValidGeometry(centralPrimarySd, tneighborPrimarySd)) continue;
 
                             float tneighborJacobian;
+                            DebugManifoldWalk debugManifoldWalk;
                             //  dst: neighbor
                             //  src: central
-                            float3 tneighborIntegrand = computeShiftedIntegrand(params, tneighborJacobian, tneighborPrimaryHitPacked, tneighborPrimarySd,
-                                centralPrimarySd, tempDstReservoir, dummyRcData, sg, true);
+                            float3 tneighborIntegrand = computeShiftedIntegrand(
+                                params,
+                                tneighborJacobian,
+                                tneighborPrimaryHitPacked,
+                                tneighborPrimarySd,
+                                centralPrimarySd,
+                                tempDstReservoir,
+                                dummyRcData,
+                                sg,
+                                true,
+                                debugManifoldWalk
+                            );
                             float p_ = PathReservoir::computeWeight(tneighborIntegrand) * tneighborJacobian;
                             p_sum += p_ * tneighborReservoir.M;
                         }
@@ -445,6 +489,7 @@ struct PathReusePass
                 //  dst: neighbor
                 //  src: central
                 //  rc: central
+                DebugManifoldWalk debugManifoldWalk1;
                 float3 prefixIntegrand = computeShiftedIntegrand(
                     params,
                     prefixJacobian,
@@ -454,7 +499,8 @@ struct PathReusePass
                     centralReservoir,
                     rcData,
                     sg,
-                    true
+                    true,
+                    debugManifoldWalk1
                 );
 
                 prefix_approxPdf = PathReservoir::computeWeight(prefixIntegrand) * prefixJacobian;
@@ -488,11 +534,12 @@ struct PathReusePass
                     rcData = dummyRcData;
                 }
 
-
                 //  dst: central
                 //  src: neighbor
                 //  rc: central?
                 // Try to shift neighbor to central and merge into tempDstReservoir
+                DebugManifoldWalk debugManifoldWalk2;
+
                 bool possibleToBeSelected = shiftAndMergeReservoir(
                     params,
                     false,
@@ -505,6 +552,7 @@ struct PathReusePass
                     rcData,
                     true,
                     sg,
+                    debugManifoldWalk2,
                     true,
                     1.f,
                     true // "true" means hypothetically selected as the sample
@@ -613,8 +661,22 @@ struct PathReusePass
 
                 float dstJacobian;
 
-                bool selected = shiftAndMergeReservoir(params, false, dstJacobian, centralPrimaryHitPacked, centralPrimarySd, dstReservoir,
-                    neighborPrimarySd, neighborReservoir, dummyRcData, true, sg, true);
+                DebugManifoldWalk debugManifoldWalk;
+                bool selected = shiftAndMergeReservoir(
+                    params,
+                    false,
+                    dstJacobian,
+                    centralPrimaryHitPacked,
+                    centralPrimarySd,
+                    dstReservoir,
+                    neighborPrimarySd,
+                    neighborReservoir,
+                    dummyRcData,
+                    true,
+                    sg,
+                    debugManifoldWalk,
+                    true
+                );
 
                 if (selected)
                 {
@@ -677,8 +739,19 @@ struct PathReusePass
                         float prefix_approxPdf;
                         int shiftCount = 0;
 
-                        float3 prefixIntegrand = computeShiftedIntegrand(params, prefixJacobian, prefixPrimaryHitPacked, prefixPrimarySd,
-                            centralPrimarySd, dstReservoir, dummyRcData, sg, true);
+                        DebugManifoldWalk debugManifoldWalk;
+                        float3 prefixIntegrand = computeShiftedIntegrand(
+                            params,
+                            prefixJacobian,
+                            prefixPrimaryHitPacked,
+                            prefixPrimarySd,
+                            centralPrimarySd,
+                            dstReservoir,
+                            dummyRcData,
+                            sg,
+                            true,
+                            debugManifoldWalk
+                        );
                         prefix_approxPdf = PathReservoir::computeWeight(prefixIntegrand) * prefixJacobian;
 
                         if (prefix_approxPdf > 0.f) count += prefixReservoir.M;

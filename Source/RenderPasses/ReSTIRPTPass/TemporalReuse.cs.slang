@@ -13,6 +13,7 @@ import Utils.Sampling.TinyUniformSampleGenerator;
 import Utils.Math.Ray;
 import LoadShadingData;
 import Rendering.Materials.MaterialShading;
+import DebugPathDataType;
 
 /** TODO.
 */
@@ -32,6 +33,9 @@ struct PathReusePass
     RWStructuredBuffer<PathReservoir> outputReservoirs;    // reservoir for next pass
     RWStructuredBuffer<PathReservoir> temporalReservoirs;  // reservoir from previous frame
     StructuredBuffer<PixelReconnectionData> reconnectionDataBuffer;
+
+    RWStructuredBuffer<DebugManifoldWalk> debugManifoldWalk1Buffer;
+    RWStructuredBuffer<DebugManifoldWalk> debugManifoldWalk2Buffer;
 
     Texture2D<float4> directLighting;
     bool useDirectLighting;
@@ -160,6 +164,17 @@ struct PathReusePass
                 static const int curSampleId = -1;
                 static const int prevSampleId = 0;
 
+                DebugManifoldWalk debugManifoldWalk1;
+                DebugManifoldWalk debugManifoldWalk2;
+
+                debugManifoldWalk1.init();
+                debugManifoldWalk2.init();
+                if (isDebug)
+                {
+                    debugManifoldWalk1Buffer[0] = debugManifoldWalk1;
+                    debugManifoldWalk2Buffer[0] = debugManifoldWalk2;
+                }
+
                 print("{loopSampleId i", 0);
                 for (int i = curSampleId; i <= prevSampleId; i++)
                 {
@@ -208,6 +223,8 @@ struct PathReusePass
                         //  If successful, the new value will be saved in the
                         //  temporary reservoir "tempDstReservoir" to be used
                         //  in computeShiftedIntegrand()
+
+                        print("shiftAndMergeReservoir", 0);
                         possibleToBeSelected = shiftAndMergeReservoir(
                             params,
                             doTemporalUpdateForDynamicScene,
@@ -220,6 +237,7 @@ struct PathReusePass
                             rcData,
                             true,
                             sg,
+                            debugManifoldWalk1,
                             false,
                             1.f,
                             true    // "true" means hypothetically selected as the sample
@@ -276,6 +294,7 @@ struct PathReusePass
                                     print("Dummy RC 2", 0);
                                 }
 
+                                print("computeShiftedIntegrand", 0);
                                 float3 tneighborIntegrand = computeShiftedIntegrand(
                                     params,
                                     tneighborJacobian,
@@ -286,6 +305,7 @@ struct PathReusePass
                                     rcData,
                                     sg,
                                     true,
+                                    debugManifoldWalk2,
                                     true
                                 ); //usePrev
                                 p_ = PathReservoir::toScalar(tneighborIntegrand) * tneighborJacobian;
@@ -330,6 +350,12 @@ struct PathReusePass
                 {
                     dstReservoir.finalizeGRIS();
                 }
+
+                if (isDebug)
+                {
+                    debugManifoldWalk1Buffer[0] = debugManifoldWalk1;
+                    debugManifoldWalk2Buffer[0] = debugManifoldWalk2;
+                }
             }
             /////////////////////
             /// CONSTANT RMIS ///
@@ -343,8 +369,24 @@ struct PathReusePass
                 if (gNoResamplingForTemporalReuse)
                     selected = mergeReservoirNoResampling(params, dstReservoir, temporalReservoir, sg);
                 else
-                    selected = shiftAndMergeReservoir(params, doTemporalUpdateForDynamicScene, dstJacobian, centralPrimaryHitPacked, centralPrimarySd, dstReservoir,
-                        temporalPrimarySd, temporalReservoir, dummyRcData, true, sg, false);
+                {
+                    DebugManifoldWalk debugManifoldWalk;
+                    selected = shiftAndMergeReservoir(
+                        params,
+                        doTemporalUpdateForDynamicScene,
+                        dstJacobian,
+                        centralPrimaryHitPacked,
+                        centralPrimarySd,
+                        dstReservoir,
+                        temporalPrimarySd,
+                        temporalReservoir,
+                        dummyRcData,
+                        true,
+                        sg,
+                        debugManifoldWalk,
+                        false
+                    );
+                }
 
                 if (selected)
                 {
@@ -365,8 +407,21 @@ struct PathReusePass
                         int shiftCount = 1;
                         float prefix_approxPdf;
 
-                        float3 prefixIntegrand = computeShiftedIntegrand(params, prefixJacobian, temporalPrimaryHitPacked, temporalPrimarySd,
-                            centralPrimarySd, dstReservoir, dummyRcData, sg, true, true); //usePrev // determinisitically select the reconnection shift
+                        DebugManifoldWalk debugManifoldWalk;
+
+                        float3 prefixIntegrand = computeShiftedIntegrand(
+                            params,
+                            prefixJacobian,
+                            temporalPrimaryHitPacked,
+                            temporalPrimarySd,
+                            centralPrimarySd,
+                            dstReservoir,
+                            dummyRcData,
+                            sg,
+                            true,
+                            debugManifoldWalk,
+                            true
+                        ); //usePrev // determinisitically select the reconnection shift
                         prefix_approxPdf = PathReservoir::toScalar(prefixIntegrand) * prefixJacobian;
 
                         if (prefix_approxPdf > 0.f)

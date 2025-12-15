@@ -130,6 +130,41 @@ void tracePath(uint pathID, inout PathReservoir giReservoir, uint sampleIdx)
         pixelDebugPathDataBuffer[0].vertexCount = vertexCount;
 
         pixelDebugPathDataBuffer[0].L = float4(path.L, 1);
+
+        //  Check if have RC vertex
+        HitInfo rcVertexHitInfo = outputReservoirs.rcVertexHit.getHitInfo();
+        HitInfo rcPrevVertexHitInfo = outputReservoirs.rcPrevVertexHit.getHitInfo();
+        HitInfo rcPrevPrevVertexHitInfo = outputReservoirs.rcPrevPrevVertexHit.getHitInfo();
+
+        if (!rcVertexHitInfo.isValid())
+        {
+            print("Doesn't have RC vertex", 0);
+            pixelDebugPathDataBuffer[0].hasRcVertex = false;
+        }
+        else
+        {
+            bool isDD = outputReservoirs.pathFlags.decodeIsDD();
+            bool isDSD = outputReservoirs.pathFlags.decodeIsDSD();
+
+            if (!rcPrevVertexHitInfo.isValid() && !rcPrevPrevVertexHitInfo.isValid() && isDD)
+            {
+                print("RC is DD", 0);
+                pixelDebugPathDataBuffer[0].hasRcVertex = true;
+                pixelDebugPathDataBuffer[0].isRcDSD = false;
+                pixelDebugPathDataBuffer[0].rcVertexIndex = outputReservoirs.pathFlags.rcVertexLength() + 1;
+            }
+            else if (rcPrevVertexHitInfo.isValid() && rcPrevPrevVertexHitInfo.isValid() && isDSD)
+            {
+                print("RC is DSD", 0);
+                pixelDebugPathDataBuffer[0].hasRcVertex = true;
+                pixelDebugPathDataBuffer[0].isRcDSD = true;
+                pixelDebugPathDataBuffer[0].rcVertexIndex = outputReservoirs.pathFlags.rcVertexLength() + 1;
+            }
+            else
+            {
+                print("Alert! Something is wrong in TracePass.", 0);
+            }
+        }
     }
 
     print("}tracePath", 0);

@@ -15,6 +15,7 @@ StructuredBuffer<PathReservoir> outputReservoirs;
 StructuredBuffer<PixelReconnectionData> reconnectionDataBuffer;
 StructuredBuffer<PathReuseMISWeight> misWeightBuffer;
 StructuredBuffer<DebugPathData> pixelDebugPathDataBuffer;
+StructuredBuffer<DebugManifoldWalk> debugManifoldWalkBuffer;
 
 void main() {}
 
