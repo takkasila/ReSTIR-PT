@@ -639,6 +639,7 @@ struct PathReusePass
                     debugManifoldWalk_centralReservoirToNeighbor_Buffer[i] = debugManifoldWalk_centralReservoirToNeighbor[i];
                     debugManifoldWalk_neighborReservoirToCentral_Buffer[i] = debugManifoldWalk_neighborReservoirToCentral[i];
                 }
+            }
 
             // Try merge centralReservoir into dstReservoir
             bool isSuccessful = mergeReservoirWithResamplingMIS(
