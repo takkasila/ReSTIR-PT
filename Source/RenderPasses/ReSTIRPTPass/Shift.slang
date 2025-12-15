@@ -538,6 +538,8 @@ float3 computeShiftedIntegrandDSD(
     // Evaluate visibility: dstPrevPrevRc <-> dstPrevRc <-> dstRc
     if (evalVisibility)
     {
+        // TODO: Something is wrong here
+
         bool isVisible = evalSegmentVisibility(dstPrevPrevRcSd.posW, dstPrevRcSd.posW);
         if (!isVisible)
         {
@@ -743,8 +745,24 @@ float3 computeShiftedIntegrandHybridShiftSMS(
                 false
             );
 
-            dstJacobian *= reconnectionJacobian;
-            print("dstJacobian", dstJacobian);
+            print("reconnectionJacobian", reconnectionJacobian);
+            print("rcTp", rcTp);
+
+            float rcJacobianDiff = abs(reconnectionJacobian - 1.0f);
+            float lowerThreshold = 1e-4f;// 1e-2f; // fine
+            float upperThreshold = 1e-0f; // broken
+            if (rcJacobianDiff > lowerThreshold && rcJacobianDiff < upperThreshold)
+            {
+                print("reconnectionJacobian > 0.1", rcJacobianDiff);
+
+                dstJacobian = 0.f;
+                rcTp = 0.f;
+            }
+            else
+            {
+                dstJacobian *= reconnectionJacobian;
+                print("dstJacobian", dstJacobian);
+            }
 
             // tempPathReservoir.cachedJacobian = srcReservoir.cachedJacobian;
             // tempPathReservoir.cachedJacobian[0] = 0.f;
