@@ -398,6 +398,7 @@ struct PathRetracePass
             {
                 print("{traceHybridShiftRays centralReservoir", 0);
 
+                // Build RCData between current's pixel reservoir and neighbor primary hit
                 traceHybridShiftRays(
                     params,
                     false,
@@ -437,6 +438,7 @@ struct PathRetracePass
             {
                 print("{traceHybridShiftRays neighborReservoir", 0);
 
+                // Build RCData between neighbor pixel's reservoir and current pixel primary hit
                 traceHybridShiftRays(
                     params,
                     false,

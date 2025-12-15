@@ -248,7 +248,10 @@ private:
     DebugPathData                   mSpatialNeighborPathData;
 
     //  Spatial reuse
-
+    Buffer::SharedPtr               mpSpatialDebugManifoldWalk_centralReservoirToNeighbor_Buffer;
+    DebugManifoldWalk               mSpatialDebugManifoldWalk_centralReservoirToNeighbor[3];
+    Buffer::SharedPtr               mpSpatialDebugManifoldWalk_neighborReservoirToCentral_Buffer;
+    DebugManifoldWalk               mSpatialDebugManifoldWalk_neighborReservoirToCentral[3];
 
     uint nFrameSinceLastRCVertex = 0;
 };

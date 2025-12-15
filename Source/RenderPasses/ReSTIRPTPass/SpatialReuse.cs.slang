@@ -44,6 +44,9 @@ struct PathReusePass
     RWTexture2D<float4> outputNRDResidualRadianceHitDist;   ///< Output resolved residual color in .rgb and hit distance in .a for NRD. Only valid if kOutputNRDData == true.
     Texture2D<float4> primaryHitEmission;                     ///< Output per-pixel primary hit emission. Only valid if kOutputNRDData == true.
 
+    RWStructuredBuffer<DebugManifoldWalk> debugManifoldWalk_centralReservoirToNeighbor_Buffer;
+    RWStructuredBuffer<DebugManifoldWalk> debugManifoldWalk_neighborReservoirToCentral_Buffer;
+
     int gSpatialRoundId;
     int  gNumSpatialRounds;
     uint gSpatialReusePattern;
@@ -412,6 +415,9 @@ struct PathReusePass
             print("Neighbor count:", neighborCount);
             print("{Neighbor loop", 0);
 
+            DebugManifoldWalk debugManifoldWalk_centralReservoirToNeighbor[3];
+            DebugManifoldWalk debugManifoldWalk_neighborReservoirToCentral[3];
+
             for (int i = 0; i < neighborCount; ++i)
             {
                 print("{neighbor", i);
@@ -473,6 +479,7 @@ struct PathReusePass
                 {
                     print("Central reservoir have RC", 0);
 
+                    // RCData between current's pixel reservoir and neighbor primary hit
                     rcData = reconnectionDataBuffer[centralOffset].data[2 * i];
                     print("- rcData.rcPrevHit", rcData.rcPrevHit.isValid());
                     print("- rcData.rcPrevPrevHit", rcData.rcPrevPrevHit.isValid());
@@ -485,11 +492,14 @@ struct PathReusePass
                     print("Central reservoir use dummyRC", 0);
                     rcData = dummyRcData;
                 }
+                debugManifoldWalk_centralReservoirToNeighbor[i].init();
 
-                //  dst: neighbor
+                // Compute Canonical weight for final merge.
+                //  This requires approximated prefix integrand of reusing current pixel
+                //  reservoir into neighbor's primary hit.
                 //  src: central
                 //  rc: central
-                DebugManifoldWalk debugManifoldWalk1;
+                //  dst: neighbor
                 float3 prefixIntegrand = computeShiftedIntegrand(
                     params,
                     prefixJacobian,
@@ -500,8 +510,10 @@ struct PathReusePass
                     rcData,
                     sg,
                     true,
-                    debugManifoldWalk1
+                    debugManifoldWalk_centralReservoirToNeighbor[i]
                 );
+
+                print("debugManifoldWalk_centralReservoirToNeighbor[i].numIter", debugManifoldWalk_centralReservoirToNeighbor[i].numIter);
 
                 prefix_approxPdf = PathReservoir::computeWeight(prefixIntegrand) * prefixJacobian;
 
@@ -521,6 +533,8 @@ struct PathReusePass
                 )
                 {
                     print("Neighbor reservoir have RC", 0);
+
+                    // RCData between neighbor pixel's reservoir and current pixel primary hit
                     rcData = reconnectionDataBuffer[centralOffset].data[2 * i + 1];
                     print("- rcData.rcPrevHit", rcData.rcPrevHit.isValid());
                     print("- rcData.rcPrevPrevHit", rcData.rcPrevPrevHit.isValid());
@@ -534,11 +548,16 @@ struct PathReusePass
                     rcData = dummyRcData;
                 }
 
+                //  Reuse neighbor's reservoir into current primary hit
+                //  and merge between neighbor's reservoir and current reservoir.
+                //  The surviving one is called tempDstReservoir.
+                //  But we first need to see if it possible to be successfully merged
+                //  in first to compute the neighbor weight?
                 //  dst: central
                 //  src: neighbor
-                //  rc: central?
-                // Try to shift neighbor to central and merge into tempDstReservoir
-                DebugManifoldWalk debugManifoldWalk2;
+                //  rc: neighbor
+
+                debugManifoldWalk_neighborReservoirToCentral[i].init();
 
                 bool possibleToBeSelected = shiftAndMergeReservoir(
                     params,
@@ -552,11 +571,13 @@ struct PathReusePass
                     rcData,
                     true,
                     sg,
-                    debugManifoldWalk2,
+                    debugManifoldWalk_neighborReservoirToCentral[i],
                     true,
                     1.f,
                     true // "true" means hypothetically selected as the sample
                 );
+
+                print("debugManifoldWalk_neighborReservoirToCentral[i].numIter", debugManifoldWalk_neighborReservoirToCentral[i].numIter);
 
                 print("possibleToBeSelected:", possibleToBeSelected);
 
@@ -579,7 +600,7 @@ struct PathReusePass
                 print("tempDstReservoir.F", tempDstReservoir.F);
                 print("dstReservoir.F", dstReservoir.F);
 
-                // Try merge tempDstReservoir into dstReservoir
+                // Merge for real this time
                 bool isSuccessful = mergeReservoirWithResamplingMIS(
                     params,
                     tempDstReservoir.F,
@@ -610,6 +631,14 @@ struct PathReusePass
             print("- rcVertexLength", dstReservoir.pathFlags.rcVertexLength());
             print("- pathLength", dstReservoir.pathFlags.pathLength());
             print("- weight", dstReservoir.weight);
+
+            if (isDebug)
+            {
+                for (uint i = 0; i < 3; i++)
+                {
+                    debugManifoldWalk_centralReservoirToNeighbor_Buffer[i] = debugManifoldWalk_centralReservoirToNeighbor[i];
+                    debugManifoldWalk_neighborReservoirToCentral_Buffer[i] = debugManifoldWalk_neighborReservoirToCentral[i];
+                }
 
             // Try merge centralReservoir into dstReservoir
             bool isSuccessful = mergeReservoirWithResamplingMIS(

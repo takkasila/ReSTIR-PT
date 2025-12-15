@@ -1329,6 +1329,14 @@ void ReSTIRPTPass::prepareResources(RenderContext* pRenderContext, const RenderD
         mpSpatialNeighborPathDataBuffer = Buffer::createStructured(var["pixelDebugPathDataBuffer"], 1);
     }
 
+    if (!mpSpatialDebugManifoldWalk_centralReservoirToNeighbor_Buffer)
+    {
+        mpSpatialDebugManifoldWalk_centralReservoirToNeighbor_Buffer = Buffer::createStructured(var["debugManifoldWalkBuffer"], 3);
+    }
+    if (!mpSpatialDebugManifoldWalk_neighborReservoirToCentral_Buffer)
+    {
+        mpSpatialDebugManifoldWalk_neighborReservoirToCentral_Buffer = Buffer::createStructured(var["debugManifoldWalkBuffer"], 3);
+    }
 }
 
 
@@ -1687,6 +1695,31 @@ void ReSTIRPTPass::endFrame(RenderContext* pRenderContext, const RenderData& ren
     mSpatialNeighborPathData = *spatialNeighborPathData;
     renderData.getDictionary()["spatialNeighborPathData"] = &mSpatialNeighborPathData;
     mpSpatialNeighborPathDataBuffer->unmap();
+
+
+    //
+    //  Spatial reuse paths
+    //
+    DebugManifoldWalk* spatialDebugManifoldWalk_centralReservoirToNeighbor = static_cast<DebugManifoldWalk*>(mpSpatialDebugManifoldWalk_centralReservoirToNeighbor_Buffer->map(Buffer::MapType::Read));
+    mSpatialDebugManifoldWalk_centralReservoirToNeighbor[0] = spatialDebugManifoldWalk_centralReservoirToNeighbor[0];
+    mSpatialDebugManifoldWalk_centralReservoirToNeighbor[1] = spatialDebugManifoldWalk_centralReservoirToNeighbor[1];
+    mSpatialDebugManifoldWalk_centralReservoirToNeighbor[2] = spatialDebugManifoldWalk_centralReservoirToNeighbor[2];
+    renderData.getDictionary()["spatialDebugManifoldWalk_centralReservoirToNeighbor0"] = &mSpatialDebugManifoldWalk_centralReservoirToNeighbor[0];
+    renderData.getDictionary()["spatialDebugManifoldWalk_centralReservoirToNeighbor1"] = &mSpatialDebugManifoldWalk_centralReservoirToNeighbor[1];
+    renderData.getDictionary()["spatialDebugManifoldWalk_centralReservoirToNeighbor2"] = &mSpatialDebugManifoldWalk_centralReservoirToNeighbor[2];
+    mpSpatialDebugManifoldWalk_centralReservoirToNeighbor_Buffer->unmap();
+
+
+    DebugManifoldWalk* spatialDebugManifoldWalk_neighborReservoirToCentral = static_cast<DebugManifoldWalk*>(mpSpatialDebugManifoldWalk_neighborReservoirToCentral_Buffer->map(Buffer::MapType::Read));
+    mSpatialDebugManifoldWalk_neighborReservoirToCentral[0] = spatialDebugManifoldWalk_neighborReservoirToCentral[0];
+    mSpatialDebugManifoldWalk_neighborReservoirToCentral[1] = spatialDebugManifoldWalk_neighborReservoirToCentral[1];
+    mSpatialDebugManifoldWalk_neighborReservoirToCentral[2] = spatialDebugManifoldWalk_neighborReservoirToCentral[2];
+    renderData.getDictionary()["spatialDebugManifoldWalk_neighborReservoirToCentral0"] = &mSpatialDebugManifoldWalk_neighborReservoirToCentral[0];
+    renderData.getDictionary()["spatialDebugManifoldWalk_neighborReservoirToCentral1"] = &mSpatialDebugManifoldWalk_neighborReservoirToCentral[1];
+    renderData.getDictionary()["spatialDebugManifoldWalk_neighborReservoirToCentral2"] = &mSpatialDebugManifoldWalk_neighborReservoirToCentral[2];
+    mpSpatialDebugManifoldWalk_neighborReservoirToCentral_Buffer->unmap();
+
+
 }
 
 void ReSTIRPTPass::generatePaths(RenderContext* pRenderContext, const RenderData& renderData, int sampleId)
@@ -1833,6 +1866,10 @@ void ReSTIRPTPass::PathReusePass(RenderContext* pRenderContext, uint32_t restir_
     else
     {
         var["gSpatialReusePattern"] = mStaticParams.pathSamplingMode == PathSamplingMode::PathReuse ? (uint32_t)mPathReusePattern : (uint32_t)mSpatialReusePattern;
+
+        var["debugManifoldWalk_centralReservoirToNeighbor_Buffer"] = mpSpatialDebugManifoldWalk_centralReservoirToNeighbor_Buffer;
+        var["debugManifoldWalk_neighborReservoirToCentral_Buffer"] = mpSpatialDebugManifoldWalk_neighborReservoirToCentral_Buffer;
+
 
         if (!isPathReuseMISWeightComputation)
         {

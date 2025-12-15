@@ -96,7 +96,7 @@ float3 computeShiftedIntegrand_(
     ReconnectionData rcData,
     SampleGenerator sg,
     bool evalVisibility,
-    DebugManifoldWalk debugManifoldWalk,
+    out DebugManifoldWalk debugManifoldWalk,
     bool usePrev = false,
     bool temporalUpdateForDynamicScene = false
 )
@@ -764,6 +764,8 @@ float3 computeShiftedIntegrandHybridShiftSMS(
         );
 
         print("Is manifold walk success:", isManifoldSuccess);
+
+        print("debugManifoldWalk.numIter", debugManifoldWalk.numIter);
 
         if (isManifoldSuccess)
         {
