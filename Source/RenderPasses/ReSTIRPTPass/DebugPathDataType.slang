@@ -118,6 +118,17 @@ struct DebugManifoldWalk
         }
     }
 
+    void deepCopy(DebugManifoldWalk srcDebugManifoldWalk)
+    {
+        x1 = srcDebugManifoldWalk.x1;
+        x2 = srcDebugManifoldWalk.x2;
+        x3 = srcDebugManifoldWalk.x3;
+        target = srcDebugManifoldWalk.target;
+        std::memcpy(x2_i, srcDebugManifoldWalk.x2_i, kMaxManifoldIteration * sizeof(float4));
+        std::memcpy(x3_i, srcDebugManifoldWalk.x3_i, kMaxManifoldIteration * sizeof(float4));
+        numIter = srcDebugManifoldWalk.numIter;
+    }
+
 #else
     [mutating] void init()
     {

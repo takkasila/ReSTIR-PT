@@ -517,6 +517,7 @@ struct PathReusePass
 
                 prefix_approxPdf = PathReservoir::computeWeight(prefixIntegrand) * prefixJacobian;
 
+                // GRIS EQ. 38
                 canonicalWeight += 1;
                 if (prefix_approxPdf > 0.f)
                     canonicalWeight -= prefix_approxPdf * neighborReservoir.M / (prefix_approxPdf * neighborReservoir.M + centralReservoir.M * PathReservoir::computeWeight(centralReservoir.F) / (neighborCount));
@@ -585,6 +586,7 @@ struct PathReusePass
 
                 if (possibleToBeSelected)
                 {
+                    // GRIS EQ. 38
                     neighborWeight = PathReservoir::computeWeight(neighborReservoir.F)
                         / dstJacobian * neighborReservoir.M
                         / (
@@ -638,6 +640,10 @@ struct PathReusePass
                 {
                     debugManifoldWalk_centralReservoirToNeighbor_Buffer[i] = debugManifoldWalk_centralReservoirToNeighbor[i];
                     debugManifoldWalk_neighborReservoirToCentral_Buffer[i] = debugManifoldWalk_neighborReservoirToCentral[i];
+
+                    print("debugManifoldWalk_centralReservoirToNeighbor_Buffer[i].numIter", debugManifoldWalk_centralReservoirToNeighbor_Buffer[i].numIter);
+                    print("debugManifoldWalk_neighborReservoirToCentral_Buffer[i].numIter", debugManifoldWalk_neighborReservoirToCentral_Buffer[i].numIter);
+
                 }
             }
 

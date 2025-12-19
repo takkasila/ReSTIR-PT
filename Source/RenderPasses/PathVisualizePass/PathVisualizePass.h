@@ -81,8 +81,13 @@ private:
         DebugPathData basePath;
         DebugPathData temporalCentralPath;
         DebugPathData temporalTemporalPath;
+        DebugManifoldWalk temporalDebugManifoldWalk1;
+        DebugManifoldWalk temporalDebugManifoldWalk2;
+
         DebugPathData spatialCentralPath;
         DebugPathData spatialNeighborPath;
+        DebugManifoldWalk spatialDebugManifoldWalk_centralReservoirToNeighbor[3];
+        DebugManifoldWalk spatialDebugManifoldWalk_neighborReservoirToCentral[3];
 
         bool isFullyComplete = false;   // signify that the bundle is a "complete" package that satisfies all conditions
         bool isPartiallyComplete = false;  // have atleast a base path
@@ -92,8 +97,15 @@ private:
             basePath.init();
             temporalCentralPath.init();
             temporalTemporalPath.init();
+            temporalDebugManifoldWalk1.init();
+            temporalDebugManifoldWalk2.init();
             spatialCentralPath.init();
             spatialNeighborPath.init();
+            for(uint i = 0; i < 3; i++)
+            {
+                spatialDebugManifoldWalk_centralReservoirToNeighbor[i].init();
+                spatialDebugManifoldWalk_neighborReservoirToCentral[i].init();
+            }
             isFullyComplete = false;
             isPartiallyComplete = false;
         }
@@ -103,8 +115,15 @@ private:
             basePath.vertexCount = 0;
             temporalCentralPath.vertexCount = 0;
             temporalTemporalPath.vertexCount = 0;
+            temporalDebugManifoldWalk1.numIter = -1;
+            temporalDebugManifoldWalk2.numIter = -1;
             spatialCentralPath.vertexCount = 0;
             spatialNeighborPath.vertexCount = 0;
+            for(uint i = 0; i < 3; i++)
+            {
+                spatialDebugManifoldWalk_centralReservoirToNeighbor[i].numIter = -1;
+                spatialDebugManifoldWalk_neighborReservoirToCentral[i].numIter = -1;
+            }
             isFullyComplete = false;
             isPartiallyComplete = false;
         }
@@ -116,6 +135,11 @@ private:
             temporalTemporalPath.deepCopy(srcPathDataBundle.temporalTemporalPath);
             spatialCentralPath.deepCopy(srcPathDataBundle.spatialCentralPath);
             spatialNeighborPath.deepCopy(srcPathDataBundle.spatialNeighborPath);
+            for(uint i = 0; i < 3; i++)
+            {
+                spatialDebugManifoldWalk_centralReservoirToNeighbor[i].deepCopy(srcPathDataBundle.spatialDebugManifoldWalk_centralReservoirToNeighbor[i]);
+                spatialDebugManifoldWalk_neighborReservoirToCentral[i].deepCopy(srcPathDataBundle.spatialDebugManifoldWalk_neighborReservoirToCentral[i]);
+            }
             isFullyComplete = srcPathDataBundle.isFullyComplete;
             isPartiallyComplete = srcPathDataBundle.isPartiallyComplete;
         }

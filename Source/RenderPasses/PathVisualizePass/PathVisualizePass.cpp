@@ -30,7 +30,6 @@
 #include <algorithm>
 #include "DebugPathDataType.slang";
 
-
 namespace
 {
     const char kDesc[] = "Visualize a path (vertices) on top of an input image with a depth buffer.";
@@ -139,10 +138,25 @@ void PathVisualizePass::execute(RenderContext* pRenderContext, const RenderData&
 
         //      Get current frame debug path data from ReSTIRPTPass
         mCurrentFramePathBundle.basePath = *renderDataDict.getValue<DebugPathData*>("debugPathData");
+
+        // Temporal
         mCurrentFramePathBundle.temporalCentralPath = *renderDataDict.getValue<DebugPathData*>("temporalCentralPathData");
         mCurrentFramePathBundle.temporalTemporalPath = *renderDataDict.getValue<DebugPathData*>("temporalTemporalPathData");
+
+        mCurrentFramePathBundle.temporalDebugManifoldWalk1 = *renderDataDict.getValue<DebugManifoldWalk*>("temporalDebugManifoldWalk1");
+        mCurrentFramePathBundle.temporalDebugManifoldWalk2 = *renderDataDict.getValue<DebugManifoldWalk*>("temporalDebugManifoldWalk2");
+
+        // Spatial
         mCurrentFramePathBundle.spatialCentralPath = *renderDataDict.getValue<DebugPathData*>("spatialCentralPathData");
         mCurrentFramePathBundle.spatialNeighborPath = *renderDataDict.getValue<DebugPathData*>("spatialNeighborPathData");
+
+        mCurrentFramePathBundle.spatialDebugManifoldWalk_centralReservoirToNeighbor[0] = *renderDataDict.getValue<DebugManifoldWalk*>("spatialDebugManifoldWalk_centralReservoirToNeighbor0");
+        mCurrentFramePathBundle.spatialDebugManifoldWalk_centralReservoirToNeighbor[1] = *renderDataDict.getValue<DebugManifoldWalk*>("spatialDebugManifoldWalk_centralReservoirToNeighbor1");
+        mCurrentFramePathBundle.spatialDebugManifoldWalk_centralReservoirToNeighbor[2] = *renderDataDict.getValue<DebugManifoldWalk*>("spatialDebugManifoldWalk_centralReservoirToNeighbor2");
+
+        mCurrentFramePathBundle.spatialDebugManifoldWalk_neighborReservoirToCentral[0] = *renderDataDict.getValue<DebugManifoldWalk*>("spatialDebugManifoldWalk_neighborReservoirToCentral0");
+        mCurrentFramePathBundle.spatialDebugManifoldWalk_neighborReservoirToCentral[1] = *renderDataDict.getValue<DebugManifoldWalk*>("spatialDebugManifoldWalk_neighborReservoirToCentral1");
+        mCurrentFramePathBundle.spatialDebugManifoldWalk_neighborReservoirToCentral[2] = *renderDataDict.getValue<DebugManifoldWalk*>("spatialDebugManifoldWalk_neighborReservoirToCentral2");
 
         filterCopyPathData();
     }
@@ -150,7 +164,7 @@ void PathVisualizePass::execute(RenderContext* pRenderContext, const RenderData&
     // Create FBO
     Fbo::SharedPtr pFbo = Fbo::create();
 
-    //  Render on top of input image by copying from input to the render target
+    //  Render on top of input image by copying from input to the rbender target
     pRenderContext->blit(pInputImg->getSRV(), pOutputImg->getRTV());
 
     //  Bind render target
@@ -381,6 +395,9 @@ void PathVisualizePass::filterCopyPathData()
             mBuildingPathBundle.temporalCentralPath.deepCopy(mCurrentFramePathBundle.temporalCentralPath);
             mBuildingPathBundle.isPartiallyComplete = true;
             isUpdateReservedPath = true;
+
+            // Debug Manifold walk
+            mBuildingPathBundle.temporalDebugManifoldWalk1.deepCopy(mCurrentFramePathBundle.temporalDebugManifoldWalk1);
         }
 
         //  Temporal-Temporal
@@ -392,6 +409,9 @@ void PathVisualizePass::filterCopyPathData()
             mBuildingPathBundle.temporalTemporalPath.deepCopy(mCurrentFramePathBundle.temporalTemporalPath);
             mBuildingPathBundle.isPartiallyComplete = true;
             isUpdateReservedPath = true;
+
+            // Debug Manifold walk
+            mBuildingPathBundle.temporalDebugManifoldWalk2.deepCopy(mCurrentFramePathBundle.temporalDebugManifoldWalk2);
         }
 
         //  Spatial-Central
@@ -403,10 +423,15 @@ void PathVisualizePass::filterCopyPathData()
             mBuildingPathBundle.spatialCentralPath.deepCopy(mCurrentFramePathBundle.spatialCentralPath);
             mBuildingPathBundle.isPartiallyComplete = true;
             isUpdateReservedPath = true;
+
+            for(uint i = 0; i < 3; i++)
+            {
+                mBuildingPathBundle.spatialDebugManifoldWalk_centralReservoirToNeighbor[i].deepCopy(mCurrentFramePathBundle.spatialDebugManifoldWalk_centralReservoirToNeighbor[i]);
+            }
         }
 
-        //  Spatial-Central
-        //      If Spatial-Central is still empyty and valid new offset path is found
+        //  Spatial-Neighbor
+        //      If Spatial-Neighbor is still empyty and valid new offset path is found
         if (mBuildingPathBundle.spatialNeighborPath.vertexCount == 0
             && mCurrentFramePathBundle.spatialNeighborPath.vertexCount > 0
             )
@@ -414,6 +439,11 @@ void PathVisualizePass::filterCopyPathData()
             mBuildingPathBundle.spatialNeighborPath.deepCopy(mCurrentFramePathBundle.spatialNeighborPath);
             mBuildingPathBundle.isPartiallyComplete = true;
             isUpdateReservedPath = true;
+
+            for(uint i = 0; i < 3; i++)
+            {
+                mBuildingPathBundle.spatialDebugManifoldWalk_neighborReservoirToCentral[i].deepCopy(mCurrentFramePathBundle.spatialDebugManifoldWalk_neighborReservoirToCentral[i]);
+            }
         }
 
         //  If all retrace paths are filled then the bundle is fully completed

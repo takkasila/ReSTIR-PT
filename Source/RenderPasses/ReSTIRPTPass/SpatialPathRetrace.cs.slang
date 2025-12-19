@@ -300,7 +300,7 @@ struct PathRetracePass
     */
     void ReSTIR(const uint2 pixel)
     {
-
+        // TODO: This needs to be three pairs
         DebugPathData debugPathData1;
         DebugPathData debugPathData2;
         debugPathData1.init();

@@ -253,6 +253,7 @@ bool walkManifoldDSD(
     debugManifoldWalk.init();
     debugManifoldWalk.x1 = float4(x1_in.posW, 1);
     debugManifoldWalk.x2 = float4(x2.posW, 1);
+    debugManifoldWalk.x3 = float4(x3.posW, 1);
     debugManifoldWalk.target = float4(target.posW, 1);
 
     print("{walkLoop", 0);

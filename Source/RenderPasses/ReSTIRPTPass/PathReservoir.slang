@@ -457,6 +457,7 @@ struct PathReservoir
             rcPrevVertexHit = inReservoir.rcPrevVertexHit;
             rcPrevPrevVertexHit = inReservoir.rcPrevPrevVertexHit;
             rcPrevPrevVertexWo = inReservoir.rcPrevPrevVertexWo;
+            // inReservoir.
             return true;
         }
 
