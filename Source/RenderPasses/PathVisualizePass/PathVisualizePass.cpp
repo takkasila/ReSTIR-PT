@@ -684,7 +684,8 @@ void PathVisualizePass::updateRenderData()
     }
 
     auto constructOffsetPath = [&vertexOffset, &indexOffset, pyramidVerts, verts, indices](
-        const DebugPathData &offsetPath, const float4 &colorBegin, const float4 &colorEnd)
+        const DebugPathData &offsetPath, const float4 &colorBegin, const float4 &colorEnd
+    ) -> void
     {
         float4 color;
         float3 A, B;
@@ -740,7 +741,68 @@ void PathVisualizePass::updateRenderData()
         }
     };
 
+    auto constructPathSegment = [&vertexOffset, &indexOffset, pyramidVerts, verts, indices](
+        float3 src, float3 target, float4 color
+    ) -> void
+    {
+        // Construct change of basis mat
+        glm::mat4 M = computeTransformMatToLineSegment(src, target);
 
+        // Vertex
+        for (uint j = 0; j < kPyramidVertCount; j++)
+        {
+            verts[vertexOffset + j].pos = (M * float4(pyramidVerts[j], 1)).xyz;
+
+            // TODO: use proper tex coord
+            verts[vertexOffset + j].texCoord = float2(0.5, 0.5);
+
+            verts[vertexOffset + j].color = color;
+        }
+
+        // Index
+        for (uint j = 0; j < kPyramidIndicesCount; j++)
+        {
+            indices[indexOffset + j] = kPyramidIndices[j] + vertexOffset;
+        }
+
+        vertexOffset += kPyramidVertCount;
+        indexOffset += kPyramidIndicesCount;
+    };
+
+    auto constructManifoldWalk = [&vertexOffset, &indexOffset, pyramidVerts, verts, indices, constructPathSegment](
+        const DebugManifoldWalk &manifoldPath, const float4 &colorBegin, const float4 &colorEnd, const float4 &targetColor
+    ) -> void
+    {
+        if(manifoldPath.numIter < 0)
+            return;
+
+        // x3 : closest to eye
+        // x1 : closest to light (RC vertex)
+        // target : where x3 wants to go to
+
+        // x3 -> x2
+        constructPathSegment(manifoldPath.x3.xyz, manifoldPath.x2.xyz, colorBegin);
+        // x2 -> x1
+        constructPathSegment(manifoldPath.x2.xyz, manifoldPath.x1.xyz, colorBegin);
+        // target -> x1
+        constructPathSegment(manifoldPath.target.xyz, manifoldPath.x1.xyz, targetColor);
+
+        float4 color;
+        float t;
+        for(int i = 0; i <= manifoldPath.numIter; i++)
+        {
+            t = i > 0 ? i / float(manifoldPath.numIter) : 0;
+            color = colorBegin + t * (colorEnd - colorBegin);
+            // x3_i -> x2_i
+            constructPathSegment(manifoldPath.x3_i[i].xyz, manifoldPath.x2_i[i].xyz, color);
+            // x2_i -> x1
+            constructPathSegment(manifoldPath.x2_i[i].xyz, manifoldPath.x1.xyz, color);
+        }
+    };
+
+    //
+    // Temporal Reuse
+    //
     if (mIsDisplayTemporalCentralPath)
     {
         //  Construct central-reservoir temporal retrace path geometry
@@ -751,6 +813,20 @@ void PathVisualizePass::updateRenderData()
             mRenderedPathBundle.temporalCentralPath,
             colorBegin,
             colorEnd
+        );
+    }
+
+    if(mIsDisplayTemporalCentralManifold)
+    {
+        colorBegin = float4(1, 127 / 255.0f, 0, 0.5f);
+        colorEnd = float4(0, 0, 0, 0.5f);
+        float4 targetColor(106 / 255.0f, 61 / 255.0f, 154 / 255.0f, 0.5f);
+
+        constructManifoldWalk(
+            mRenderedPathBundle.temporalDebugManifoldWalk1,
+            colorBegin,
+            colorEnd,
+            targetColor
         );
     }
 
@@ -767,9 +843,23 @@ void PathVisualizePass::updateRenderData()
         );
     }
 
-    // auto constructManifoldWalk = [&vertexOffset, &indexOffset, pyramidVerts, verts, indices]
+    if(mIsDisplayTemporalTemporalManifold)
+    {
+        colorBegin = float4(1, 127 / 255.0f, 0, 0.5f);
+        colorEnd = float4(0, 0, 0, 0.5f);
+        float4 targetColor(106 / 255.0f, 61 / 255.0f, 154 / 255.0f, 0.5f);
 
+        constructManifoldWalk(
+            mRenderedPathBundle.temporalDebugManifoldWalk2,
+            colorBegin,
+            colorEnd,
+            targetColor
+        );
+    }
+
+    //
     // Spatial Reuse
+    //
     for(uint i = 0; i < 3; i++)
     {
         //  Central Reservoir
@@ -792,12 +882,12 @@ void PathVisualizePass::updateRenderData()
             colorEnd = float4(0, 0, 0, 0.5f);
             float4 targetColor(106 / 255.0f, 61 / 255.0f, 154 / 255.0f, 0.5f);
 
-            // constructManifoldWalk(
-            //     mRenderedPathBundle.spatialDebugManifoldWalk_centralReservoirToNeighbor[i],
-            //     colorBegin,
-            //     colorEnd,
-            //     targetColor
-            // );
+            constructManifoldWalk(
+                mRenderedPathBundle.spatialDebugManifoldWalk_centralReservoirToNeighbor[i],
+                colorBegin,
+                colorEnd,
+                targetColor
+            );
         }
 
         // Neighbor Reservoir
@@ -812,6 +902,22 @@ void PathVisualizePass::updateRenderData()
                 colorEnd
             );
         }
+
+        // Neighbor Reservoir to Central Manifold Walk
+        if(mIsDisplaySpatialCentralReservoirManifold[i])
+        {
+            colorBegin = float4(1, 127 / 255.0f, 0, 0.5f);
+            colorEnd = float4(0, 0, 0, 0.5f);
+            float4 targetColor(106 / 255.0f, 61 / 255.0f, 154 / 255.0f, 0.5f);
+
+            constructManifoldWalk(
+                mRenderedPathBundle.spatialDebugManifoldWalk_neighborReservoirToCentral[i],
+                colorBegin,
+                colorEnd,
+                targetColor
+            );
+        }
+
     }
 
     mTotalIndices = indexOffset;
