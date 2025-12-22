@@ -811,7 +811,7 @@ float3 computeShiftedIntegrandHybridShiftSMS(
                 print("reconnectionJacobian > 0.1", rcJacobianDiff);
 
                 dstJacobian = 0.f;
-                rcTp = 0.f;
+                // rcTp = 0.f;
             }
             else
             {

@@ -79,13 +79,14 @@ private:
     struct PathDataBundle
     {
         DebugPathData basePath;
+
         DebugPathData temporalCentralPath;
         DebugPathData temporalTemporalPath;
         DebugManifoldWalk temporalDebugManifoldWalk1;
         DebugManifoldWalk temporalDebugManifoldWalk2;
 
-        DebugPathData spatialCentralPath;
-        DebugPathData spatialNeighborPath;
+        DebugPathData spatialCentralPath[3];
+        DebugPathData spatialNeighborPath[3];
         DebugManifoldWalk spatialDebugManifoldWalk_centralReservoirToNeighbor[3];
         DebugManifoldWalk spatialDebugManifoldWalk_neighborReservoirToCentral[3];
 
@@ -99,10 +100,10 @@ private:
             temporalTemporalPath.init();
             temporalDebugManifoldWalk1.init();
             temporalDebugManifoldWalk2.init();
-            spatialCentralPath.init();
-            spatialNeighborPath.init();
             for(uint i = 0; i < 3; i++)
             {
+                spatialCentralPath[i].init();
+                spatialNeighborPath[i].init();
                 spatialDebugManifoldWalk_centralReservoirToNeighbor[i].init();
                 spatialDebugManifoldWalk_neighborReservoirToCentral[i].init();
             }
@@ -117,10 +118,10 @@ private:
             temporalTemporalPath.vertexCount = 0;
             temporalDebugManifoldWalk1.numIter = -1;
             temporalDebugManifoldWalk2.numIter = -1;
-            spatialCentralPath.vertexCount = 0;
-            spatialNeighborPath.vertexCount = 0;
             for(uint i = 0; i < 3; i++)
             {
+                spatialCentralPath[i].vertexCount = 0;
+                spatialNeighborPath[i].vertexCount = 0;
                 spatialDebugManifoldWalk_centralReservoirToNeighbor[i].numIter = -1;
                 spatialDebugManifoldWalk_neighborReservoirToCentral[i].numIter = -1;
             }
@@ -133,10 +134,12 @@ private:
             basePath.deepCopy(srcPathDataBundle.basePath);
             temporalCentralPath.deepCopy(srcPathDataBundle.temporalCentralPath);
             temporalTemporalPath.deepCopy(srcPathDataBundle.temporalTemporalPath);
-            spatialCentralPath.deepCopy(srcPathDataBundle.spatialCentralPath);
-            spatialNeighborPath.deepCopy(srcPathDataBundle.spatialNeighborPath);
+            temporalDebugManifoldWalk1.deepCopy(srcPathDataBundle.temporalDebugManifoldWalk1);
+            temporalDebugManifoldWalk2.deepCopy(srcPathDataBundle.temporalDebugManifoldWalk2);
             for(uint i = 0; i < 3; i++)
             {
+                spatialCentralPath[i].deepCopy(srcPathDataBundle.spatialCentralPath[i]);
+                spatialNeighborPath[i].deepCopy(srcPathDataBundle.spatialNeighborPath[i]);
                 spatialDebugManifoldWalk_centralReservoirToNeighbor[i].deepCopy(srcPathDataBundle.spatialDebugManifoldWalk_centralReservoirToNeighbor[i]);
                 spatialDebugManifoldWalk_neighborReservoirToCentral[i].deepCopy(srcPathDataBundle.spatialDebugManifoldWalk_neighborReservoirToCentral[i]);
             }
@@ -162,13 +165,16 @@ private:
 
     uint mTotalIndices = 0;
 
-    //  Options
-
+    //  Visualization Options
+    float mRayWidth = 0.014f;
     bool mIsDisplayBasePath = true;
     bool mIsDisplayNEESegments = true;
     bool mIsDisplayTemporalCentralPath = true;
+    bool mIsDisplayTemporalCentralManifold = true;
     bool mIsDisplayTemporalTemporalPath = true;
-    bool mIsDisplaySpatialCentralPath = true;
-    bool mIsDisplaySpatialNeighborPath = true;
-    float mRayWidth = 0.014;
+    bool mIsDisplayTemporalTemporalManifold = true;
+    bool mIsDisplaySpatialCentralPath[3] = {true, true, true};
+    bool mIsDisplaySpatialCentralReservoirManifold[3] = {true, true, true};
+    bool mIsDisplaySpatialNeighborPath[3] = {true, true, true};
+    bool mIsDisplaySpatialNeighborReservoirManifold[3] = {true, true, true};
 };

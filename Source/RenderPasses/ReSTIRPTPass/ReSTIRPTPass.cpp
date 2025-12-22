@@ -1130,7 +1130,7 @@ bool ReSTIRPTPass::renderDebugUI(Gui::Widgets& widget)
 {
     bool dirty = false;
 
-    if (auto group = widget.group("Debugging", true))
+    if (auto group = widget.group("Debugging", false))
     {
         dirty |= group.checkbox("Use fixed seed", mParams.useFixedSeed);
         group.tooltip("Forces a fixed random seed for each frame.\n\n"
@@ -1690,13 +1690,21 @@ void ReSTIRPTPass::endFrame(RenderContext* pRenderContext, const RenderData& ren
     //  Spatial retrace paths
     //
     DebugPathData* spatialCentralPathData = static_cast<DebugPathData*>(mpSpatialCentralPathDataBuffer->map(Buffer::MapType::Read));
-    mSpatialCentralPathData[0] = *spatialCentralPathData;
+    mSpatialCentralPathData[0] = spatialCentralPathData[0];
+    mSpatialCentralPathData[1] = spatialCentralPathData[1];
+    mSpatialCentralPathData[2] = spatialCentralPathData[2];
     renderData.getDictionary()["spatialCentralPathData0"] = &mSpatialCentralPathData[0];
+    renderData.getDictionary()["spatialCentralPathData1"] = &mSpatialCentralPathData[1];
+    renderData.getDictionary()["spatialCentralPathData2"] = &mSpatialCentralPathData[2];
     mpSpatialCentralPathDataBuffer->unmap();
 
     DebugPathData* spatialNeighborPathData = static_cast<DebugPathData*>(mpSpatialNeighborPathDataBuffer->map(Buffer::MapType::Read));
-    mSpatialNeighborPathData[0] = *spatialNeighborPathData;
+    mSpatialNeighborPathData[0] = spatialNeighborPathData[0];
+    mSpatialNeighborPathData[1] = spatialNeighborPathData[1];
+    mSpatialNeighborPathData[2] = spatialNeighborPathData[2];
     renderData.getDictionary()["spatialNeighborPathData0"] = &mSpatialNeighborPathData[0];
+    renderData.getDictionary()["spatialNeighborPathData1"] = &mSpatialNeighborPathData[1];
+    renderData.getDictionary()["spatialNeighborPathData2"] = &mSpatialNeighborPathData[2];
     mpSpatialNeighborPathDataBuffer->unmap();
 
 

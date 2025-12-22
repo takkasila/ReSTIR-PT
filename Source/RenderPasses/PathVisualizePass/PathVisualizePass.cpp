@@ -54,10 +54,25 @@ namespace
     //      - NEE branch
     //      - temporal central-resevoir retrace path
     //      - temporal temporal-resevoir retrace path
-    const uint kTotalDebugPath = 4;
+    //      - Spatial central x 3
+    //      - Spatial neighbor x 3
+    const uint kTotalDebugPath = 10;
+
+    const uint kMaxDebugPathVertex = kPyramidVertCount * kMaxPathLength * kTotalDebugPath;
+
+    //  Total number of manifold walk path
+    //      - Temporal central
+    //      - Temporal neighbor
+    //      - Spatial central x 3
+    //      - Spatial neighbor x 3
+    const uint kMaxDebugManifoldPath = 8;
+    const uint kMaxDebugManifoldIter = 20;
+    const uint kMaxDebugManifoldPathLength = 2;
+    const uint kMaxDebugManifoldPathSegments = (kMaxDebugManifoldPathLength * kMaxDebugManifoldIter + 1) * kMaxDebugManifoldPath;
+    const uint kMaxDebugManifoldPathVertex = kPyramidVertCount * kMaxDebugManifoldPathSegments;
 
     //  Compute maximum vertex buffer size.
-    const size_t kMaxVertexBufferSize = sizeof(Vertex) * kPyramidVertCount * kMaxPathLength * kTotalDebugPath;
+    const size_t kMaxVertexBufferSize = sizeof(Vertex) * (kMaxDebugPathVertex + kMaxDebugManifoldPathVertex);
 
     const uint kPyramidIndicesCount = 18;
 
@@ -70,8 +85,11 @@ namespace
         3, 0, 4,
 	};
 
-    const size_t kMaxIndicesBufferSize = sizeof(uint) * kPyramidIndicesCount * kMaxPathLength * kTotalDebugPath;
+    const uint kMaxDebugPathIndicies = kPyramidIndicesCount * kMaxPathLength * kTotalDebugPath;
 
+    const uint kMaxManifoldWalkIndicies = kPyramidIndicesCount * kMaxDebugManifoldPathSegments;
+
+    const size_t kMaxIndicesBufferSize = sizeof(uint) * (kMaxDebugPathIndicies + kMaxManifoldWalkIndicies);
 }
 
 // Don't remove this. it's required for hot-reload to function properly
@@ -147,8 +165,13 @@ void PathVisualizePass::execute(RenderContext* pRenderContext, const RenderData&
         mCurrentFramePathBundle.temporalDebugManifoldWalk2 = *renderDataDict.getValue<DebugManifoldWalk*>("temporalDebugManifoldWalk2");
 
         // Spatial
-        mCurrentFramePathBundle.spatialCentralPath = *renderDataDict.getValue<DebugPathData*>("spatialCentralPathData0");
-        mCurrentFramePathBundle.spatialNeighborPath = *renderDataDict.getValue<DebugPathData*>("spatialNeighborPathData1");
+        mCurrentFramePathBundle.spatialCentralPath[0] = *renderDataDict.getValue<DebugPathData*>("spatialCentralPathData0");
+        mCurrentFramePathBundle.spatialCentralPath[1] = *renderDataDict.getValue<DebugPathData*>("spatialCentralPathData1");
+        mCurrentFramePathBundle.spatialCentralPath[2] = *renderDataDict.getValue<DebugPathData*>("spatialCentralPathData2");
+
+        mCurrentFramePathBundle.spatialNeighborPath[0] = *renderDataDict.getValue<DebugPathData*>("spatialNeighborPathData0");
+        mCurrentFramePathBundle.spatialNeighborPath[1] = *renderDataDict.getValue<DebugPathData*>("spatialNeighborPathData1");
+        mCurrentFramePathBundle.spatialNeighborPath[2] = *renderDataDict.getValue<DebugPathData*>("spatialNeighborPathData2");
 
         mCurrentFramePathBundle.spatialDebugManifoldWalk_centralReservoirToNeighbor[0] = *renderDataDict.getValue<DebugManifoldWalk*>("spatialDebugManifoldWalk_centralReservoirToNeighbor0");
         mCurrentFramePathBundle.spatialDebugManifoldWalk_centralReservoirToNeighbor[1] = *renderDataDict.getValue<DebugManifoldWalk*>("spatialDebugManifoldWalk_centralReservoirToNeighbor1");
@@ -208,16 +231,62 @@ void PathVisualizePass::execute(RenderContext* pRenderContext, const RenderData&
 void PathVisualizePass::renderUI(Gui::Widgets& widget)
 {
     bool isUpdateRenderData = false;
+    isUpdateRenderData |= widget.var("Ray width", mRayWidth, 0.001f, 0.04f);
     isUpdateRenderData |= widget.checkbox("Display canonical path", mIsDisplayBasePath);
     isUpdateRenderData |= widget.checkbox("Display NEE segments", mIsDisplayNEESegments);
-    isUpdateRenderData |= widget.checkbox("Display temporal central-reservoir retrace path", mIsDisplayTemporalCentralPath);
-    isUpdateRenderData |= widget.checkbox("Display temporal temporal-reservoir retrace path", mIsDisplayTemporalTemporalPath);
-    isUpdateRenderData |= widget.checkbox("Display spatial central-reservoir retrace path", mIsDisplaySpatialCentralPath);
-    isUpdateRenderData |= widget.checkbox("Display spatial neighbor-reservoir retrace path", mIsDisplaySpatialNeighborPath);
 
-    isUpdateRenderData |= widget.var("Ray width", mRayWidth, 0.001f, 0.04f);
+    if( auto group = widget.group("Temporal Reuse", true))
+    {
+        if(auto group2 = widget.group("Central Reservoir", true))
+        {
+            isUpdateRenderData |= widget.checkbox("Path", mIsDisplayTemporalCentralPath);
+            isUpdateRenderData |= widget.checkbox("Manifold Walk", mIsDisplayTemporalCentralManifold);
+        }
+        if(auto group2 = widget.group("Temporal Reservoir", true))
+        {
+            isUpdateRenderData |= widget.checkbox("Path", mIsDisplayTemporalTemporalPath);
+            isUpdateRenderData |= widget.checkbox("Manifold Walk", mIsDisplayTemporalTemporalManifold);
+        }
+    }
 
-    if (auto group = widget.group("Debugging", true))
+    if(auto group = widget.group("Spatial Reuse", true))
+    {
+        if(auto group2 = widget.group("Central Reservoir to Neighbor Reconnection", true))
+        {
+            if(auto group3 = widget.group("Reconnection Path", true))
+            {
+                isUpdateRenderData |= widget.checkbox<bool>("Path 1", mIsDisplaySpatialCentralPath[0]);
+                isUpdateRenderData |= widget.checkbox<bool>("Path 2", mIsDisplaySpatialCentralPath[1]);
+                isUpdateRenderData |= widget.checkbox<bool>("Path 3", mIsDisplaySpatialCentralPath[2]);
+            }
+
+            if(auto group3 = widget.group("Reconnection Manifold Walk", true))
+            {
+                isUpdateRenderData |= widget.checkbox<bool>("Manifold Walk 1", mIsDisplaySpatialCentralReservoirManifold[0]);
+                isUpdateRenderData |= widget.checkbox<bool>("Manifold Walk 2", mIsDisplaySpatialCentralReservoirManifold[1]);
+                isUpdateRenderData |= widget.checkbox<bool>("Manifold Walk 3", mIsDisplaySpatialCentralReservoirManifold[2]);
+            }
+        }
+
+        if(auto group2 = widget.group("Neighbor Reservoir to Central Reconnection", true))
+        {
+            if(auto group3 = widget.group("Reconnection Path", true))
+            {
+                isUpdateRenderData |= widget.checkbox<bool>("Path 1", mIsDisplaySpatialNeighborPath[0]);
+                isUpdateRenderData |= widget.checkbox<bool>("Path 2", mIsDisplaySpatialNeighborPath[1]);
+                isUpdateRenderData |= widget.checkbox<bool>("Path 3", mIsDisplaySpatialNeighborPath[2]);
+            }
+
+            if(auto group3 = widget.group("Reconnection Manifold Walk", true))
+            {
+                isUpdateRenderData |= widget.checkbox<bool>("Manifold Walk 1", mIsDisplaySpatialNeighborReservoirManifold[0]);
+                isUpdateRenderData |= widget.checkbox<bool>("Manifold Walk 2", mIsDisplaySpatialNeighborReservoirManifold[1]);
+                isUpdateRenderData |= widget.checkbox<bool>("Manifold Walk 3", mIsDisplaySpatialNeighborReservoirManifold[2]);
+            }
+        }
+    }
+
+    if (auto group = widget.group("Debugging", false))
     {
         if (group.button("Update Path value", false))
         {
@@ -414,43 +483,60 @@ void PathVisualizePass::filterCopyPathData()
             mBuildingPathBundle.temporalDebugManifoldWalk2.deepCopy(mCurrentFramePathBundle.temporalDebugManifoldWalk2);
         }
 
-        //  Spatial-Central
-        //      If Spatial-Central is still empyty and valid new offset path is found
-        if (mBuildingPathBundle.spatialCentralPath.vertexCount == 0
-            && mCurrentFramePathBundle.spatialCentralPath.vertexCount > 0
-            )
+        for(uint i = 0; i < 3; i++)
         {
-            mBuildingPathBundle.spatialCentralPath.deepCopy(mCurrentFramePathBundle.spatialCentralPath);
-            mBuildingPathBundle.isPartiallyComplete = true;
-            isUpdateReservedPath = true;
-
-            for(uint i = 0; i < 3; i++)
+            //  Spatial-Central
+            //      If Spatial-Central is still empyty and valid new offset path is found
+            if (mBuildingPathBundle.spatialCentralPath[i].vertexCount == 0
+                && mCurrentFramePathBundle.spatialCentralPath[i].vertexCount > 0
+            )
             {
+                // Reconnection path
+                mBuildingPathBundle.spatialCentralPath[i].deepCopy(mCurrentFramePathBundle.spatialCentralPath[i]);
+                mBuildingPathBundle.isPartiallyComplete = true;
+                isUpdateReservedPath = true;
+
+                // Manifold walk
                 mBuildingPathBundle.spatialDebugManifoldWalk_centralReservoirToNeighbor[i].deepCopy(mCurrentFramePathBundle.spatialDebugManifoldWalk_centralReservoirToNeighbor[i]);
             }
-        }
 
-        //  Spatial-Neighbor
-        //      If Spatial-Neighbor is still empyty and valid new offset path is found
-        if (mBuildingPathBundle.spatialNeighborPath.vertexCount == 0
-            && mCurrentFramePathBundle.spatialNeighborPath.vertexCount > 0
+            //  Spatial-Neighbor
+            //      If Spatial-Neighbor is still empyty and valid new offset path is found
+            if (mBuildingPathBundle.spatialNeighborPath[i].vertexCount == 0
+                && mCurrentFramePathBundle.spatialNeighborPath[i].vertexCount > 0
             )
-        {
-            mBuildingPathBundle.spatialNeighborPath.deepCopy(mCurrentFramePathBundle.spatialNeighborPath);
-            mBuildingPathBundle.isPartiallyComplete = true;
-            isUpdateReservedPath = true;
-
-            for(uint i = 0; i < 3; i++)
             {
+                // Reconnection path
+                mBuildingPathBundle.spatialNeighborPath[i].deepCopy(mCurrentFramePathBundle.spatialNeighborPath[i]);
+                mBuildingPathBundle.isPartiallyComplete = true;
+                isUpdateReservedPath = true;
+
+                // Manifold walk
                 mBuildingPathBundle.spatialDebugManifoldWalk_neighborReservoirToCentral[i].deepCopy(mCurrentFramePathBundle.spatialDebugManifoldWalk_neighborReservoirToCentral[i]);
             }
         }
 
+        bool atLeastOneSpatialCentral = false;
+        for(auto path : mBuildingPathBundle.spatialCentralPath)
+            if(path.vertexCount > 0)
+            {
+                atLeastOneSpatialCentral = true;
+                break;
+            }
+
+        bool atLeastOneSpatialTemporal = false;
+        for(auto path : mBuildingPathBundle.spatialCentralPath)
+            if(path.vertexCount > 0)
+            {
+                atLeastOneSpatialTemporal = true;
+                break;
+            }
+
         //  If all retrace paths are filled then the bundle is fully completed
         if (mBuildingPathBundle.temporalCentralPath.vertexCount > 0
             && mBuildingPathBundle.temporalTemporalPath.vertexCount > 0
-            && mBuildingPathBundle.spatialCentralPath.vertexCount > 0
-            && mBuildingPathBundle.spatialNeighborPath.vertexCount > 0
+            && atLeastOneSpatialCentral
+            && atLeastOneSpatialTemporal
             )
         {
             mReservedPathBundle.isFullyComplete = true;
@@ -681,30 +767,51 @@ void PathVisualizePass::updateRenderData()
         );
     }
 
-    if (mIsDisplaySpatialCentralPath)
+    // auto constructManifoldWalk = [&vertexOffset, &indexOffset, pyramidVerts, verts, indices]
+
+    // Spatial Reuse
+    for(uint i = 0; i < 3; i++)
     {
-        //  Construct temporal-resevoir temporal retrace path geometry
-        colorBegin = float4(31 / 255.0f, 120 / 255.0f, 180 / 255.0f, 0.5);
-        colorEnd = float4(0, 0, 0, 0.5);
+        //  Central Reservoir
+        if (mIsDisplaySpatialCentralPath[i])
+        {
+            colorBegin = float4(31 / 255.0f, 120 / 255.0f, 180 / 255.0f, 0.5);
+            colorEnd = float4(0, 0, 0, 0.5);
 
-        constructOffsetPath(
-            mRenderedPathBundle.spatialCentralPath,
-            colorBegin,
-            colorEnd
-        );
-    }
+            constructOffsetPath(
+                mRenderedPathBundle.spatialCentralPath[i],
+                colorBegin,
+                colorEnd
+            );
+        }
 
-    if (mIsDisplaySpatialNeighborPath)
-    {
-        //  Construct temporal-resevoir temporal retrace path geometry
-        colorBegin = float4(166 / 255.0f, 206 / 255.0f, 227 / 255.0f, 0.5);
-        colorEnd = float4(0, 0, 0, 0.5);
+        // Central Reservoir to Neighbor Manifold Walk
+        if(mIsDisplaySpatialCentralReservoirManifold[i])
+        {
+            colorBegin = float4(1, 127 / 255.0f, 0, 0.5f);
+            colorEnd = float4(0, 0, 0, 0.5f);
+            float4 targetColor(106 / 255.0f, 61 / 255.0f, 154 / 255.0f, 0.5f);
 
-        constructOffsetPath(
-            mRenderedPathBundle.spatialNeighborPath,
-            colorBegin,
-            colorEnd
-        );
+            // constructManifoldWalk(
+            //     mRenderedPathBundle.spatialDebugManifoldWalk_centralReservoirToNeighbor[i],
+            //     colorBegin,
+            //     colorEnd,
+            //     targetColor
+            // );
+        }
+
+        // Neighbor Reservoir
+        if (mIsDisplaySpatialNeighborPath[i])
+        {
+            colorBegin = float4(31 / 255.0f, 120 / 255.0f, 180 / 255.0f, 0.5);
+            colorEnd = float4(0, 0, 0, 0.5);
+
+            constructOffsetPath(
+                mRenderedPathBundle.spatialNeighborPath[i],
+                colorBegin,
+                colorEnd
+            );
+        }
     }
 
     mTotalIndices = indexOffset;
