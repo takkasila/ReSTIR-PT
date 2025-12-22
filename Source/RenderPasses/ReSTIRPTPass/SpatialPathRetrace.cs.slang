@@ -142,7 +142,6 @@ struct PathRetracePass
         ReconnectionData reconnectionData
         , PathReservoir reservoir
         , inout DebugPathData debugPathData
-        , in RWStructuredBuffer<DebugPathData> debugPathDataBuffer
     )
     {
         // Fill in RC data into debugData
@@ -188,8 +187,6 @@ struct PathRetracePass
                 debugPathData.vertices[debugPathData.vertexCount - 2] = float4(rcPrevVertex.posW, 1);
             }
         }
-
-        debugPathDataBuffer[0] = debugPathData;
     }
 
     void checkValidReconnectionData(PathReservoir reservoir, ReconnectionData reconnectionData)
@@ -300,18 +297,7 @@ struct PathRetracePass
     */
     void ReSTIR(const uint2 pixel)
     {
-        // TODO: This needs to be three pairs
-        DebugPathData debugPathData1;
-        DebugPathData debugPathData2;
-        debugPathData1.init();
-        debugPathData2.init();
-
         bool isDebug = all(getSelctedPixelLog() == pixel);
-        if (isDebug)
-        {
-            debugCentralResevoirPathDataBuffer[0] = debugPathData1;
-            debugNeighborResevoirPathDataBuffer[0] = debugPathData2;
-        }
 
         // TODO: How to seed efficiently?
         var sg = TinyUniformSampleGenerator(pixel, (kCandidateSamples + 1 + gNumSpatialRounds) * params.seed + kCandidateSamples + 1 + gSpatialRoundId);
@@ -347,10 +333,16 @@ struct PathRetracePass
 
         const uint startIndex = sampleNext1D(sg) * kNeighborOffsetCount;
 
+        DebugPathData debugPathDataCentralReservoir[3];
+        DebugPathData debugPathDataNeighborReservoir[3];
+
         print("{Neighbor loop", 0);
         for (int i = 0; i < neighborCount; ++i)
         {
             print("{neighbor", i);
+
+            debugPathDataCentralReservoir[i].init();
+            debugPathDataNeighborReservoir[i].init();
 
             int2 neighborPixel = getNextNeighborPixel(startIndex, pixel, i);
 
@@ -406,7 +398,7 @@ struct PathRetracePass
                     neighborPrimarySd,
                     centralReservoir,
                     centralReservoirReconnectionData,
-                    debugPathData1
+                    debugPathDataCentralReservoir[i]
                 );
 
                 print("Output Central ReconnectionData", 0);
@@ -428,7 +420,8 @@ struct PathRetracePass
                     checkValidReconnectionData(centralReservoir, centralReservoirReconnectionData);
 
                     // Fill in RC data into debugData
-                    fillDebugPathData(centralReservoirReconnectionData, centralReservoir, debugPathData1, debugCentralResevoirPathDataBuffer);
+                    fillDebugPathData(centralReservoirReconnectionData, centralReservoir, debugPathDataCentralReservoir[i]);
+                    debugCentralResevoirPathDataBuffer[i] = debugPathDataCentralReservoir[i];
                 }
 
                 print("}traceHybridShiftRays centralReservoir", 0);
@@ -446,7 +439,7 @@ struct PathRetracePass
                     centralPrimarySd,
                     neighborReservoir,
                     neighborReservoirReconnectionData,
-                    debugPathData2
+                    debugPathDataNeighborReservoir[i]
                 );
 
                 print("Output Neighbor ReconnectionData", 0);
@@ -467,7 +460,8 @@ struct PathRetracePass
                     // Sanity check
                     checkValidReconnectionData(neighborReservoir, neighborReservoirReconnectionData);
                     // Fill in RC data into debugData
-                    fillDebugPathData(neighborReservoirReconnectionData, neighborReservoir, debugPathData2, debugNeighborResevoirPathDataBuffer);
+                    fillDebugPathData(neighborReservoirReconnectionData, neighborReservoir, debugPathDataNeighborReservoir[i]);
+                    debugNeighborResevoirPathDataBuffer[i] = debugPathDataNeighborReservoir[i];
                 }
 
                 print("}traceHybridShiftRays neighborReservoir", 0);

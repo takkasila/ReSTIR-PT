@@ -1650,10 +1650,13 @@ void ReSTIRPTPass::endFrame(RenderContext* pRenderContext, const RenderData& ren
     //
     //  Trace Pass
     //
+
     DebugPathData* debugPathData = static_cast<DebugPathData*>( mpPixelDebugPathBuffer->map(Buffer::MapType::Read) );
     mDebugPathData = *debugPathData;
     renderData.getDictionary()["debugPathData"] = &mDebugPathData;
     mpPixelDebugPathBuffer->unmap();
+    //  TODO: Figure why can't transfer to this
+    //transferBufferToRenderDict(mpPixelDebugPathBuffer, &mDebugPathData, renderData, "debugPathData");
 
     //
     //  Temporal retrace paths
@@ -1687,13 +1690,13 @@ void ReSTIRPTPass::endFrame(RenderContext* pRenderContext, const RenderData& ren
     //  Spatial retrace paths
     //
     DebugPathData* spatialCentralPathData = static_cast<DebugPathData*>(mpSpatialCentralPathDataBuffer->map(Buffer::MapType::Read));
-    mSpatialCentralPathData = *spatialCentralPathData;
-    renderData.getDictionary()["spatialCentralPathData"] = &mSpatialCentralPathData;
+    mSpatialCentralPathData[0] = *spatialCentralPathData;
+    renderData.getDictionary()["spatialCentralPathData0"] = &mSpatialCentralPathData[0];
     mpSpatialCentralPathDataBuffer->unmap();
 
     DebugPathData* spatialNeighborPathData = static_cast<DebugPathData*>(mpSpatialNeighborPathDataBuffer->map(Buffer::MapType::Read));
-    mSpatialNeighborPathData = *spatialNeighborPathData;
-    renderData.getDictionary()["spatialNeighborPathData"] = &mSpatialNeighborPathData;
+    mSpatialNeighborPathData[0] = *spatialNeighborPathData;
+    renderData.getDictionary()["spatialNeighborPathData0"] = &mSpatialNeighborPathData[0];
     mpSpatialNeighborPathDataBuffer->unmap();
 
 
@@ -1718,8 +1721,35 @@ void ReSTIRPTPass::endFrame(RenderContext* pRenderContext, const RenderData& ren
     renderData.getDictionary()["spatialDebugManifoldWalk_neighborReservoirToCentral1"] = &mSpatialDebugManifoldWalk_neighborReservoirToCentral[1];
     renderData.getDictionary()["spatialDebugManifoldWalk_neighborReservoirToCentral2"] = &mSpatialDebugManifoldWalk_neighborReservoirToCentral[2];
     mpSpatialDebugManifoldWalk_neighborReservoirToCentral_Buffer->unmap();
+}
 
+template<typename T>
+inline void ReSTIRPTPass::transferBufferToRenderDict(
+    Buffer::SharedPtr srcBuffer,
+    T* targetBuffer,
+    const RenderData &renderData,
+    std::string dictName,
+    uint numBuffers
+)
+{
+    T* mappedBuffer = static_cast<T*>(srcBuffer->map(Buffer::MapType::Read));
 
+    if (numBuffers == 0)
+    {
+        *targetBuffer = *mappedBuffer;
+        renderData.getDictionary()[dictName] = &targetBuffer;
+    }
+    else
+    {
+        for (uint i = 0; i < numBuffers; i++)
+        {
+            targetBuffer[i] = mappedBuffer[i];
+            std::string target = dictName + std::to_string(i);
+            renderData.getDictionary()[target] = &targetBuffer[i];
+        }
+    }
+
+    srcBuffer->unmap();
 }
 
 void ReSTIRPTPass::generatePaths(RenderContext* pRenderContext, const RenderData& renderData, int sampleId)

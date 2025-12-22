@@ -65,6 +65,7 @@ private:
     bool beginFrame(RenderContext* pRenderContext, const RenderData& renderData);
     void endFrame(RenderContext* pRenderContext, const RenderData& renderData);
     void generatePaths(RenderContext* pRenderContext, const RenderData& renderData, int sampleId = 0);
+    template<typename T> inline void transferBufferToRenderDict(Buffer::SharedPtr srcBuffer, T* localBuffer, const RenderData& renderData, std::string dictName, uint numBuffers = 0);
     void tracePass(RenderContext* pRenderContext, const RenderData& renderData, const ComputePass::SharedPtr& pass, const std::string& passName, int sampleId);
     void PathReusePass(RenderContext* pRenderContext, uint32_t restir_i, const RenderData& renderData, bool temporalReuse = false, int spatialRoundId = 0, bool isLastRound = false);
     void PathRetracePass(RenderContext* pRenderContext, uint32_t restir_i, const RenderData& renderData, bool temporalReuse = false, int spatialRoundId = 0);
@@ -243,9 +244,9 @@ private:
 
     //  Spatial path retrace
     Buffer::SharedPtr               mpSpatialCentralPathDataBuffer;
-    DebugPathData                   mSpatialCentralPathData;
+    DebugPathData                   mSpatialCentralPathData[3];
     Buffer::SharedPtr               mpSpatialNeighborPathDataBuffer;
-    DebugPathData                   mSpatialNeighborPathData;
+    DebugPathData                   mSpatialNeighborPathData[3];
 
     //  Spatial reuse
     Buffer::SharedPtr               mpSpatialDebugManifoldWalk_centralReservoirToNeighbor_Buffer;

@@ -147,8 +147,8 @@ void PathVisualizePass::execute(RenderContext* pRenderContext, const RenderData&
         mCurrentFramePathBundle.temporalDebugManifoldWalk2 = *renderDataDict.getValue<DebugManifoldWalk*>("temporalDebugManifoldWalk2");
 
         // Spatial
-        mCurrentFramePathBundle.spatialCentralPath = *renderDataDict.getValue<DebugPathData*>("spatialCentralPathData");
-        mCurrentFramePathBundle.spatialNeighborPath = *renderDataDict.getValue<DebugPathData*>("spatialNeighborPathData");
+        mCurrentFramePathBundle.spatialCentralPath = *renderDataDict.getValue<DebugPathData*>("spatialCentralPathData0");
+        mCurrentFramePathBundle.spatialNeighborPath = *renderDataDict.getValue<DebugPathData*>("spatialNeighborPathData1");
 
         mCurrentFramePathBundle.spatialDebugManifoldWalk_centralReservoirToNeighbor[0] = *renderDataDict.getValue<DebugManifoldWalk*>("spatialDebugManifoldWalk_centralReservoirToNeighbor0");
         mCurrentFramePathBundle.spatialDebugManifoldWalk_centralReservoirToNeighbor[1] = *renderDataDict.getValue<DebugManifoldWalk*>("spatialDebugManifoldWalk_centralReservoirToNeighbor1");
