@@ -169,12 +169,18 @@ private:
     float mRayWidth = 0.014f;
     bool mIsDisplayBasePath = true;
     bool mIsDisplayNEESegments = true;
+
     bool mIsDisplayTemporalCentralPath = true;
     bool mIsDisplayTemporalCentralManifold = true;
+    int mTemporalCentralManifoldMaxDisplayIter = kMaxManifoldIteration;
     bool mIsDisplayTemporalTemporalPath = true;
     bool mIsDisplayTemporalTemporalManifold = true;
+    int mTemporalTemporalManifoldMaxDisplayIter = kMaxManifoldIteration;
+
     bool mIsDisplaySpatialCentralPath[3] = {true, true, true};
     bool mIsDisplaySpatialCentralReservoirManifold[3] = {true, true, true};
+    int mSpatialCentralManifoldMaxDisplayIter[3] = {kMaxManifoldIteration, kMaxManifoldIteration, kMaxManifoldIteration};
     bool mIsDisplaySpatialNeighborPath[3] = {true, true, true};
     bool mIsDisplaySpatialNeighborReservoirManifold[3] = {true, true, true};
+    int mSpatialNeighborManifoldMaxDisplayIter[3] = {kMaxManifoldIteration, kMaxManifoldIteration, kMaxManifoldIteration};
 };

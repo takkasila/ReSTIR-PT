@@ -66,9 +66,9 @@ namespace
     //      - Spatial central x 3
     //      - Spatial neighbor x 3
     const uint kMaxDebugManifoldPath = 8;
-    const uint kMaxDebugManifoldIter = 20;
     const uint kMaxDebugManifoldPathLength = 2;
-    const uint kMaxDebugManifoldPathSegments = (kMaxDebugManifoldPathLength * kMaxDebugManifoldIter + 1) * kMaxDebugManifoldPath;
+    const uint kMaxDebugManifoldTargetSegmentPerPath = 1;
+    const uint kMaxDebugManifoldPathSegments = (kMaxDebugManifoldPathLength * kMaxManifoldIteration + kMaxDebugManifoldTargetSegmentPerPath) * kMaxDebugManifoldPath;
     const uint kMaxDebugManifoldPathVertex = kPyramidVertCount * kMaxDebugManifoldPathSegments;
 
     //  Compute maximum vertex buffer size.
@@ -241,11 +241,19 @@ void PathVisualizePass::renderUI(Gui::Widgets& widget)
         {
             isUpdateRenderData |= widget.checkbox("Path", mIsDisplayTemporalCentralPath);
             isUpdateRenderData |= widget.checkbox("Manifold Walk", mIsDisplayTemporalCentralManifold);
+            if(mIsDisplayTemporalCentralManifold)
+            {
+                isUpdateRenderData |= widget.slider("Max iter", mTemporalCentralManifoldMaxDisplayIter, 0, kMaxManifoldIteration);
+            }
         }
         if(auto group2 = widget.group("Temporal Reservoir", true))
         {
             isUpdateRenderData |= widget.checkbox("Path", mIsDisplayTemporalTemporalPath);
             isUpdateRenderData |= widget.checkbox("Manifold Walk", mIsDisplayTemporalTemporalManifold);
+            if(mIsDisplayTemporalTemporalManifold)
+            {
+                isUpdateRenderData |= widget.slider("Max iter", mTemporalTemporalManifoldMaxDisplayIter, 0, kMaxManifoldIteration);
+            }
         }
     }
 
@@ -263,8 +271,22 @@ void PathVisualizePass::renderUI(Gui::Widgets& widget)
             if(auto group3 = widget.group("Reconnection Manifold Walk", true))
             {
                 isUpdateRenderData |= widget.checkbox<bool>("Manifold Walk 1", mIsDisplaySpatialCentralReservoirManifold[0]);
+                if(mIsDisplaySpatialCentralReservoirManifold[0])
+                {
+                    isUpdateRenderData |= widget.slider("Max iter", mSpatialCentralManifoldMaxDisplayIter[0], 0, kMaxManifoldIteration);
+                }
+
                 isUpdateRenderData |= widget.checkbox<bool>("Manifold Walk 2", mIsDisplaySpatialCentralReservoirManifold[1]);
+                if(mIsDisplaySpatialCentralReservoirManifold[1])
+                {
+                    isUpdateRenderData |= widget.slider("Max iter", mSpatialCentralManifoldMaxDisplayIter[1], 0, kMaxManifoldIteration);
+                }
+
                 isUpdateRenderData |= widget.checkbox<bool>("Manifold Walk 3", mIsDisplaySpatialCentralReservoirManifold[2]);
+                if(mIsDisplaySpatialCentralReservoirManifold[2])
+                {
+                    isUpdateRenderData |= widget.slider("Max iter", mSpatialCentralManifoldMaxDisplayIter[2], 0, kMaxManifoldIteration);
+                }
             }
         }
 
@@ -280,8 +302,22 @@ void PathVisualizePass::renderUI(Gui::Widgets& widget)
             if(auto group3 = widget.group("Reconnection Manifold Walk", true))
             {
                 isUpdateRenderData |= widget.checkbox<bool>("Manifold Walk 1", mIsDisplaySpatialNeighborReservoirManifold[0]);
+                if(mIsDisplaySpatialNeighborReservoirManifold[0])
+                {
+                    isUpdateRenderData |= widget.slider("Max iter", mSpatialNeighborManifoldMaxDisplayIter[0], 0, kMaxManifoldIteration);
+                }
+
                 isUpdateRenderData |= widget.checkbox<bool>("Manifold Walk 2", mIsDisplaySpatialNeighborReservoirManifold[1]);
+                if(mIsDisplaySpatialNeighborReservoirManifold[1])
+                {
+                    isUpdateRenderData |= widget.slider("Max iter", mSpatialNeighborManifoldMaxDisplayIter[1], 0, kMaxManifoldIteration);
+                }
+
                 isUpdateRenderData |= widget.checkbox<bool>("Manifold Walk 3", mIsDisplaySpatialNeighborReservoirManifold[2]);
+                if(mIsDisplaySpatialNeighborReservoirManifold[2])
+                {
+                    isUpdateRenderData |= widget.slider("Max iter", mSpatialNeighborManifoldMaxDisplayIter[2], 0, kMaxManifoldIteration);
+                }
             }
         }
     }
@@ -770,7 +806,7 @@ void PathVisualizePass::updateRenderData()
     };
 
     auto constructManifoldWalk = [&vertexOffset, &indexOffset, pyramidVerts, verts, indices, constructPathSegment](
-        const DebugManifoldWalk &manifoldPath, const float4 &colorBegin, const float4 &colorEnd, const float4 &targetColor
+        const DebugManifoldWalk &manifoldPath, const float4 &colorBegin, const float4 &colorEnd, const float4 &targetColor, const int maxIter = kMaxManifoldIteration
     ) -> void
     {
         if(manifoldPath.numIter < 0)
@@ -789,7 +825,7 @@ void PathVisualizePass::updateRenderData()
 
         float4 color;
         float t;
-        for(int i = 0; i <= manifoldPath.numIter; i++)
+        for(int i = 0; i <= manifoldPath.numIter && i < maxIter; i++)
         {
             t = i > 0 ? i / float(manifoldPath.numIter) : 0;
             color = colorBegin + t * (colorEnd - colorBegin);
@@ -826,7 +862,8 @@ void PathVisualizePass::updateRenderData()
             mRenderedPathBundle.temporalDebugManifoldWalk1,
             colorBegin,
             colorEnd,
-            targetColor
+            targetColor,
+            mTemporalCentralManifoldMaxDisplayIter
         );
     }
 
@@ -853,7 +890,8 @@ void PathVisualizePass::updateRenderData()
             mRenderedPathBundle.temporalDebugManifoldWalk2,
             colorBegin,
             colorEnd,
-            targetColor
+            targetColor,
+            mTemporalTemporalManifoldMaxDisplayIter
         );
     }
 
@@ -886,7 +924,8 @@ void PathVisualizePass::updateRenderData()
                 mRenderedPathBundle.spatialDebugManifoldWalk_centralReservoirToNeighbor[i],
                 colorBegin,
                 colorEnd,
-                targetColor
+                targetColor,
+                mSpatialCentralManifoldMaxDisplayIter[i]
             );
         }
 
@@ -904,7 +943,7 @@ void PathVisualizePass::updateRenderData()
         }
 
         // Neighbor Reservoir to Central Manifold Walk
-        if(mIsDisplaySpatialCentralReservoirManifold[i])
+        if(mIsDisplaySpatialNeighborReservoirManifold[i])
         {
             colorBegin = float4(1, 127 / 255.0f, 0, 0.5f);
             colorEnd = float4(0, 0, 0, 0.5f);
@@ -914,7 +953,8 @@ void PathVisualizePass::updateRenderData()
                 mRenderedPathBundle.spatialDebugManifoldWalk_neighborReservoirToCentral[i],
                 colorBegin,
                 colorEnd,
-                targetColor
+                targetColor,
+                mSpatialNeighborManifoldMaxDisplayIter[i]
             );
         }
 
