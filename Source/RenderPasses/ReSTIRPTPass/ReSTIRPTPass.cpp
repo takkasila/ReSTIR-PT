@@ -5,6 +5,8 @@
 #include "RenderGraph/RenderPassHelpers.h"
 #include <fstream>
 #include <iostream>
+#include <chrono>
+
 
 #include "DebugPathDataType.slang";
 
@@ -1651,6 +1653,8 @@ void ReSTIRPTPass::endFrame(RenderContext* pRenderContext, const RenderData& ren
     //  Trace Pass
     //
 
+    auto beginTime = std::chrono::high_resolution_clock::now();
+
     DebugPathData* debugPathData = static_cast<DebugPathData*>( mpPixelDebugPathBuffer->map(Buffer::MapType::Read) );
     mDebugPathData = *debugPathData;
     renderData.getDictionary()["debugPathData"] = &mDebugPathData;
@@ -1729,6 +1733,12 @@ void ReSTIRPTPass::endFrame(RenderContext* pRenderContext, const RenderData& ren
     renderData.getDictionary()["spatialDebugManifoldWalk_neighborReservoirToCentral1"] = &mSpatialDebugManifoldWalk_neighborReservoirToCentral[1];
     renderData.getDictionary()["spatialDebugManifoldWalk_neighborReservoirToCentral2"] = &mSpatialDebugManifoldWalk_neighborReservoirToCentral[2];
     mpSpatialDebugManifoldWalk_neighborReservoirToCentral_Buffer->unmap();
+
+    auto endTime = std::chrono::high_resolution_clock::now();
+    /* Getting number of milliseconds as a double. */
+    auto ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - beginTime);
+    std::cout << "Trasfer buffer time: " << ms_int.count() << "ms\n";
+
 }
 
 template<typename T>
