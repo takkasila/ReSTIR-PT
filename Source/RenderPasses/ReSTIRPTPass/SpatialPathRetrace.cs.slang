@@ -90,6 +90,8 @@ struct PathRetracePass
 
     int2 getNextNeighborPixel(const uint startIndex, int2 pixel, int i)
     {
+        return int2(pixel.x - (i + 1), pixel.y);
+
         int2 neighborPixel = int2(0,0);
 
         if (SpatialReusePattern(gSpatialReusePattern) == SpatialReusePattern::Default)
