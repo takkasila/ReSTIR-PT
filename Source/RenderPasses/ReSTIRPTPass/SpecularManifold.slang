@@ -344,6 +344,12 @@ bool walkManifoldDSD(
             if (!sceneRayQuery.traceRay(ray, x2Hit_temp, hitT, RAY_FLAG_NONE, 0xff))
             {
                 beta = beta / 2.f;
+
+                // Save missed ray
+                debugManifoldWalk.x2_i[i] = float4(ray.Origin + ray.Direction * 10, 1);
+                debugManifoldWalk.x2_i[i] = debugManifoldWalk.x3_i[i];
+                debugManifoldWalk.numIter = i;
+
                 print("Unsuccessful trace x1 -> x2", 0);
                 print("x2", 0);
                 print("}i", i);
@@ -370,6 +376,11 @@ bool walkManifoldDSD(
             if (!sceneRayQuery.traceRay(ray, x3Hit_temp, hitT, RAY_FLAG_NONE, 0xff))
             {
                 beta = beta / 2.f;
+
+                // Save missed ray
+                debugManifoldWalk.x3_i[i] = float4(ray.Origin + ray.Direction * 10, 1);
+                debugManifoldWalk.numIter = i;
+
                 print("Unsuccessful trace x2 -> x3", 0);
                 print("x3", 0);
                 print("}i", i);
