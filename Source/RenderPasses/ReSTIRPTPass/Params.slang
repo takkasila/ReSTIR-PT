@@ -133,7 +133,7 @@ __exported import Utils.Math.BitTricks;
 */
 struct RestirPathTracerParams
 {
-    int     useFixedSeed = false;       ///< Use fixed random seed. This is useful for debugging.
+    int     useFixedSeed = true;       ///< Use fixed random seed. This is useful for debugging.
     uint    seed = 0;                   ///< Random seed. This will get updated from the host depending on settings.
     uint    fixedSeed = 1;              ///< The seed to use when 'useFixedSeed' is enabled.
     float   lodBias = 0.f;              ///< LOD bias applied to secondary hits.

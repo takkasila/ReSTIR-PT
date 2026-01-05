@@ -873,6 +873,7 @@ bool ReSTIRPTPass::renderRenderingUI(Gui::Widgets& widget)
             if (widget.button("Clean Reservoirs"))
             {
                 mReservoirFrameCount = 0;
+                mParams.frameCount = 0;
             }
 
             dirty |= widget.var("Candidate Samples", mStaticParams.candidateSamples, 1u, 64u);
@@ -1132,8 +1133,8 @@ bool ReSTIRPTPass::renderDebugUI(Gui::Widgets& widget)
 {
     bool dirty = false;
 
-    if (auto group = widget.group("Debugging", false))
-    {
+    if (auto group = widget.group("Debugging", true))
+    {	
         dirty |= group.checkbox("Use fixed seed", mParams.useFixedSeed);
         group.tooltip("Forces a fixed random seed for each frame.\n\n"
             "This should produce exactly the same image each frame, which can be useful for debugging.");
@@ -1142,6 +1143,7 @@ bool ReSTIRPTPass::renderDebugUI(Gui::Widgets& widget)
             dirty |= group.var("Seed", mParams.fixedSeed);
         }
 
+        mpPixelDebug->setFrameNum(mParams.frameCount);
         mpPixelDebug->renderUI(group);
     }
 

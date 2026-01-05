@@ -81,6 +81,8 @@ namespace Falcor
 
         std::vector<PixelLogUnHashed> getUnhashedLog();
 
+        void setFrameNum(uint frameNum) { mFrameNum = frameNum; }
+
     protected:
         PixelDebug(uint32_t logSize) : mLogSize(logSize) {}
         bool copyDataToCPU();
@@ -97,7 +99,7 @@ namespace Falcor
 
         // 1291, 757
         bool                        mEnabled = false;               ///< Enable debugging features.
-        uint2                       mSelectedPixel = { 726, 934 };      ///< Currently selected pixel.
+        uint2                       mSelectedPixel = { 970, 910 };      ///< Currently selected pixel.
 
         // Runtime data
         uint2                       mFrameDim = { 0, 0 };

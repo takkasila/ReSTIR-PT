@@ -803,21 +803,23 @@ float3 computeShiftedIntegrandHybridShiftSMS(
             print("reconnectionJacobian", reconnectionJacobian);
             print("rcTp", rcTp);
 
-            float rcJacobianDiff = abs(reconnectionJacobian - 1.0f);
-            float lowerThreshold = 1e-4f;// 1e-2f; // fine
-            float upperThreshold = 1e-0f; // broken
-            if (rcJacobianDiff > lowerThreshold && rcJacobianDiff < upperThreshold)
-            {
-                print("reconnectionJacobian > 0.1", rcJacobianDiff);
+            // float rcJacobianDiff = abs(reconnectionJacobian - 1.0f);
+            // float lowerThreshold = 1e-4f;// 1e-2f; // fine
+            // float upperThreshold = 1e-0f; // broken
+            // if (rcJacobianDiff > lowerThreshold && rcJacobianDiff < upperThreshold)
+            // {
+            //     print("reconnectionJacobian > 0.1", rcJacobianDiff);
 
-                dstJacobian = 0.f;
-                // rcTp = 0.f;
-            }
-            else
-            {
-                dstJacobian *= reconnectionJacobian;
-                print("dstJacobian", dstJacobian);
-            }
+            //     dstJacobian = 0.f;
+            //     // rcTp = 0.f;
+            // }
+            // else
+            // {
+            //     dstJacobian *= reconnectionJacobian;
+            //     print("dstJacobian", dstJacobian);
+            // }
+
+            dstJacobian *= reconnectionJacobian;
 
             // tempPathReservoir.cachedJacobian = srcReservoir.cachedJacobian;
             // tempPathReservoir.cachedJacobian[0] = 0.f;

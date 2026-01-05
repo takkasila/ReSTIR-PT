@@ -107,8 +107,6 @@ namespace Falcor
             mpFence->gpuSignal(pRenderContext->getLowLevelData()->getCommandQueue());
 
             mWaitingForData = true;
-
-            mFrameNum += 1;
         }
     }
 
