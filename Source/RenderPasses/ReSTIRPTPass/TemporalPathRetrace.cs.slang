@@ -306,6 +306,9 @@ struct PathRetracePass
         debugPathData1.init();
         debugPathData2.init();
 
+        debugCentralResevoirPathDataBuffer[0].vertexCount = 0;
+        debugTemporalResevoirPathDataBuffer[0].vertexCount = 0;
+
         bool isDebug = all(getSelctedPixelLog() == pixel);
         if (isDebug)
         {

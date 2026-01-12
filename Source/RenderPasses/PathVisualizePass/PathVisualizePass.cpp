@@ -54,9 +54,11 @@ namespace
     //      - NEE branch
     //      - temporal central-resevoir retrace path
     //      - temporal temporal-resevoir retrace path
+    //      - temporal final reservoir
     //      - Spatial central x 3
     //      - Spatial neighbor x 3
-    const uint kTotalDebugPath = 10;
+    //      - Spatial final reservoir
+    const uint kTotalDebugPath = 12;
 
     const uint kMaxDebugPathVertex = kPyramidVertCount * kMaxPathLength * kTotalDebugPath;
 
@@ -163,6 +165,8 @@ void PathVisualizePass::execute(RenderContext* pRenderContext, const RenderData&
 
         mCurrentFramePathBundle.temporalDebugManifoldWalk1 = *renderDataDict.getValue<DebugManifoldWalk*>("temporalDebugManifoldWalk1");
         mCurrentFramePathBundle.temporalDebugManifoldWalk2 = *renderDataDict.getValue<DebugManifoldWalk*>("temporalDebugManifoldWalk2");
+        mCurrentFramePathBundle.temporalFinalReservoir = *renderDataDict.getValue<DebugPathData*>("temporalFinalReservoir");
+
 
         // Spatial
         mCurrentFramePathBundle.spatialCentralPath[0] = *renderDataDict.getValue<DebugPathData*>("spatialCentralPathData0");
@@ -180,6 +184,7 @@ void PathVisualizePass::execute(RenderContext* pRenderContext, const RenderData&
         mCurrentFramePathBundle.spatialDebugManifoldWalk_neighborReservoirToCentral[0] = *renderDataDict.getValue<DebugManifoldWalk*>("spatialDebugManifoldWalk_neighborReservoirToCentral0");
         mCurrentFramePathBundle.spatialDebugManifoldWalk_neighborReservoirToCentral[1] = *renderDataDict.getValue<DebugManifoldWalk*>("spatialDebugManifoldWalk_neighborReservoirToCentral1");
         mCurrentFramePathBundle.spatialDebugManifoldWalk_neighborReservoirToCentral[2] = *renderDataDict.getValue<DebugManifoldWalk*>("spatialDebugManifoldWalk_neighborReservoirToCentral2");
+        mCurrentFramePathBundle.spatialFinalReservoir = *renderDataDict.getValue<DebugPathData*>("spatialFinalReservoir");
 
         filterCopyPathData();
     }
@@ -255,6 +260,8 @@ void PathVisualizePass::renderUI(Gui::Widgets& widget)
                 isUpdateRenderData |= widget.slider("Max iter", mTemporalTemporalManifoldMaxDisplayIter, 0, kMaxManifoldIteration);
             }
         }
+
+        isUpdateRenderData |= widget.checkbox("Final Reservoir", mIsDisplayTemporalFinalReservoir);
     }
 
     if(auto group = widget.group("Spatial Reuse", true))
@@ -320,6 +327,8 @@ void PathVisualizePass::renderUI(Gui::Widgets& widget)
                 }
             }
         }
+
+        isUpdateRenderData |= widget.checkbox("Final Reservoir", mIsDisplaySpatialFinalReservoir);
     }
 
     if (auto group = widget.group("Debugging", false))
@@ -519,6 +528,14 @@ void PathVisualizePass::filterCopyPathData()
             mBuildingPathBundle.temporalDebugManifoldWalk2.deepCopy(mCurrentFramePathBundle.temporalDebugManifoldWalk2);
         }
 
+        //  Temporal Final Reservoir
+        if(mCurrentFramePathBundle.temporalFinalReservoir.vertexCount > 0)
+        {
+            mBuildingPathBundle.temporalFinalReservoir.deepCopy(mCurrentFramePathBundle.temporalFinalReservoir);
+            mBuildingPathBundle.isPartiallyComplete = true;
+            isUpdateReservedPath = true;
+        }
+
         for(uint i = 0; i < 3; i++)
         {
             //  Spatial-Central
@@ -552,6 +569,14 @@ void PathVisualizePass::filterCopyPathData()
             }
         }
 
+        //  Spatial Final Reservoir
+        if(mCurrentFramePathBundle.spatialFinalReservoir.vertexCount > 0)
+        {
+            mBuildingPathBundle.spatialFinalReservoir.deepCopy(mCurrentFramePathBundle.spatialFinalReservoir);
+            mBuildingPathBundle.isPartiallyComplete = true;
+            isUpdateReservedPath = true;
+        }
+
         bool atLeastOneSpatialCentral = false;
         for(auto path : mBuildingPathBundle.spatialCentralPath)
             if(path.vertexCount > 0)
@@ -575,7 +600,7 @@ void PathVisualizePass::filterCopyPathData()
             && atLeastOneSpatialTemporal
             )
         {
-            mReservedPathBundle.isFullyComplete = true;
+            //mReservedPathBundle.isFullyComplete = true;
         }
     }
 
@@ -805,6 +830,15 @@ void PathVisualizePass::updateRenderData()
         indexOffset += kPyramidIndicesCount;
     };
 
+    auto addBipyramid = [&vertexOffset, &indexOffset, pyramidVerts, verts, indices, constructPathSegment](
+        float3 pos, float4 color
+    ) -> void
+    {
+        float3 offsetPos(-0.01, 0, 0);
+        constructPathSegment(pos, pos + offsetPos, color);
+        constructPathSegment(pos, pos - offsetPos, color);
+    };
+
     auto constructManifoldWalk = [&vertexOffset, &indexOffset, pyramidVerts, verts, indices, constructPathSegment](
         const DebugManifoldWalk &manifoldPath, const float4 &colorBegin, const float4 &colorEnd, const float4 &targetColor, const int maxIter = kMaxManifoldIteration
     ) -> void
@@ -895,6 +929,29 @@ void PathVisualizePass::updateRenderData()
         );
     }
 
+    if (mIsDisplayTemporalFinalReservoir)
+    {
+        //  Construct central-reservoir temporal retrace path geometry
+        colorBegin = float4(1.0f, 172/255.0f, 28/255.0f, 0.5f);
+        colorEnd = float4(1.0f, 172/255.0f, 28/255.0f, 0.5f);
+
+        if(mRenderedPathBundle.temporalFinalReservoir.vertexCount > 1)
+        {
+            constructOffsetPath(
+                mRenderedPathBundle.temporalFinalReservoir,
+                colorBegin,
+                colorEnd
+            );
+        }
+        else if(mRenderedPathBundle.temporalFinalReservoir.vertexCount == 1)
+        {
+            addBipyramid(
+                mRenderedPathBundle.temporalFinalReservoir.vertices[0].xyz,
+                colorBegin
+            );
+        }
+    }
+
     //
     // Spatial Reuse
     //
@@ -958,6 +1015,29 @@ void PathVisualizePass::updateRenderData()
             );
         }
 
+    }
+
+    if (mIsDisplaySpatialFinalReservoir)
+    {
+        //  Construct central-reservoir temporal retrace path geometry
+        colorBegin = float4(1.0f, 172/255.0f, 28/255.0f, 0.5f);
+        colorEnd = float4(1.0f, 172/255.0f, 28/255.0f, 0.5f);
+
+        if(mRenderedPathBundle.spatialFinalReservoir.vertexCount > 1)
+        {
+            constructOffsetPath(
+                mRenderedPathBundle.spatialFinalReservoir,
+                colorBegin,
+                colorEnd
+            );
+        }
+        else if(mRenderedPathBundle.spatialFinalReservoir.vertexCount == 1)
+        {
+            addBipyramid(
+                mRenderedPathBundle.spatialFinalReservoir.vertices[0].xyz,
+                colorBegin
+            );
+        }
     }
 
     mTotalIndices = indexOffset;

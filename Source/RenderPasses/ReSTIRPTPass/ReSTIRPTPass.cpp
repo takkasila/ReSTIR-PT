@@ -954,6 +954,11 @@ bool ReSTIRPTPass::renderRenderingUI(Gui::Widgets& widget)
 
                 dirty |= widget.dropdown("Spatial Resampling MIS Kind", kReSTIRMISList, reinterpret_cast<uint32_t&>(mStaticParams.spatialMisKind));
                 widget.tooltip("Current implementation only support pairwise MIS for hybird shift.\n");
+
+				dirty |= widget.var("topLeft.x", mSpatialDebugWindowTL.x, -10, 2000);
+				dirty |= widget.var("topLeft.y", mSpatialDebugWindowTL.y, -10, 2000);
+				dirty |= widget.var("btmRight.x", mSpatialDebugWindowBR.x, -10, 2000);
+				dirty |= widget.var("btmRigh.y", mSpatialDebugWindowBR.y, -10, 2000);
             }
         }
 
@@ -1320,6 +1325,10 @@ void ReSTIRPTPass::prepareResources(RenderContext* pRenderContext, const RenderD
     {
         mpTemporalDebugManifoldWalk2Buffer = Buffer::createStructured(var["debugManifoldWalkBuffer"], 1);
     }
+	if (!mpTemporalFinalReservoirBuffer)
+	{
+		mpTemporalFinalReservoirBuffer = Buffer::createStructured(var["pixelDebugPathDataBuffer"], 1);
+	}
 
 
     //  Spatial
@@ -1341,6 +1350,10 @@ void ReSTIRPTPass::prepareResources(RenderContext* pRenderContext, const RenderD
     {
         mpSpatialDebugManifoldWalk_neighborReservoirToCentral_Buffer = Buffer::createStructured(var["debugManifoldWalkBuffer"], 3);
     }
+	if (!mpSpatialFinalReservoirBuffer)
+	{
+		mpSpatialFinalReservoirBuffer = Buffer::createStructured(var["pixelDebugPathDataBuffer"], 1);
+	}
 }
 
 
@@ -1691,6 +1704,11 @@ void ReSTIRPTPass::endFrame(RenderContext* pRenderContext, const RenderData& ren
     renderData.getDictionary()["temporalDebugManifoldWalk2"] = &mTemporalDebugManifoldWalk2;
     mpTemporalDebugManifoldWalk2Buffer->unmap();
 
+	DebugPathData* temporalFinalReservoir = static_cast<DebugPathData*>(mpTemporalFinalReservoirBuffer->map(Buffer::MapType::Read));
+	mTemporalFinalReservoir = *temporalFinalReservoir;
+	renderData.getDictionary()["temporalFinalReservoir"] = &mTemporalFinalReservoir;
+	mpTemporalFinalReservoirBuffer->unmap();
+
 
     //
     //  Spatial retrace paths
@@ -1735,6 +1753,13 @@ void ReSTIRPTPass::endFrame(RenderContext* pRenderContext, const RenderData& ren
     renderData.getDictionary()["spatialDebugManifoldWalk_neighborReservoirToCentral1"] = &mSpatialDebugManifoldWalk_neighborReservoirToCentral[1];
     renderData.getDictionary()["spatialDebugManifoldWalk_neighborReservoirToCentral2"] = &mSpatialDebugManifoldWalk_neighborReservoirToCentral[2];
     mpSpatialDebugManifoldWalk_neighborReservoirToCentral_Buffer->unmap();
+
+
+	DebugPathData* spatialFinalReservoir = static_cast<DebugPathData*>(mpSpatialFinalReservoirBuffer->map(Buffer::MapType::Read));
+	mSpatialFinalReservoir = *spatialFinalReservoir;
+	renderData.getDictionary()["spatialFinalReservoir"] = &mSpatialFinalReservoir;
+	mpSpatialFinalReservoirBuffer->unmap();
+
 
     auto endTime = std::chrono::high_resolution_clock::now();
     /* Getting number of milliseconds as a double. */
@@ -1912,6 +1937,7 @@ void ReSTIRPTPass::PathReusePass(RenderContext* pRenderContext, uint32_t restir_
 
         var["debugManifoldWalk1Buffer"] = mpTemporalDebugManifoldWalk1Buffer;
         var["debugManifoldWalk2Buffer"] = mpTemporalDebugManifoldWalk2Buffer;
+		var["temporalFinalReservoir"] = mpTemporalFinalReservoirBuffer;
     }
     else
     {
@@ -1919,7 +1945,10 @@ void ReSTIRPTPass::PathReusePass(RenderContext* pRenderContext, uint32_t restir_
 
         var["debugManifoldWalk_centralReservoirToNeighbor_Buffer"] = mpSpatialDebugManifoldWalk_centralReservoirToNeighbor_Buffer;
         var["debugManifoldWalk_neighborReservoirToCentral_Buffer"] = mpSpatialDebugManifoldWalk_neighborReservoirToCentral_Buffer;
+		var["spatialFinalReservoir"] = mpSpatialFinalReservoirBuffer;
 
+		var["gSpatialDebugWindowLL"] = mSpatialDebugWindowTL;
+		var["gSpatialDebugWindowTR"] = mSpatialDebugWindowBR;
 
         if (!isPathReuseMISWeightComputation)
         {

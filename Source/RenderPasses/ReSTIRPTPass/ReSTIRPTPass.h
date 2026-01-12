@@ -181,6 +181,9 @@ private:
     float                           mSpatialReuseRadius = 20.f;
     int                             mNumSpatialRounds = 1;
 
+    int2                           mSpatialDebugWindowTL = int2(1228, 801);
+    int2                           mSpatialDebugWindowBR = int2(1253, 831);
+
     bool                            mEnableTemporalReprojection = true;
     bool                            mFeatureBasedRejection = true;
 
@@ -241,6 +244,8 @@ private:
     DebugManifoldWalk               mTemporalDebugManifoldWalk1;
     Buffer::SharedPtr               mpTemporalDebugManifoldWalk2Buffer;
     DebugManifoldWalk               mTemporalDebugManifoldWalk2;
+    Buffer::SharedPtr               mpTemporalFinalReservoirBuffer;
+    DebugPathData                   mTemporalFinalReservoir;
 
     //  Spatial path retrace
     Buffer::SharedPtr               mpSpatialCentralPathDataBuffer;
@@ -253,6 +258,8 @@ private:
     DebugManifoldWalk               mSpatialDebugManifoldWalk_centralReservoirToNeighbor[3];
     Buffer::SharedPtr               mpSpatialDebugManifoldWalk_neighborReservoirToCentral_Buffer;
     DebugManifoldWalk               mSpatialDebugManifoldWalk_neighborReservoirToCentral[3];
+    Buffer::SharedPtr               mpSpatialFinalReservoirBuffer;
+    DebugPathData                   mSpatialFinalReservoir;
 
     uint nFrameSinceLastRCVertex = 0;
 };

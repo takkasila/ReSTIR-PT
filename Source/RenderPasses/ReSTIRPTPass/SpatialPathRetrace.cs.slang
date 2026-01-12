@@ -90,13 +90,13 @@ struct PathRetracePass
 
     int2 getNextNeighborPixel(const uint startIndex, int2 pixel, int i)
     {
-        return int2(pixel.x - (i + 1), pixel.y);
+        // return int2(pixel.x - (i + 1), pixel.y);
 
         int2 neighborPixel = int2(0,0);
 
         if (SpatialReusePattern(gSpatialReusePattern) == SpatialReusePattern::Default)
         {
-            uint neighborIndex = (startIndex + i) & kNeighborOffsetMask;
+            uint neighborIndex = (i) & kNeighborOffsetMask;
             neighborPixel = pixel + int2(neighborOffsets[neighborIndex] * gGatherRadius);
         }
         else if (SpatialReusePattern(gSpatialReusePattern) == SpatialReusePattern::SmallWindow)
@@ -343,6 +343,8 @@ struct PathRetracePass
         {
             print("{neighbor", i);
 
+            debugCentralResevoirPathDataBuffer[i].vertexCount = 0;
+            debugNeighborResevoirPathDataBuffer[i].vertexCount = 0;
             debugPathDataCentralReservoir[i].init();
             debugPathDataNeighborReservoir[i].init();
 

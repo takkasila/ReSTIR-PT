@@ -84,11 +84,13 @@ private:
         DebugPathData temporalTemporalPath;
         DebugManifoldWalk temporalDebugManifoldWalk1;
         DebugManifoldWalk temporalDebugManifoldWalk2;
+        DebugPathData temporalFinalReservoir;
 
         DebugPathData spatialCentralPath[3];
         DebugPathData spatialNeighborPath[3];
         DebugManifoldWalk spatialDebugManifoldWalk_centralReservoirToNeighbor[3];
         DebugManifoldWalk spatialDebugManifoldWalk_neighborReservoirToCentral[3];
+        DebugPathData spatialFinalReservoir;
 
         bool isFullyComplete = false;   // signify that the bundle is a "complete" package that satisfies all conditions
         bool isPartiallyComplete = false;  // have atleast a base path
@@ -100,6 +102,7 @@ private:
             temporalTemporalPath.init();
             temporalDebugManifoldWalk1.init();
             temporalDebugManifoldWalk2.init();
+            temporalFinalReservoir.init();
             for(uint i = 0; i < 3; i++)
             {
                 spatialCentralPath[i].init();
@@ -107,6 +110,7 @@ private:
                 spatialDebugManifoldWalk_centralReservoirToNeighbor[i].init();
                 spatialDebugManifoldWalk_neighborReservoirToCentral[i].init();
             }
+            spatialFinalReservoir.init();
             isFullyComplete = false;
             isPartiallyComplete = false;
         }
@@ -118,6 +122,7 @@ private:
             temporalTemporalPath.vertexCount = 0;
             temporalDebugManifoldWalk1.numIter = -1;
             temporalDebugManifoldWalk2.numIter = -1;
+            temporalFinalReservoir.vertexCount = 0;
             for(uint i = 0; i < 3; i++)
             {
                 spatialCentralPath[i].vertexCount = 0;
@@ -125,6 +130,7 @@ private:
                 spatialDebugManifoldWalk_centralReservoirToNeighbor[i].numIter = -1;
                 spatialDebugManifoldWalk_neighborReservoirToCentral[i].numIter = -1;
             }
+            spatialFinalReservoir.vertexCount = 0;
             isFullyComplete = false;
             isPartiallyComplete = false;
         }
@@ -136,6 +142,7 @@ private:
             temporalTemporalPath.deepCopy(srcPathDataBundle.temporalTemporalPath);
             temporalDebugManifoldWalk1.deepCopy(srcPathDataBundle.temporalDebugManifoldWalk1);
             temporalDebugManifoldWalk2.deepCopy(srcPathDataBundle.temporalDebugManifoldWalk2);
+            temporalFinalReservoir.deepCopy(srcPathDataBundle.temporalFinalReservoir);
             for(uint i = 0; i < 3; i++)
             {
                 spatialCentralPath[i].deepCopy(srcPathDataBundle.spatialCentralPath[i]);
@@ -143,6 +150,7 @@ private:
                 spatialDebugManifoldWalk_centralReservoirToNeighbor[i].deepCopy(srcPathDataBundle.spatialDebugManifoldWalk_centralReservoirToNeighbor[i]);
                 spatialDebugManifoldWalk_neighborReservoirToCentral[i].deepCopy(srcPathDataBundle.spatialDebugManifoldWalk_neighborReservoirToCentral[i]);
             }
+            spatialFinalReservoir.deepCopy(srcPathDataBundle.spatialFinalReservoir);
             isFullyComplete = srcPathDataBundle.isFullyComplete;
             isPartiallyComplete = srcPathDataBundle.isPartiallyComplete;
         }
@@ -176,6 +184,7 @@ private:
     bool mIsDisplayTemporalTemporalPath = true;
     bool mIsDisplayTemporalTemporalManifold = true;
     int mTemporalTemporalManifoldMaxDisplayIter = kMaxManifoldIteration;
+    bool mIsDisplayTemporalFinalReservoir = true;
 
     bool mIsDisplaySpatialCentralPath[3] = {true, true, true};
     bool mIsDisplaySpatialCentralReservoirManifold[3] = {true, true, true};
@@ -183,4 +192,5 @@ private:
     bool mIsDisplaySpatialNeighborPath[3] = {true, true, true};
     bool mIsDisplaySpatialNeighborReservoirManifold[3] = {true, true, true};
     int mSpatialNeighborManifoldMaxDisplayIter[3] = {kMaxManifoldIteration, kMaxManifoldIteration, kMaxManifoldIteration};
+    bool mIsDisplaySpatialFinalReservoir = true;
 };

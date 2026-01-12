@@ -99,7 +99,7 @@ namespace Falcor
 
         // 1291, 757
         bool                        mEnabled = false;               ///< Enable debugging features.
-        uint2                       mSelectedPixel = { 970, 910 };      ///< Currently selected pixel.
+        uint2                       mSelectedPixel = { 1234, 816 };      ///< Currently selected pixel.
 
         // Runtime data
         uint2                       mFrameDim = { 0, 0 };

@@ -37,6 +37,8 @@ struct PathReusePass
     RWStructuredBuffer<DebugManifoldWalk> debugManifoldWalk1Buffer;
     RWStructuredBuffer<DebugManifoldWalk> debugManifoldWalk2Buffer;
 
+    RWStructuredBuffer<DebugPathData> temporalFinalReservoir;
+
     Texture2D<float4> directLighting;
     bool useDirectLighting;
 
@@ -464,6 +466,38 @@ struct PathReusePass
                 checkReservoirValidity(dstReservoir);
 
             outputReservoirs[centralOffset] = dstReservoir;
+
+            if (isDebug)
+            {
+                HitInfo rcVertexHitInfo = dstReservoir.rcVertexHit.getHitInfo();
+                HitInfo rcPrevVertexHitInfo = dstReservoir.rcPrevVertexHit.getHitInfo();
+                HitInfo rcPrevPrevVertexHitInfo = dstReservoir.rcPrevPrevVertexHit.getHitInfo();
+
+                uint vertexCount = 0;
+                if (rcVertexHitInfo.isValid())
+                {
+                    VertexData rcVertex = gScene.getVertexData(rcVertexHitInfo.getTriangleHit());
+                    temporalFinalReservoir[0].vertices[vertexCount] = float4(rcVertex.posW, 1);
+                    vertexCount++;
+
+                    if (rcPrevVertexHitInfo.isValid())
+                    {
+                        VertexData rcPrevVertex = gScene.getVertexData(rcPrevVertexHitInfo.getTriangleHit());
+                        temporalFinalReservoir[0].vertices[vertexCount] = float4(rcPrevVertex.posW, 1);
+                        vertexCount++;
+
+                        if (rcPrevPrevVertexHitInfo.isValid())
+                        {
+                            VertexData rcPrevPrevVertex = gScene.getVertexData(rcPrevPrevVertexHitInfo.getTriangleHit());
+                            temporalFinalReservoir[0].vertices[vertexCount] = float4(rcPrevPrevVertex.posW, 1);
+                            vertexCount++;
+                        }
+                    }
+                }
+                temporalFinalReservoir[0].vertexCount = vertexCount;
+                print("Output Temporal Final Reservoir", vertexCount);
+            }
+
             color = dstReservoir.F * dstReservoir.weight;
 
             print("dstReservoir.F", dstReservoir.F);

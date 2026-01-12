@@ -47,6 +47,11 @@ struct PathReusePass
     RWStructuredBuffer<DebugManifoldWalk> debugManifoldWalk_centralReservoirToNeighbor_Buffer;
     RWStructuredBuffer<DebugManifoldWalk> debugManifoldWalk_neighborReservoirToCentral_Buffer;
 
+    RWStructuredBuffer<DebugPathData> spatialFinalReservoir;
+
+    int2 gSpatialDebugWindowLL;
+    int2 gSpatialDebugWindowTR;
+
     int gSpatialRoundId;
     int  gNumSpatialRounds;
     uint gSpatialReusePattern;
@@ -70,7 +75,13 @@ struct PathReusePass
         return packed.x != 0;
     }
 
-    bool isValidScreenRegion(int2 pixel) { return all(pixel >= 0 && pixel < params.frameDim); }
+    bool isValidScreenRegion(int2 pixel) {
+        bool isInScene = all(pixel >= 0 && pixel < params.frameDim);
+
+        bool isInDebugWindow = all(pixel >= gSpatialDebugWindowLL && pixel <= gSpatialDebugWindowTR);
+
+        return isInScene & isInDebugWindow;
+    }
 
     bool isValidGeometry(ShadingData centralSd, ShadingData neighborSd)
     {
@@ -134,7 +145,7 @@ struct PathReusePass
 
     int2 getNextNeighborPixel(const uint startIndex, int2 pixel, int i)
     {
-        return int2(pixel.x - (i + 1), pixel.y);
+        // return int2(pixel.x - (i + 1), pixel.y);
 
         int2 neighborPixel = int2(0,0);
 
@@ -157,6 +168,9 @@ struct PathReusePass
     void ReSTIR(const uint2 pixel)
     {
         bool isDebug = all(getSelctedPixelLog() == pixel);
+
+        // if (pixel.x < 940)
+        //     return;
 
         var sg = TinyUniformSampleGenerator(pixel, (kCandidateSamples + 1 + gNumSpatialRounds) * params.seed + kCandidateSamples + 1 + gSpatialRoundId);
 
@@ -519,6 +533,9 @@ struct PathReusePass
 
                 prefix_approxPdf = PathReservoir::computeWeight(prefixIntegrand) * prefixJacobian;
 
+                // if(pixel.x > 940)
+                //     prefix_approxPdf *= 0.1f;
+
                 // GRIS EQ. 38
                 canonicalWeight += 1;
                 if (prefix_approxPdf > 0.f)
@@ -831,7 +848,42 @@ struct PathReusePass
             dstReservoir.weight = 0.f;
 
         if (PathSamplingMode(kPathSamplingMode) != PathSamplingMode::PathReuse)
+        {
+            // Output final reservoir to be temporal for the next frame
             temporalReservoirs[centralOffset] = dstReservoir;
+
+            if (isDebug)
+            {
+
+                HitInfo rcVertexHitInfo = dstReservoir.rcVertexHit.getHitInfo();
+                HitInfo rcPrevVertexHitInfo = dstReservoir.rcPrevVertexHit.getHitInfo();
+                HitInfo rcPrevPrevVertexHitInfo = dstReservoir.rcPrevPrevVertexHit.getHitInfo();
+
+                uint vertexCount = 0;
+                if (rcVertexHitInfo.isValid())
+                {
+                    VertexData rcVertex = gScene.getVertexData(rcVertexHitInfo.getTriangleHit());
+                    spatialFinalReservoir[0].vertices[vertexCount] = float4(rcVertex.posW, 1);
+                    vertexCount++;
+
+                    if (rcPrevVertexHitInfo.isValid())
+                    {
+                        VertexData rcPrevVertex = gScene.getVertexData(rcPrevVertexHitInfo.getTriangleHit());
+                        spatialFinalReservoir[0].vertices[vertexCount] = float4(rcPrevVertex.posW, 1);
+                        vertexCount++;
+
+                        if (rcPrevPrevVertexHitInfo.isValid())
+                        {
+                            VertexData rcPrevPrevVertex = gScene.getVertexData(rcPrevPrevVertexHitInfo.getTriangleHit());
+                            spatialFinalReservoir[0].vertices[vertexCount] = float4(rcPrevPrevVertex.posW, 1);
+                            vertexCount++;
+                        }
+                    }
+                }
+                spatialFinalReservoir[0].vertexCount = vertexCount;
+                print("Output Spatial Final Reservoir", vertexCount);
+            }
+        }
 
         print("color", color);
 
