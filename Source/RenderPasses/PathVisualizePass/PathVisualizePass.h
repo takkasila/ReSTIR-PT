@@ -78,6 +78,7 @@ private:
 
     struct PathDataBundle
     {
+        int frameCount = 0;
         DebugPathData basePath;
 
         DebugPathData temporalCentralPath;
@@ -117,6 +118,7 @@ private:
 
         void clear()
         {
+            frameCount = 0;
             basePath.vertexCount = 0;
             temporalCentralPath.vertexCount = 0;
             temporalTemporalPath.vertexCount = 0;
@@ -137,6 +139,7 @@ private:
 
         void deepCopy(PathDataBundle srcPathDataBundle)
         {
+            frameCount = srcPathDataBundle.frameCount;
             basePath.deepCopy(srcPathDataBundle.basePath);
             temporalCentralPath.deepCopy(srcPathDataBundle.temporalCentralPath);
             temporalTemporalPath.deepCopy(srcPathDataBundle.temporalTemporalPath);
@@ -174,6 +177,7 @@ private:
     uint mTotalIndices = 0;
 
     //  Visualization Options
+    bool mIsDisplayOnlyOneFramePaths = true;
     float mRayWidth = 0.014f;
     bool mIsDisplayBasePath = true;
     bool mIsDisplayNEESegments = true;

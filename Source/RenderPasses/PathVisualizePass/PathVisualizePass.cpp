@@ -186,7 +186,15 @@ void PathVisualizePass::execute(RenderContext* pRenderContext, const RenderData&
         mCurrentFramePathBundle.spatialDebugManifoldWalk_neighborReservoirToCentral[2] = *renderDataDict.getValue<DebugManifoldWalk*>("spatialDebugManifoldWalk_neighborReservoirToCentral2");
         mCurrentFramePathBundle.spatialFinalReservoir = *renderDataDict.getValue<DebugPathData*>("spatialFinalReservoir");
 
-        filterCopyPathData();
+        mCurrentFramePathBundle.frameCount = renderDataDict.getValue<uint>("frameCount");
+
+        if(mIsDisplayOnlyOneFramePaths)
+        {
+            mReservedPathBundle.deepCopy(mCurrentFramePathBundle);
+            mReservedPathBundle.isPartiallyComplete = true;
+        }
+        else
+            filterCopyPathData();
     }
 
     // Create FBO
@@ -236,6 +244,7 @@ void PathVisualizePass::execute(RenderContext* pRenderContext, const RenderData&
 void PathVisualizePass::renderUI(Gui::Widgets& widget)
 {
     bool isUpdateRenderData = false;
+    isUpdateRenderData |= widget.checkbox("Display only one frame path", mIsDisplayOnlyOneFramePaths);
     isUpdateRenderData |= widget.var("Ray width", mRayWidth, 0.001f, 0.04f);
     isUpdateRenderData |= widget.checkbox("Display canonical path", mIsDisplayBasePath);
     isUpdateRenderData |= widget.checkbox("Display NEE segments", mIsDisplayNEESegments);
@@ -367,10 +376,18 @@ bool PathVisualizePass::onKeyEvent(const KeyboardEvent& keyEvent)
         && keyEvent.mods.isShiftDown == false)
     {
         //  If the reserved bundle is partially completed, then copy it to rendering
-        if (mReservedPathBundle.isPartiallyComplete)
+        if(mIsDisplayOnlyOneFramePaths)
         {
             mRenderedPathBundle.deepCopy(mReservedPathBundle);
             updateRenderData();
+        }
+        else
+        {
+            if (mReservedPathBundle.isPartiallyComplete)
+            {
+                mRenderedPathBundle.deepCopy(mReservedPathBundle);
+                updateRenderData();
+            }
         }
     }
 
@@ -932,8 +949,8 @@ void PathVisualizePass::updateRenderData()
     if (mIsDisplayTemporalFinalReservoir)
     {
         //  Construct central-reservoir temporal retrace path geometry
-        colorBegin = float4(1.0f, 172/255.0f, 28/255.0f, 0.5f);
-        colorEnd = float4(1.0f, 172/255.0f, 28/255.0f, 0.5f);
+        colorBegin = float4(1.0f, 0, 0, 0.75f);
+        colorEnd = float4(1.0f, 0, 0, 0.75f);
 
         if(mRenderedPathBundle.temporalFinalReservoir.vertexCount > 1)
         {
@@ -1020,8 +1037,8 @@ void PathVisualizePass::updateRenderData()
     if (mIsDisplaySpatialFinalReservoir)
     {
         //  Construct central-reservoir temporal retrace path geometry
-        colorBegin = float4(1.0f, 172/255.0f, 28/255.0f, 0.5f);
-        colorEnd = float4(1.0f, 172/255.0f, 28/255.0f, 0.5f);
+        colorBegin = float4(1.0f, 0, 0, 0.75f);
+        colorEnd = float4(1.0f, 0, 0, 0.75f);
 
         if(mRenderedPathBundle.spatialFinalReservoir.vertexCount > 1)
         {

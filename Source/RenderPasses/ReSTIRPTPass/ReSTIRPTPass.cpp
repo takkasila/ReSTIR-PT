@@ -873,7 +873,7 @@ bool ReSTIRPTPass::renderRenderingUI(Gui::Widgets& widget)
             if (widget.button("Clean Reservoirs"))
             {
                 mReservoirFrameCount = 0;
-                mParams.frameCount = 0;
+                //mParams.frameCount = 0;
             }
 
             dirty |= widget.var("Candidate Samples", mStaticParams.candidateSamples, 1u, 64u);
@@ -1766,6 +1766,7 @@ void ReSTIRPTPass::endFrame(RenderContext* pRenderContext, const RenderData& ren
     auto ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - beginTime);
     std::cout << "Trasfer buffer time: " << ms_int.count() << "ms\n";
 
+    renderData.getDictionary()["frameCount"] = mParams.frameCount;
 }
 
 template<typename T>
