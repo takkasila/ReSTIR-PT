@@ -350,6 +350,8 @@ struct PathRetracePass
 
             int2 neighborPixel = getNextNeighborPixel(startIndex, pixel, i);
 
+            print("neighborPixel", neighborPixel);
+
             // Check if not in screen
             if (!isValidScreenRegion(neighborPixel))
             {
