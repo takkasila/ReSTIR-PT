@@ -151,7 +151,7 @@ struct PathReusePass
 
         if (SpatialReusePattern(gSpatialReusePattern) == SpatialReusePattern::Default)
         {
-            uint neighborIndex = (startIndex + i) & kNeighborOffsetMask;
+            uint neighborIndex = (i) & kNeighborOffsetMask;
             neighborPixel = pixel + int2(neighborOffsets[neighborIndex] * gGatherRadius);
         }
         else if (SpatialReusePattern(gSpatialReusePattern) == SpatialReusePattern::SmallWindow)
@@ -439,6 +439,7 @@ struct PathReusePass
                 print("{neighbor", i);
 
                 int2 neighborPixel = getNextNeighborPixel(startIndex, pixel, i);
+                print("neighborPixel", neighborPixel);
 
                 if (!isValidScreenRegion(neighborPixel))
                 {
