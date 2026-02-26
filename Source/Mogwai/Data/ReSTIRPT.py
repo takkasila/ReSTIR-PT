@@ -42,6 +42,9 @@ def render_graph_ReSTIRPT():
 
 
     g.markOutput("PathVisualizePass.outputImg")
+    g.markOutput("ReSTIRPTPass.color")
+    g.markOutput("ReSTIRPTPass.albedo")
+    g.markOutput("ReSTIRPTPass.pathLength")
     g.markOutput("ToneMapper.dst")
     g.markOutput("AccumulatePass.output")
 

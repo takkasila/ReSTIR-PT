@@ -21,3 +21,5 @@ Tests/data
 *.log
 packages/*
 enc_temp_folder/
+analysis/**/*.exr
+tmp_img/**/*.exr

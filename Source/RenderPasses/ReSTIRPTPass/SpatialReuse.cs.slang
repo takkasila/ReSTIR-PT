@@ -910,6 +910,7 @@ struct PathReusePass
 
             outputColor[pixel] += float4(color / kSamplesPerPixel, 1.f);
 
+            print("dstReservoir.weight", dstReservoir.weight);
             if (any(dstReservoir.weight > 10.f))
             {
                 print("Alert! High weight", dstReservoir.weight);

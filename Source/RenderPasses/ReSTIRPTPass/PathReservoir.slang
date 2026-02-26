@@ -516,8 +516,12 @@ struct PathReservoir
     void finalizeRIS()
     {
         float p_hat = toScalar(F);
-        if (p_hat == 0.f || M == 0.f) weight = 0.f;
-        else weight = weight / (p_hat * M);
+
+        if (p_hat == 0.f || M == 0.f)
+            weight = 0.f;
+
+        else
+            weight = weight / (p_hat * M);
     }
 
     // assuming using proper resampling MIS weight, no need to divide by M
