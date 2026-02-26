@@ -184,6 +184,35 @@ float computeDSDShiftJacobian(ShadingData x1, ShadingData x2, ShadingData x3, fl
 
 // x1 closer to light source
 // x3 closer to eye
+float computeDSDShiftJacobian_v2(ShadingData x1, ShadingData x2, ShadingData x3, float3 dndu, float3 dndv)
+{
+    // Compute Gradient C
+    float2x2 gradC[3];
+    if (!computeSpecularConstraintDerivatives(x1, x2, x3, dndu, dndv, gradC))
+    {
+        print("Invalid gradC", 0);
+        return 0;
+    }
+    // NOTE: gradC[0] is derivative wrt. x3
+
+    float detB2 = determinant(gradC[1]);
+    float detB1 = determinant(gradC[0]);
+
+    print("detB2", detB2);
+    print("detB1", detB1);
+
+    float3 w_i_x3 = x2.posW - x3.posW;
+    w_i_x3 /= length(w_i_x3);
+    float cosine = abs(dot(x3.N, w_i_x3)) / abs(dot(x2.N, w_i_x3));
+
+    print("cosine ratio", cosine);
+
+    float jacobian = cosine * detB2 / detB1;
+    return jacobian;
+}
+
+// x1 closer to light source
+// x3 closer to eye
 float computeReconnectionDSDShiftJacobian(
     ShadingData srcX1,
     ShadingData srcX2,
@@ -197,11 +226,17 @@ float computeReconnectionDSDShiftJacobian(
     float3 dstX2DnDv,
 )
 {
-    float dstJacobian = computeDSDShiftJacobian(dstX1, dstX2, dstX3, dstX2DnDu, dstX2DnDv);
+    // float dstJacobian = computeDSDShiftJacobian(dstX1, dstX2, dstX3, dstX2DnDu, dstX2DnDv);
 
-    float srcJacobian = computeDSDShiftJacobian(srcX1, srcX2, srcX3, srcX2DnDu, srcX2DnDv);
+    // float srcJacobian = computeDSDShiftJacobian(srcX1, srcX2, srcX3, srcX2DnDu, srcX2DnDv);
 
-    float Jacobian = dstJacobian / srcJacobian;
+    // float Jacobian = dstJacobian / srcJacobian;
+
+    float dstJacobian = computeDSDShiftJacobian_v2(dstX1, dstX2, dstX3, dstX2DnDu, dstX2DnDv);
+
+    float srcJacobian = computeDSDShiftJacobian_v2(srcX1, srcX2, srcX3, srcX2DnDu, srcX2DnDv);
+
+    float Jacobian = srcJacobian / dstJacobian;
 
     print("Jacobian DSD shift dst:", dstJacobian);
     print("Jacobian DSD shift src:", srcJacobian);
