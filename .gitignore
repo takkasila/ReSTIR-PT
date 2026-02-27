@@ -22,5 +22,6 @@ Tests/data
 packages/*
 enc_temp_folder/
 analysis/**/*.exr
+!analysis/error/**/*.exr
 tmp_img/**/*.exr
 analysis/*.yaml
