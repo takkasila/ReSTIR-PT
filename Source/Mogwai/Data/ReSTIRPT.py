@@ -17,12 +17,22 @@ def render_graph_ReSTIRPT():
     g.addPass(ReSTIRGIPlusPass, "ReSTIRPTPass")
     VBufferRT = createPass("VBufferRT", {'samplePattern': SamplePattern.Center, 'sampleCount': 1, 'texLOD': TexLODMode.Mip0, 'useAlphaTest': True})
     g.addPass(VBufferRT, "VBufferRT")
+
+
     AccumulatePass = createPass("AccumulatePass", {'enableAccumulation': False, 'precisionMode': AccumulatePrecision.Double})
     g.addPass(AccumulatePass, "AccumulatePass")
+
+
+    ErrorMeasurePass = createPass("ErrorMeasurePass")
+    g.addPass(ErrorMeasurePass, "ErrorMeasurePass")
+
+
     ToneMapper = createPass("ToneMapper", {'autoExposure': False, 'exposureCompensation': 0.0, 'operator': ToneMapOp.Linear})
     g.addPass(ToneMapper, "ToneMapper")
     ScreenSpaceReSTIRPass = createPass("ScreenSpaceReSTIRPass")
     g.addPass(ScreenSpaceReSTIRPass, "ScreenSpaceReSTIRPass")
+
+
     PathVisualizePass = createPass("PathVisualizePass")
     g.addPass(PathVisualizePass, "PathVisualizePass")
 
@@ -34,7 +44,11 @@ def render_graph_ReSTIRPT():
     g.addEdge("ScreenSpaceReSTIRPass.color", "ReSTIRPTPass.directLighting")
 
     g.addEdge("ReSTIRPTPass.color", "AccumulatePass.input")
-    g.addEdge("AccumulatePass.output", "ToneMapper.src")
+
+    # g.addEdge("AccumulatePass.output", "ToneMapper.src")
+
+    g.addEdge("AccumulatePass.output", "ErrorMeasurePass.Source")
+    g.addEdge("ErrorMeasurePass.Output", "ToneMapper.src")
 
     g.addEdge("ToneMapper.dst", "PathVisualizePass.inputImg")
     g.addEdge("VBufferRT.depth", "PathVisualizePass.depth")

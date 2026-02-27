@@ -194,13 +194,13 @@ namespace Falcor
         }
 
         // Read back the result to the CPU.
-        //if (pResult)
-        //{
-        //    const T* pBuf = static_cast<const T*>(mpBuffers[inputsBufferIndex]->map(Buffer::MapType::Read));
-        //    assert(pBuf);
-        //    std::memcpy(pResult, pBuf, resultSize);
-        //    mpBuffers[inputsBufferIndex]->unmap();
-        //}
+        if (pResult)
+        {
+           const T* pBuf = static_cast<const T*>(mpBuffers[inputsBufferIndex]->map(Buffer::MapType::Read));
+           assert(pBuf);
+           std::memcpy(pResult, pBuf, resultSize);
+           mpBuffers[inputsBufferIndex]->unmap();
+        }
 
         return true;
     }

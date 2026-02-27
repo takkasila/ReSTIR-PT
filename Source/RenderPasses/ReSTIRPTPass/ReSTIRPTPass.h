@@ -181,8 +181,10 @@ private:
     float                           mSpatialReuseRadius = 20.f;
     int                             mNumSpatialRounds = 1;
 
-    int2                           mSpatialDebugWindowTL = int2(1228, 801);
-    int2                           mSpatialDebugWindowBR = int2(1253, 831);
+    //int2                           mSpatialDebugWindowTL = int2(632, 906);
+    //int2                           mSpatialDebugWindowBR = int2(690, 942);
+    int2                           mSpatialDebugWindowTL = int2(0, 0);
+    int2                           mSpatialDebugWindowBR = int2(2000, 2000);
 
     bool                            mEnableTemporalReprojection = true;
     bool                            mFeatureBasedRejection = true;

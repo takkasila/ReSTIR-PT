@@ -226,17 +226,17 @@ float computeReconnectionDSDShiftJacobian(
     float3 dstX2DnDv,
 )
 {
-    // float dstJacobian = computeDSDShiftJacobian(dstX1, dstX2, dstX3, dstX2DnDu, dstX2DnDv);
+    float dstJacobian = computeDSDShiftJacobian(dstX1, dstX2, dstX3, dstX2DnDu, dstX2DnDv);
 
-    // float srcJacobian = computeDSDShiftJacobian(srcX1, srcX2, srcX3, srcX2DnDu, srcX2DnDv);
+    float srcJacobian = computeDSDShiftJacobian(srcX1, srcX2, srcX3, srcX2DnDu, srcX2DnDv);
 
-    // float Jacobian = dstJacobian / srcJacobian;
+    float Jacobian = dstJacobian / srcJacobian;
 
-    float dstJacobian = computeDSDShiftJacobian_v2(dstX1, dstX2, dstX3, dstX2DnDu, dstX2DnDv);
+    // float dstJacobian = computeDSDShiftJacobian_v2(dstX1, dstX2, dstX3, dstX2DnDu, dstX2DnDv);
 
-    float srcJacobian = computeDSDShiftJacobian_v2(srcX1, srcX2, srcX3, srcX2DnDu, srcX2DnDv);
+    // float srcJacobian = computeDSDShiftJacobian_v2(srcX1, srcX2, srcX3, srcX2DnDu, srcX2DnDv);
 
-    float Jacobian = srcJacobian / dstJacobian;
+    // float Jacobian = srcJacobian / dstJacobian;
 
     print("Jacobian DSD shift dst:", dstJacobian);
     print("Jacobian DSD shift src:", srcJacobian);

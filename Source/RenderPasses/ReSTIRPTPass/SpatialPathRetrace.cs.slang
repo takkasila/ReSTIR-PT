@@ -96,7 +96,8 @@ struct PathRetracePass
 
         if (SpatialReusePattern(gSpatialReusePattern) == SpatialReusePattern::Default)
         {
-            uint neighborIndex = (i) & kNeighborOffsetMask;
+            // uint neighborIndex = (i)&kNeighborOffsetMask;
+            uint neighborIndex = (startIndex + i) & kNeighborOffsetMask;
             neighborPixel = pixel + int2(neighborOffsets[neighborIndex] * gGatherRadius);
         }
         else if (SpatialReusePattern(gSpatialReusePattern) == SpatialReusePattern::SmallWindow)

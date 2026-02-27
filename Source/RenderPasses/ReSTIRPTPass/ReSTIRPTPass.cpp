@@ -1663,6 +1663,13 @@ void ReSTIRPTPass::endFrame(RenderContext* pRenderContext, const RenderData& ren
 
     mVarsChanged = false;
 
+    // Save output to file
+    //mParams.frameCount
+    /*std::string filePath = "I:\\takka\\ReSTIR-PT\\" + std::to_string(mParams.frameCount) + ".exr";
+    auto outputImg = renderData[kOutputColor]->asTexture().get();
+    outputImg->captureToFile(0, 0, filePath, Falcor::Bitmap::FileFormat::ExrFile);*/
+
+
     // Pass debugPathData onto renderData dict
     //
     //  Trace Pass
