@@ -237,11 +237,12 @@ void ErrorMeasurePass::runReductionPasses(RenderContext* pRenderContext, const R
         mStartMeasurement = false;
         mDoingMeasurement = true;
         mTimeStamps.clear();
-        //mStartTimePoint = mPrevTimePoint;
+        mStartTimePoint = mTimer.getCurrentTimePoint();
     }
 
     // create time stamp
     mPrevTimePoint = mTimer.getCurrentTimePoint();
+
     if (mDoingMeasurement)
     {
         double curDuration = mTimer.calcDuration(mStartTimePoint, mPrevTimePoint);
@@ -299,6 +300,7 @@ void ErrorMeasurePass::renderUI(Gui::Widgets& widget)
         {
             mReferenceImagePath = filename;
             loadReference();
+            mStartMeasurement = true;
         }
     }
 
@@ -456,11 +458,11 @@ void ErrorMeasurePass::openMeasurementsFile()
         {
             if (mComputeSquaredDifference)
             {
-                mMeasurementsFile << "avg_L2_error,red_L2_error,green_L2_error,blue_L2_error" << std::endl;
+                mMeasurementsFile << "timestamp,avg_L2_error,red_L2_error,green_L2_error,blue_L2_error" << std::endl;
             }
             else
             {
-                mMeasurementsFile << "avg_L1_error,red_L1_error,green_L1_error,blue_L1_error" << std::endl;
+                mMeasurementsFile << "timestamp,avg_L1_error,red_L1_error,green_L1_error,blue_L1_error" << std::endl;
             }
         }
         mMeasurementsFile << std::scientific;
@@ -487,9 +489,11 @@ void ErrorMeasurePass::openMeasurementsFile()
 
 void ErrorMeasurePass::saveMeasurementsToFile()
 {
-    if (!mMeasurementsFile) return;
+    if (!mMeasurementsFile || mTimeStamps.empty())
+        return;
 
     assert(mMeasurements.valid);
+    mMeasurementsFile << mTimeStamps.back() << ",";
     mMeasurementsFile << mMeasurements.avgError << ",";
     mMeasurementsFile << mMeasurements.error.r << ',' << mMeasurements.error.g << ',' << mMeasurements.error.b;
     mMeasurementsFile << std::endl;

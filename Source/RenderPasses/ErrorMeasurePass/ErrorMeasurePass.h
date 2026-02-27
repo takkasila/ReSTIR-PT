@@ -91,7 +91,7 @@ private:
 
     bool                    mIgnoreBackground = true;           ///< If true, do not measure error on pixels that belong to the background.
     bool                    mComputeSquaredDifference = true;   ///< Compute the square difference when creating the difference image.
-    bool                    mComputeAverage = false;            ///< Compute the average of the RGB components when creating the difference image.
+    bool                    mComputeAverage = true;            ///< Compute the average of the RGB components when creating the difference image.
     bool                    mUseLoadedReference = false;        ///< If true, use loaded reference image instead of input.
     bool                    mReportRunningError = true;         ///< Use exponetial moving average (EMA) for the computed error.
     float                   mRunningErrorSigma = 0.995f;        ///< Coefficient used for the exponential moving average. Larger values mean slower response.

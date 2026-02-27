@@ -220,6 +220,14 @@ void AccumulatePass::execute(RenderContext* pRenderContext, const RenderData& re
     else if (resolutionMatch)
     {
         accumulate(pRenderContext, pSrc, pDst);
+
+        if(mFrameCount%1000 == 0)
+        {
+            // Save output to file
+            std::string filePath = "I:\\takka\\ReSTIR-PT\\analysis\\backuprender\\" + std::to_string(mFrameCount) + ".exr";
+            auto outputImg = pDst.get();
+            outputImg->captureToFile(0, 0, filePath, Falcor::Bitmap::FileFormat::ExrFile);
+        }
     }
     else
     {

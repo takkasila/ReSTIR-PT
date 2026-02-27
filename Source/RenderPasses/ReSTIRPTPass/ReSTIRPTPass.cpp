@@ -1139,7 +1139,7 @@ bool ReSTIRPTPass::renderDebugUI(Gui::Widgets& widget)
     bool dirty = false;
 
     if (auto group = widget.group("Debugging", true))
-    {	
+    {
         dirty |= group.checkbox("Use fixed seed", mParams.useFixedSeed);
         group.tooltip("Forces a fixed random seed for each frame.\n\n"
             "This should produce exactly the same image each frame, which can be useful for debugging.");
@@ -1669,6 +1669,10 @@ void ReSTIRPTPass::endFrame(RenderContext* pRenderContext, const RenderData& ren
     auto outputImg = renderData[kOutputColor]->asTexture().get();
     outputImg->captureToFile(0, 0, filePath, Falcor::Bitmap::FileFormat::ExrFile);*/
 
+    bool isEnablePathVisualizePass = false;
+
+    if(!isEnablePathVisualizePass)
+        return;
 
     // Pass debugPathData onto renderData dict
     //
@@ -1766,7 +1770,6 @@ void ReSTIRPTPass::endFrame(RenderContext* pRenderContext, const RenderData& ren
 	mSpatialFinalReservoir = *spatialFinalReservoir;
 	renderData.getDictionary()["spatialFinalReservoir"] = &mSpatialFinalReservoir;
 	mpSpatialFinalReservoirBuffer->unmap();
-
 
     auto endTime = std::chrono::high_resolution_clock::now();
     /* Getting number of milliseconds as a double. */

@@ -1,6 +1,8 @@
 from falcor import *
 import os
 
+EnablePathVisualizePass = False
+EnableErrorMeasure = False
 
 def render_graph_ReSTIRPT():
     g = RenderGraph("ReSTIRPTPass")
@@ -9,32 +11,35 @@ def render_graph_ReSTIRPT():
     loadRenderPassLibrary("ReSTIRPTPass.dll")
     loadRenderPassLibrary("ToneMapper.dll")
     loadRenderPassLibrary("ScreenSpaceReSTIRPass.dll")
-    loadRenderPassLibrary("ErrorMeasurePass.dll")
     loadRenderPassLibrary("ImageLoader.dll")
-    loadRenderPassLibrary('PathVisualizePass.dll')
+
+    if EnableErrorMeasure:
+        loadRenderPassLibrary("ErrorMeasurePass.dll")
+
+    if EnablePathVisualizePass:
+        loadRenderPassLibrary('PathVisualizePass.dll')
+
+    ScreenSpaceReSTIRPass = createPass("ScreenSpaceReSTIRPass")
+    g.addPass(ScreenSpaceReSTIRPass, "ScreenSpaceReSTIRPass")
 
     ReSTIRGIPlusPass = createPass("ReSTIRPTPass", {'samplesPerPixel': 1})
     g.addPass(ReSTIRGIPlusPass, "ReSTIRPTPass")
     VBufferRT = createPass("VBufferRT", {'samplePattern': SamplePattern.Center, 'sampleCount': 1, 'texLOD': TexLODMode.Mip0, 'useAlphaTest': True})
     g.addPass(VBufferRT, "VBufferRT")
 
-
     AccumulatePass = createPass("AccumulatePass", {'enableAccumulation': False, 'precisionMode': AccumulatePrecision.Double})
     g.addPass(AccumulatePass, "AccumulatePass")
 
-
-    ErrorMeasurePass = createPass("ErrorMeasurePass")
-    g.addPass(ErrorMeasurePass, "ErrorMeasurePass")
-
+    if EnableErrorMeasure:
+        ErrorMeasurePass = createPass("ErrorMeasurePass")
+        g.addPass(ErrorMeasurePass, "ErrorMeasurePass")
 
     ToneMapper = createPass("ToneMapper", {'autoExposure': False, 'exposureCompensation': 0.0, 'operator': ToneMapOp.Linear})
     g.addPass(ToneMapper, "ToneMapper")
-    ScreenSpaceReSTIRPass = createPass("ScreenSpaceReSTIRPass")
-    g.addPass(ScreenSpaceReSTIRPass, "ScreenSpaceReSTIRPass")
 
-
-    PathVisualizePass = createPass("PathVisualizePass")
-    g.addPass(PathVisualizePass, "PathVisualizePass")
+    if EnablePathVisualizePass:
+        PathVisualizePass = createPass("PathVisualizePass")
+        g.addPass(PathVisualizePass, "PathVisualizePass")
 
     g.addEdge("VBufferRT.vbuffer", "ReSTIRPTPass.vbuffer")
     g.addEdge("VBufferRT.mvec", "ReSTIRPTPass.motionVectors")
@@ -45,23 +50,24 @@ def render_graph_ReSTIRPT():
 
     g.addEdge("ReSTIRPTPass.color", "AccumulatePass.input")
 
-    # g.addEdge("AccumulatePass.output", "ToneMapper.src")
+    if EnableErrorMeasure:
+        g.addEdge("AccumulatePass.output", "ErrorMeasurePass.Source")
+        g.addEdge("ErrorMeasurePass.Output", "ToneMapper.src")
 
-    g.addEdge("AccumulatePass.output", "ErrorMeasurePass.Source")
-    g.addEdge("ErrorMeasurePass.Output", "ToneMapper.src")
+    else:
+        g.addEdge("AccumulatePass.output", "ToneMapper.src")
 
-    g.addEdge("ToneMapper.dst", "PathVisualizePass.inputImg")
-    g.addEdge("VBufferRT.depth", "PathVisualizePass.depth")
-    g.addEdge("VBufferRT.vbuffer", "PathVisualizePass.vbuffer")
+    if EnablePathVisualizePass:
+        g.addEdge("ToneMapper.dst", "PathVisualizePass.inputImg")
+        g.addEdge("VBufferRT.depth", "PathVisualizePass.depth")
+        g.addEdge("VBufferRT.vbuffer", "PathVisualizePass.vbuffer")
+        g.markOutput("PathVisualizePass.outputImg")
 
-
-    g.markOutput("PathVisualizePass.outputImg")
     g.markOutput("ReSTIRPTPass.color")
     g.markOutput("ReSTIRPTPass.albedo")
     g.markOutput("ReSTIRPTPass.pathLength")
     g.markOutput("ToneMapper.dst")
     g.markOutput("AccumulatePass.output")
-
 
     return g
 
