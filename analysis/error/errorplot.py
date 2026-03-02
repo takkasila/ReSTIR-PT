@@ -71,12 +71,18 @@ def main():
 
     ax.set_xscale('log')   # log scale on x-axis
     ax.set_yscale('log')   # log scale on y-axis
+
     ax.grid(True, which='both')  # grid on major and minor ticks
+
     ax.set_xlim(left = 1e-1, right= 100)
 
     if not IS_NON_ACCUM:
         ax.set_aspect('equal')
         ax.set_ylim(bottom= min_y, top= max_y)
+
+    else:
+        ax.set_aspect('equal')
+        ax.set_ylim(bottom= min_y, top= 1)
 
     ax.legend()
 
