@@ -314,6 +314,7 @@ void ErrorMeasurePass::renderUI(Gui::Widgets& widget)
         {
             mMeasurementsFilePath = filename;
             openMeasurementsFile();
+            mStartMeasurement = true;
         }
     }
 

@@ -2,7 +2,7 @@ from falcor import *
 import os
 
 EnablePathVisualizePass = False
-EnableErrorMeasure = False
+EnableErrorMeasure = True
 
 def render_graph_ReSTIRPT():
     g = RenderGraph("ReSTIRPTPass")
