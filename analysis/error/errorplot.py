@@ -3,11 +3,20 @@ from pathlib import Path
 import pandas as pd
 import matplotlib.pyplot as plt
 
+IS_NON_ACCUM = True
+
 EXPECTED_FILES = [
     "pathtracing.csv",
     "hybridshift.csv",
     "manifoldhybridshift.csv"
 ]
+
+if IS_NON_ACCUM:
+    EXPECTED_FILES = [
+        "pathtracing_non.csv",
+        "hybridshift_non.csv",
+        "manifoldhybridshift_non.csv"
+    ]
 
 def load_csv_file(file_path: Path) -> pd.DataFrame:
     """
@@ -38,6 +47,8 @@ def main():
         sys.exit(1)
 
     data = []
+    max_y = float('-inf')
+    min_y = float('inf')
 
     # Load
     for filename in EXPECTED_FILES:
@@ -45,6 +56,8 @@ def main():
         df = load_csv_file(file_path)
         data.append(df)
         print(f"Loaded {filename}: {df.shape[0]} rows")
+        max_y = max(max_y, df.iloc[0, 1])
+        min_y = min(min_y, df.iloc[:, 1].min())
 
     # Plot
     fig, ax = plt.subplots()
@@ -59,11 +72,22 @@ def main():
     ax.set_xscale('log')   # log scale on x-axis
     ax.set_yscale('log')   # log scale on y-axis
     ax.grid(True, which='both')  # grid on major and minor ticks
-    ax.set_aspect('equal')
-    ax.set_xlim(right= 100)
+    ax.set_xlim(left = 1e-1, right= 100)
+
+    if not IS_NON_ACCUM:
+        ax.set_aspect('equal')
+        ax.set_ylim(bottom= min_y, top= max_y)
 
     ax.legend()
-    plt.savefig(f"{folder_path}/mse.pdf", format="pdf", bbox_inches="tight")
+
+    filePath = folder_path
+    if IS_NON_ACCUM:
+        filePath = filePath / 'mse_non.pdf'
+
+    else:
+        filePath = filePath / 'mse.pdf'
+
+    plt.savefig(filePath, format="pdf", bbox_inches="tight")
     plt.show()
     plt.close()
 
