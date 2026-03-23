@@ -5,9 +5,9 @@
 We proposed a new shift mapping method: Manifold Hybrid Shift, to allow vertex-reconnection through a specular vertex, along with its Jacobian determinant, and evaluted them in the ReSTIR PT framework (Lin, Kettunen, et al., 2022).
 
 
-Full report: [[.pdf]](https://drive.google.com/file/d/1btgREZXPf4LCprVblFp_MOsg5i3Cevqb/view?usp=drive_link)
+**Full report**: [[.pdf]](https://drive.google.com/file/d/1btgREZXPf4LCprVblFp_MOsg5i3Cevqb/view?usp=drive_link)
 
-Presentation slide: [[.pdf]](https://drive.google.com/file/d/1mnXu6C-tJ4n0HjIyhIdYHa1qIAxq-FXl/view?usp=drive_link)
+**Presentation slide**: [[.pdf]](https://drive.google.com/file/d/1mnXu6C-tJ4n0HjIyhIdYHa1qIAxq-FXl/view?usp=drive_link)
 
 
 - The method is implemented as a render pass called "ReSTIRPTPass" (Source\RenderPasses\ReSTIRPass) in Falcor 4.4.
@@ -17,7 +17,7 @@ Presentation slide: [[.pdf]](https://drive.google.com/file/d/1mnXu6C-tJ4n0HjIyhI
 
 ## Prerequisites
 - Windows 10 version 20H2 or newer
-- Visual Studio 2019
+- Visual Studio 2022
 - [Windows 10 SDK version 10.0.19041.1 Or Newer] (https://developer.microsoft.com/en-us/windows/downloads/sdk-archive)
 - NVIDIA driver 466.11 or newer
 - RTX 2060 or Higher (NVIDIA graphics card with raytracing support)
